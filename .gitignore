@@ -1,0 +1,22 @@
+node_modules/
+dist/
+build/
+coverage/
+.wrangler/
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+*.log
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
+
+# Local database state and exports may contain client information.
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+backups/
+private/
