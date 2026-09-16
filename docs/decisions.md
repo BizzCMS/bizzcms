@@ -50,4 +50,8 @@ Date: 2026-09-16. This document separates explicit owner direction from proposed
 - Are upstream S3 and email integrations adequate?
 - What exact CMS features and editor experience are needed in the first release?
 - How should themes, multilingual content, preview, and website rendering be packaged?
-- What GitHub owner/repository, legal copyright holder, maintainer contact, and release process should be used?
+- What legal copyright holder, maintainer contact, and release process should be used?
+
+## Publication follow-up
+
+The owner subsequently requested public GitHub publication. On 2026-09-16, the planning repository was published at https://github.com/idubravac/bizzcms with main as the default branch. Earlier statements about no remote describe the initial planning setup. SonicJS integration, domain configuration, and deployment remain pending.

@@ -5,6 +5,7 @@
 - Establish project name, positioning, and local documentation structure.
 - Record requirements, decision history, source research, and technical unknowns.
 - Add original-project MIT license and planned upstream attribution guidance.
+- Publish the planning repository at https://github.com/idubravac/bizzcms following the owner's explicit request.
 
 ## Next: bounded SonicJS compatibility review
 
@@ -44,4 +45,4 @@ Cloudflare can be the first implementation milestone. All three modes remain pro
 
 ## Later decisions
 
-GitHub publication, domain configuration, Cloudflare provisioning, release automation, commercial support, and optional features require follow-up scope. Nothing has been published or provisioned by the planning setup.
+Domain configuration, Cloudflare provisioning, release automation, commercial support, and optional features require follow-up scope. The GitHub planning repository is public; no running application has been deployed or provisioned.
