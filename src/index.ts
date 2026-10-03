@@ -1,0 +1,42 @@
+import { createSonicJSApp, registerCollections, mcpPlugin } from '@sonicjs-cms/core'
+import type { SonicJSConfig } from '@sonicjs-cms/core'
+import pages from './collections/pages'
+import posts from './collections/posts'
+import metadata from '../package.json'
+import { applyBranding } from './branding'
+import { landingPage } from './landing'
+
+registerCollections([pages, posts])
+
+const readOnlyMcp = mcpPlugin({
+  expose: ['pages', 'posts'],
+  types: {
+    pages: { read: true, write: false },
+    posts: { read: true, write: false }
+  },
+  listLimit: 25
+})
+// Upstream's built-in v3 plugin is runtime-supported, but its beta declarations
+// still expect legacy Plugin routes/lifecycle signatures in SonicJSConfig.
+type RegisteredPlugin = NonNullable<NonNullable<SonicJSConfig['plugins']>['register']>[number]
+
+// Keep the upstream editor intact for the first local evaluation.
+const cms = createSonicJSApp({
+  name: 'BizzCMS',
+  version: metadata.version,
+  plugins: { register: [readOnlyMcp as unknown as RegisteredPlugin] },
+  email: { providerName: 'console', from: 'BizzCMS <noreply@bizzcms.local>' }
+})
+
+export default {
+  async fetch(request: Request, env: Parameters<typeof cms.fetch>[1], ctx: ExecutionContext) {
+    const path = new URL(request.url).pathname
+    if ((path === '/' || path === '/about') && request.method === 'GET') {
+      return new Response(landingPage(metadata.version, path === '/about'), {
+        headers: { 'content-type': 'text/html; charset=utf-8' }
+      })
+    }
+    const response = await cms.fetch(request, env, ctx)
+    return applyBranding(response, path)
+  }
+}

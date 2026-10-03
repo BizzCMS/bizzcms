@@ -6,6 +6,7 @@
 - Record requirements, decision history, source research, and technical unknowns.
 - Add original-project MIT license and planned upstream attribution guidance.
 - Publish the planning repository at https://github.com/idubravac/bizzcms following the owner's explicit request.
+- Integrate the pinned SonicJS package for local evaluation; verify login and page creation/editing. See local-development.md. The full compatibility review below is still pending.
 
 ## Next: bounded SonicJS compatibility review
 

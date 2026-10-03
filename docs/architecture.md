@@ -10,6 +10,8 @@
 
 None of these modes has been implemented in this repository. SonicJS documents Workers/D1/R2 and a self-hosted SQLite path. That does not establish MySQL/cPanel, generic S3, or remote D1 support.
 
+Local evaluation now runs SonicJS 3.0.0-beta.28 on Wrangler's Workers emulator with emulated D1/R2/KV. This is not a deployed hosting mode. See local-development.md for tested behaviour, dependency overrides, and limitations.
+
 ## Reuse-first approach
 
 Use the SonicJS core package and supported extension points where practical. Keep branding, collection definitions, site templates, and integrations in BizzCMS. Pin the selected upstream version and document upgrade steps. A maintained fork is a fallback only after the compatibility investigation demonstrates why it is necessary.

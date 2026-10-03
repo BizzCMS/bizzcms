@@ -1,0 +1,33 @@
+# Local development only. Replace placeholder resources before any deployment.
+name = "bizzcms-local"
+main = "src/index.ts"
+compatibility_date = "2026-09-16"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+send_metrics = false
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bizzcms-local"
+database_id = "00000000-0000-0000-0000-000000000001"
+migrations_dir = "node_modules/@sonicjs-cms/core/migrations"
+
+[[r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "bizzcms-local-media"
+
+[[kv_namespaces]]
+binding = "CACHE_KV"
+id = "00000000000000000000000000000001"
+
+[vars]
+ENVIRONMENT = "development"
+CORS_ORIGINS = "http://127.0.0.1:8787"
+
+[dev]
+ip = "127.0.0.1"
+port = 8787

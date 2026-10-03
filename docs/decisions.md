@@ -45,7 +45,7 @@ Date: 2026-09-16. This document separates explicit owner direction from proposed
 
 ## Open decisions
 
-- Which SonicJS release/commit should be the base?
+- When should the pinned SonicJS 3.0.0-beta.28 evaluation dependency be upgraded?
 - Can all three modes be supported without a substantial maintained fork?
 - Are upstream S3 and email integrations adequate?
 - What exact CMS features and editor experience are needed in the first release?
@@ -55,3 +55,7 @@ Date: 2026-09-16. This document separates explicit owner direction from proposed
 ## Publication follow-up
 
 The owner subsequently requested public GitHub publication. On 2026-09-16, the planning repository was published at https://github.com/idubravac/bizzcms with main as the default branch. Earlier statements about no remote describe the initial planning setup. SonicJS integration, domain configuration, and deployment remain pending.
+
+## Local evaluation follow-up
+
+The owner then requested a working local application. SonicJS 3.0.0-beta.28 was integrated as a package with Pages and Posts collections, local Wrangler emulation, administrator setup, and console-only email. Authentication dependency overrides were required for login; see local-development.md. Local R2 emulation is a development exception, not a change to the external production media requirement. No cloud deployment or domain configuration was performed.

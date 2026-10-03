@@ -6,9 +6,24 @@ Domain: **bizzcms.com** (owned by the project owner).
 
 Public repository: https://github.com/idubravac/bizzcms
 
-BizzCMS is a planned open-source CMS built on SonicJS. The objective is to reuse an existing CMS and keep custom development and long-term maintenance small, allowing the owner to focus on larger projects.
+BizzCMS is an open-source CMS project built on SonicJS. The objective is to reuse an existing CMS and keep custom development and long-term maintenance small, allowing the owner to focus on larger projects.
 
-**Status: planning repository.** No SonicJS code, dependencies, application, or deployment has been installed yet. Hosting compatibility below is a requirement, not a claim of implemented support. The domain has not been configured by this project.
+**Status: local evaluation app.** SonicJS 3.0.0-beta.28 is pinned, with Pages and Posts collections and the upstream admin interface. Local login and page creation/editing have been verified. Production hosting compatibility below remains a requirement, not implemented support. The domain has not been configured.
+
+## Run locally
+
+Use Node.js 22 or newer (tested with Node 24 on Windows):
+
+```powershell
+cd C:\RepositoryAI\bizzcms
+npm ci
+npm run setup
+npm run dev
+```
+
+Open http://127.0.0.1:8787/admin. Setup creates `admin@bizzcms.local` with a random password saved in the gitignored `private/local-admin.txt`. Repeat setup safely without resetting your account or content. On later starts, only `npm run dev` is needed. Stop the server with Ctrl+C.
+
+No Cloudflare account is required. D1, R2, and KV are **locally emulated** under `.wrangler/`; this is a development-only exception to external production media storage. Email is logged to the server console, not delivered. See [local development](docs/local-development.md) for limitations and dependency pins.
 
 ## Intended deployment options
 
@@ -27,6 +42,9 @@ cPanel is an alternative for clients who request it, not automatic failover. Nod
 - [Decisions and discussion history](docs/decisions.md)
 - [Store4 and open-source research](docs/research.md)
 - [Next steps and acceptance criteria](docs/roadmap.md)
+- [Local development](docs/local-development.md)
+- [Branding and first website](docs/branding.md)
+- [MCP setup and verification](docs/mcp.md)
 - [Contributing](CONTRIBUTING.md)
 - [Agent instructions](AGENTS.md)
 
@@ -34,6 +52,4 @@ cPanel is an alternative for clients who request it, not automatic failover. Nod
 
 Original BizzCMS material is available under the [MIT license](LICENSE).
 
-Planned attribution: **BizzCMS — built on SonicJS.** SonicJS has not yet been integrated. Its copyright and MIT license must be preserved when incorporating or distributing its code. See [third-party notices](THIRD_PARTY_NOTICES.md).
-
-There are no application run commands yet. This repository deliberately records the agreed direction before choosing a SonicJS version or modifying its core.
+**BizzCMS — built on SonicJS.** Its package license is preserved in [licenses/sonicjs-MIT.txt](licenses/sonicjs-MIT.txt). See [third-party notices](THIRD_PARTY_NOTICES.md).

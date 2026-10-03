@@ -1,0 +1,31 @@
+{
+  "name": "bizzcms",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lightweight business CMS built on SonicJS",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "setup": "node scripts/setup-local.mjs",
+    "dev": "wrangler dev --local --ip 127.0.0.1 --port 8787",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sonicjs-cms/core": "3.0.0-beta.28"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260724.1",
+    "@types/node": "^24.10.1",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.52.1"
+  },
+  "overrides": {
+    "better-auth": "1.6.23",
+    "@better-auth/drizzle-adapter": "1.6.23",
+    "@better-auth/telemetry": "1.6.23",
+    "drizzle-orm": "0.45.2",
+    "csv-parse": "7.0.2"
+  },
+  "engines": { "node": ">=22" }
+}
