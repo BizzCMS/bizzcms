@@ -14,6 +14,7 @@ import { checkRegisterPasswords, blockedRoute } from './auth'
 import { guardApi, apiSettingsPage, withApiTab } from './api-access'
 import { googleAnalyticsPlugin, withGoogleAnalytics, gaAdminRoute } from './plugins/google-analytics'
 import { taxonomyRoute } from './taxonomy'
+import { seoPlugin, seoAdminRoute } from './plugins/seo'
 
 registerCollections([pages, posts, categories])
 
@@ -33,7 +34,7 @@ type RegisteredPlugin = NonNullable<NonNullable<SonicJSConfig['plugins']>['regis
 const cms = createSonicJSApp({
   name: 'BizzCMS',
   version: metadata.version,
-  plugins: { register: [readOnlyMcp as unknown as RegisteredPlugin, googleAnalyticsPlugin as unknown as RegisteredPlugin] },
+  plugins: { register: [readOnlyMcp as unknown as RegisteredPlugin, googleAnalyticsPlugin as unknown as RegisteredPlugin, seoPlugin as unknown as RegisteredPlugin] },
   email: { providerName: 'console', from: 'BizzCMS <noreply@bizzcms.local>' }
 })
 
@@ -64,6 +65,9 @@ export default {
     // Post editor: categories and tags for the multiselects (src/taxonomy.ts).
     const taxonomy = await taxonomyRoute(request, path, db, async () => (await upstream(new Request(new URL('/auth/me', request.url), { headers: { cookie: request.headers.get('cookie') ?? '' } }))).ok)
     if (taxonomy) return taxonomy
+    // SEO plugin: Admin › SEO, editor data, plugin install (src/plugins/seo.ts).
+    const seoRoute = await seoAdminRoute(request, path, db, upstream)
+    if (seoRoute) return applyBranding(seoRoute, path)
     // Settings › API: our page inside upstream's settings layout.
     if (path === '/admin/settings/api') {
       return applyBranding(withApiTab(await apiSettingsPage(request, db, upstream), path), path)

@@ -17,6 +17,8 @@ The Posts and Categories collections (`src/collections/posts.ts`, `src/collectio
 | legacyId | Legacy ID | Number: the post's ID on the old website, so `/blog/post/<slug>/<id>/` keeps resolving. Set by imports. |
 | legacyPath | Legacy URL | Any other old address of the post, to 301 from. |
 
+SEO fields (focus keyphrase, SEO title, meta description, social, noindex …) come from `src/seo-fields.ts` and show in the SEO panel; see seo.md.
+
 Editor order: title, slug, then Section, Categories, Tags, Summary, Featured image, author, Sponsored, legacy (upstream always shows Content in the top card).
 
 ### Publish date

@@ -11,6 +11,7 @@ const ICONS = {
   users: svg('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'),
   plugins: svg('<path d="M19.439 7.85c-.049.322.059.648.289.878l1.568 1.568c.47.47.706 1.087.706 1.704s-.235 1.233-.706 1.704l-1.611 1.611a.98.98 0 0 1-.837.276c-.47-.07-.802-.48-.968-.925a2.501 2.501 0 1 0-3.214 3.214c.446.166.855.497.925.968a.979.979 0 0 1-.276.837l-1.61 1.61a2.404 2.404 0 0 1-1.705.707 2.402 2.402 0 0 1-1.704-.706l-1.568-1.568a1.026 1.026 0 0 0-.877-.29c-.493.074-.84.504-1.02.968a2.5 2.5 0 1 1-3.237-3.237c.464-.18.894-.527.967-1.02a1.026 1.026 0 0 0-.289-.877l-1.568-1.568A2.402 2.402 0 0 1 1.998 12c0-.617.236-1.234.706-1.704L4.23 8.77c.24-.24.581-.353.917-.303.515.077.877.528 1.073 1.01a2.5 2.5 0 1 0 3.259-3.259c-.482-.196-.933-.558-1.01-1.073-.05-.336.062-.676.303-.917l1.525-1.525A2.402 2.402 0 0 1 12 1.998c.617 0 1.234.236 1.704.706l1.568 1.568c.23.23.556.338.877.29.493-.074.84-.504 1.02-.968a2.5 2.5 0 1 1 3.237 3.237c-.464.18-.894.527-.967 1.02Z"/>'),
   media: svg('<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>'),
+  seo: svg('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/><path d="M8 11h6"/><path d="M11 8v6"/>'),
   editor: svg('<path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/>'),
   twoFactor: svg('<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>'),
   docs: svg('<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>'),
@@ -30,6 +31,7 @@ export const SIDEBAR_ICONS: [string, string][] = [
   ['nav a[href="/admin/media"] > span > svg', ICONS.media],
   ['nav a[href="/admin/plugins/lexical-editor"] > span > svg', ICONS.editor],
   ['nav a[href="/admin/two-factor"] > span > svg', ICONS.twoFactor],
+  ['nav a[href="/admin/seo"] > span > svg', ICONS.seo],
   ['nav button[data-docs-menu] > svg.h-5', ICONS.docs],
   ['nav a[href="/admin/settings"] > span > svg', ICONS.settings]
 ]
@@ -71,7 +73,7 @@ const PI = {
 // Matched by substring against the card's data-name / detail slug (lower-case), first hit wins.
 const PLUGIN_ICON_RULES: [RegExp, string][] = [
   [/two-?factor|2fa|turnstile/, PI.shieldCheck], [/security-?audit/, PI.shieldAlert], [/auth(entication)?-?system|^auth|core-auth/, PI.shield],
-  [/media/, PI.image], [/lexical|quill|tinymce|easymde|markdown|editor/, PI.pen], [/ai-?search|search/, PI.search],
+  [/media/, PI.image], [/lexical|quill|tinymce|easymde|markdown|editor/, PI.pen], [/ai-?search|search|^seo$/, PI.search],
   [/api-?key/, PI.key], [/oauth/, PI.key], [/analytics|insight/, PI.chart], [/cache/, PI.zap], [/database|db-tools/, PI.database],
   [/magic-?link|otp|demo-?login|login/, PI.login], [/reconcil/, PI.mailCheck], [/email/, PI.mail], [/form/, PI.form],
   [/global-?var|variable/, PI.braces], [/shortcode/, PI.code], [/mcp/, PI.bot], [/menu/, PI.menu], [/tenant/, PI.building],

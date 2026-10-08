@@ -7,6 +7,7 @@ import metadata from '../package.json'
 import { SIDEBAR_ICONS, MOON_ICON, SUN_ICON, pluginIcon, PLUGIN_TITLES } from './icons'
 import { REPEAT_PASSWORD_FIELD } from './auth'
 import { TAXONOMY_SCRIPT } from './taxonomy'
+import { SEO_EDITOR_SCRIPT, SEO_LIST_SCRIPT } from './seo-editor'
 
 export function applyBranding(response: Response, path: string): Response {
   if (!response.headers.get('content-type')?.includes('text/html')) return response
@@ -95,7 +96,8 @@ export function applyBranding(response: Response, path: string): Response {
         element.append('<div style="padding:12px;text-align:center;font:12px system-ui;opacity:.7"><a href="/about">About BizzCMS</a> · <a href="https://bizzcms.com">bizzcms.com</a> · Made with <span style="color:#e5484d" aria-label="love">♥</span> by <a href="https://ingenium.software/" target="_blank" rel="noopener">Ingenium</a></div>', { html: true })
         element.append(path.startsWith('/auth') ? THEME_SWITCH : SWITCH_SCRIPT, { html: true })
         element.append(ENTITY_FIX, { html: true })
-        if (/^\/admin\/content\/[^/]+\/edit$|^\/admin\/content\/new/.test(path)) { element.append(VIEW_ON_SITE, { html: true }); element.append(TAXONOMY_SCRIPT, { html: true }) }
+        if (/^\/admin\/content\/[^/]+\/edit$|^\/admin\/content\/new/.test(path)) { element.append(VIEW_ON_SITE, { html: true }); element.append(TAXONOMY_SCRIPT, { html: true }); element.append(SEO_EDITOR_SCRIPT, { html: true }) }
+        if (path === '/admin/content') element.append(SEO_LIST_SCRIPT, { html: true })
         if (path === '/admin/dashboard' || path === '/admin') element.append(DASHBOARD_FIX, { html: true })
       }
     })
@@ -111,7 +113,7 @@ export function applyBranding(response: Response, path: string): Response {
       } })
       .on('nav button[aria-label="Toggle plugins submenu"]', { element(el) { el.remove() } })
       .on('nav [data-plugins-submenu]', { element(el) { el.setAttribute('aria-label', 'Plugin pages') } })
-    const section = ({ content: 'Content', collections: 'Collections', users: 'Team', rbac: 'Team', plugins: 'Plugins', media: 'Media', settings: 'Settings', 'two-factor': 'Security' } as Record<string, string>)[path.split('/')[2]] ?? 'Overview'
+    const section = ({ content: 'Content', collections: 'Collections', users: 'Team', rbac: 'Team', plugins: 'Plugins', media: 'Media', settings: 'Settings', 'two-factor': 'Security', seo: 'SEO' } as Record<string, string>)[path.split('/')[2]] ?? 'Overview'
     rewriter.on('main nav[aria-label="Tabs"], main nav[role="tablist"]', { element(el) { el.setAttribute('data-bizz-tabs', '') } })
     rewriter.on('main > div.grow', { element(el) {
       el.setAttribute('data-bizz-panel', '')

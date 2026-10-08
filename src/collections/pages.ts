@@ -1,4 +1,5 @@
 import type { CollectionConfig } from '@sonicjs-cms/core'
+import { SEO_FIELDS } from '../seo-fields'
 
 export default {
   name: 'pages',
@@ -11,8 +12,8 @@ export default {
       title: { type: 'string', title: 'Title', required: true, maxLength: 200 },
       slug: { type: 'slug', title: 'URL slug', required: true },
       content: { type: 'lexical', title: 'Content' },
-      seoTitle: { type: 'string', title: 'SEO title', maxLength: 200 },
-      seoDescription: { type: 'textarea', title: 'SEO description', maxLength: 500 }
+      // SEO panel (SEO plugin), including seoTitle and seoDescription.
+      ...SEO_FIELDS
     },
     required: ['title', 'slug']
   },

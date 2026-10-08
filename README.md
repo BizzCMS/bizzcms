@@ -77,6 +77,10 @@ Most business websites need the same things: pages, a blog, images, a few people
 - Local development with hot reload and full Cloudflare emulation, no account needed.
 - A shared admin layer: every BizzCMS site gets the same admin look, fixes and features with one `npm run sync:core`.
 
+**SEO, like Yoast**
+- SEO panel on every page and post: focus keyphrase, Google and share previews, green/orange/red checks for SEO and readability, and an **Auto-fill SEO** button.
+- Title formats, sitemaps, robots.txt, llms.txt, structured data for Google and a **redirect manager**, all built in. See [docs/seo.md](docs/seo.md).
+
 **Integrations**
 - OpenAPI description of the REST API.
 - Read-only **MCP server** for AI assistants: list and read pages and posts ([docs/mcp.md](docs/mcp.md)).

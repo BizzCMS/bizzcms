@@ -1,4 +1,5 @@
 import type { CollectionConfig } from '@sonicjs-cms/core'
+import { SEO_FIELDS } from '../seo-fields'
 
 export default {
   name: 'posts',
@@ -32,6 +33,8 @@ export default {
       // Imported posts: the old ID keeps old URLs such as /blog/post/<slug>/<id>/ working; legacyPath is any other old URL to redirect from.
       legacyId: { type: 'number', title: 'Legacy ID', helpText: 'ID from the old website. Set by imports; leave as is.' },
       legacyPath: { type: 'string', title: 'Legacy URL', helpText: 'Old address of this post, redirected here (301).', maxLength: 500 },
+      // SEO panel (SEO plugin).
+      ...SEO_FIELDS
     },
     required: ['title', 'slug']
   },

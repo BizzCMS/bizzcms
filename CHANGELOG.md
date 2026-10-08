@@ -5,6 +5,7 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 ## [Unreleased]
 
 ### Added
+- **SEO plugin** (Admin › SEO), modelled on Yoast SEO: SEO panel on pages, posts and categories with Google and share previews, focus keyphrase, SEO and readability analysis, **Auto-fill SEO** button, scores in the Content list; General settings (site name, title formats, organisation), Indexing (robots.txt, llms.txt, hide site), **Redirects** with CSV import, and a Check list. Sites get `seoHead`, sitemaps per type, robots.txt and structured data (Article, BreadcrumbList, WebSite, Organization). See docs/seo.md.
 - **Categories** collection (name, slug, section blog/news, description, SEO title and description).
 - Posts: **Section** (blog or news), **Categories** and **Tags** as searchable multiselects in the editor (categories filtered to the post's section, tags suggested from existing ones or added new), **Author name / URL slug / website**, **Legacy ID** and **Legacy URL** for imported posts. See docs/posts.md.
 

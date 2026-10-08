@@ -1,6 +1,6 @@
 # Plan: SEO plugin
 
-Status: **proposal, waiting for the owner's yes.** Nothing is built yet.
+Status: **built** (owner: "implement all above", 2026-10-08). Decisions taken: own redirects table (runs before the site's page rendering), readability English first, Check flags missing featured images and categories. How it works: [../seo.md](../seo.md).
 
 ## Why
 
