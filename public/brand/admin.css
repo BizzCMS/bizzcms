@@ -413,3 +413,140 @@ html:not(.dark) input:focus, html:not(.dark) select:focus, html:not(.dark) texta
 [data-bizz-surface] #settings-form {max-width:700px}
 [data-bizz-surface] #settings-form input,[data-bizz-surface] #settings-form select {min-height:44px;background:var(--bz-canvas)!important;border:1px solid var(--bz-line)!important;color:var(--bz-navy)!important;border-radius:9px!important}
 [data-bizz-surface] nav>div.flex-1 {scrollbar-width:thin;scrollbar-color:#c3cfca transparent}
+
+/* ---------- Sign-in pages (login, register, reset password, invitation, two-step) ----------
+   One look for every /auth page, light and dark, matching the admin workspace. */
+body[data-bizz-surface="auth"] { background: var(--bz-canvas) !important; color: var(--bz-navy); font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; }
+.dark body[data-bizz-surface="auth"] { background: #0f1b1d !important; }
+body[data-bizz-surface="auth"] :is(h1, h2) { color: var(--bz-navy) !important; letter-spacing: -.02em; }
+/* Card */
+body[data-bizz-surface="auth"] :is(div.bg-zinc-900, div.bg-white.shadow-sm, div.bg-white.ring-1) { background: var(--bz-surface) !important; border: 1px solid var(--bz-line); border-radius: 18px !important; box-shadow: 0 3px 20px rgb(22 55 46 / .04) !important; --tw-ring-shadow: 0 0 #0000; }
+/* Labels, inputs */
+body[data-bizz-surface="auth"] label { color: var(--bz-navy) !important; font-weight: 500; }
+body[data-bizz-surface="auth"] input:not([type=checkbox]):not([type=radio]):not([type=submit]):not([type=button]) { background: var(--bz-surface) !important; color: var(--bz-navy) !important; border: 1px solid var(--bz-line) !important; border-radius: 10px !important; min-height: 44px; padding: 10px 14px; box-shadow: none !important; --tw-ring-shadow: 0 0 #0000; }
+.dark body[data-bizz-surface="auth"] input:not([type=checkbox]):not([type=radio]):not([type=submit]):not([type=button]) { background: #22383b !important; }
+body[data-bizz-surface="auth"] input:focus { border-color: var(--bz-blue) !important; box-shadow: 0 0 0 3px rgb(8 101 104 / .14) !important; outline: none !important; }
+body[data-bizz-surface="auth"] input::placeholder { color: var(--bz-muted) !important; opacity: .8; }
+/* Primary action */
+body[data-bizz-surface="auth"] :is(button[type="submit"], input[type="submit"], button.bg-white, button.bg-zinc-950, button.bg-zinc-900) { background: var(--bz-blue) !important; color: #fff !important; border-radius: 30px !important; min-height: 46px; font-weight: 600; box-shadow: 0 2px 3px rgb(8 71 63 / .08) !important; --tw-ring-shadow: 0 0 #0000; transition: filter .15s; }
+body[data-bizz-surface="auth"] :is(button[type="submit"], input[type="submit"], button.bg-white, button.bg-zinc-950, button.bg-zinc-900):hover { filter: brightness(1.08); }
+/* Links */
+body[data-bizz-surface="auth"] a:not(.bizz-auth-logo) { color: var(--bz-blue) !important; font-weight: 600; text-underline-offset: 3px; }
+.dark body[data-bizz-surface="auth"] a:not(.bizz-auth-logo) { color: var(--bz-lime) !important; }
+body[data-bizz-surface="auth"] p, body[data-bizz-surface="auth"] .text-zinc-400 { color: var(--bz-muted); }
+/* Messages */
+body[data-bizz-surface="auth"] :is(.bg-red-50, .bg-red-100, .bg-red-500\/10, .bg-red-900\/20) { border-radius: 12px !important; }
+body[data-bizz-surface="auth"] .bizz-field-error { min-height: 0; margin-top: 6px; font-size: 12px; color: #b91c1c; }
+.dark body[data-bizz-surface="auth"] .bizz-field-error { color: #fca5a5; }
+/* Version badge under the card */
+body[data-bizz-surface="auth"] .text-cyan-400, body[data-bizz-surface="auth"] [class*="bg-cyan-500"] { background: var(--bz-blue-50) !important; color: var(--bz-blue) !important; --tw-ring-color: transparent; border-radius: 20px; }
+.dark body[data-bizz-surface="auth"] .text-cyan-400 { color: var(--bz-lime) !important; }
+/* Logo (register page, and pages without upstream layout) */
+.bizz-auth-logo { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
+.bizz-auth-logo img { width: 36px; height: 40px; }
+.bizz-auth-logo .bizz-wordmark { font-size: 22px; font-weight: 600; letter-spacing: -.4px; }
+body[data-bizz-surface="auth"] .text-center > .bizz-auth-logo, body[data-bizz-surface="auth"] > .bizz-auth-logo { margin: 0 auto 8px; }
+/* Pages upstream ships without any layout (invalid reset link / invitation): a centred card */
+body[data-bizz-surface="auth"]:not([class]) { min-height: 100vh; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px; text-align: center; }
+body[data-bizz-surface="auth"]:not([class]) > :is(h1, h2) { font-size: 26px; font-weight: 600; margin: 18px 0 0; }
+body[data-bizz-surface="auth"]:not([class]) > p { margin: 0; max-width: 380px; line-height: 1.6; font-size: 14px; }
+body[data-bizz-surface="auth"]:not([class]) > a:not(.bizz-auth-logo) { display: inline-flex; align-items: center; justify-content: center; min-height: 46px; padding: 0 26px; margin-top: 10px; border-radius: 30px; background: var(--bz-blue); color: #fff !important; text-decoration: none; font-weight: 600; }
+body[data-bizz-surface="auth"]:not([class]) > div:last-of-type { margin-top: 28px; font-size: 12px; }
+body[data-bizz-surface="auth"]:not([class]) form { width: 100%; max-width: 380px; text-align: left; display: grid; gap: 14px; padding: 28px; background: var(--bz-surface); border: 1px solid var(--bz-line); border-radius: 18px; }
+
+/* ---------- Collections: same calm surfaces as the content library ---------- */
+[data-bizz-collections] main div.relative.rounded-xl > div.absolute.inset-0 { display: none !important; }
+[data-bizz-collections] main div.relative.rounded-xl > div.relative { background: transparent !important; box-shadow: none !important; --tw-ring-shadow: 0 0 #0000; backdrop-filter: none !important; }
+[data-bizz-collections] main div.relative.rounded-xl > div.relative > div { padding: 0 !important; }
+[data-bizz-collections] main span.bg-cyan-50 { background: var(--bz-blue-50) !important; color: var(--bz-blue) !important; --tw-ring-color: transparent !important; font-weight: 600; border-radius: 8px; }
+[data-bizz-collections] main span.bg-purple-50 { background: var(--bz-canvas) !important; color: var(--bz-muted) !important; --tw-ring-color: var(--bz-line) !important; border-radius: 20px; }
+[data-bizz-collections] main span.bg-pink-50 { background: var(--bz-canvas) !important; color: var(--bz-navy) !important; --tw-ring-color: var(--bz-line) !important; border-radius: 20px; font-size: 12px; }
+[data-bizz-collections] main tbody tr { background-image: none !important; box-shadow: none !important; }
+[data-bizz-collections] main tbody tr:hover { background: var(--bz-blue-50) !important; }
+[data-bizz-collections] main tbody td { padding-top: 20px !important; padding-bottom: 20px !important; border-color: var(--bz-line); }
+[data-bizz-collections] main tbody td a:is(.bg-zinc-950, .bg-cyan-600) { width: 34px; height: 34px; padding: 0 !important; justify-content: center; border-radius: 9px !important; background: var(--bz-canvas) !important; color: var(--bz-muted) !important; box-shadow: none !important; border: 1px solid var(--bz-line); filter: none !important; }
+[data-bizz-collections] main tbody td a:is(.bg-zinc-950, .bg-cyan-600):hover { background: var(--bz-blue-50) !important; color: var(--bz-blue) !important; border-color: var(--bz-blue); }
+[data-bizz-collections] main tbody td a svg { width: 16px; height: 16px; }
+
+/* ---------- Roles & permissions: neutral role surfaces, a coloured dot keeps roles apart ---------- */
+main [style*="--role-color"] { --role-bg: var(--bz-canvas) !important; --role-bg-strong: var(--bz-surface) !important; --role-border: var(--bz-line) !important; --role-ring: rgb(8 101 104 / .18) !important; }
+main label[style*="--role-color"] { border-radius: 20px !important; }
+main .border-cyan-500 { border-color: var(--bz-blue) !important; }
+main .text-cyan-600:not(nav[data-bizz-tabs] *):not([aria-current]) { color: var(--bz-blue) !important; }
+.dark main .dark\:text-cyan-400:not(nav[data-bizz-tabs] *):not([aria-current]) { color: var(--bz-lime) !important; }
+main input[type="checkbox"].focus\:ring-cyan-500, main input[type="checkbox"]:checked { accent-color: var(--bz-blue); }
+/* Dashboard link (injected with its own icon): same size as the line icons, lime when selected */
+nav .bizz-dashboard-link svg { width: 19px; height: 19px; color: #64748b; flex-shrink: 0; }
+[data-bizz-surface="admin"] nav a[data-current="true"] svg:not(.bizz-chevron) { color: var(--bz-lime) !important; }
+.dark nav .bizz-dashboard-link:not([data-current="true"]) svg { color: #a1a1aa; }
+/* Collections row actions: identical square icon buttons (a global action rule set min-height:40px on one) */
+[data-bizz-collections] main tbody td a:is(.bg-zinc-950, .bg-cyan-600) { box-sizing: border-box; min-height: 0 !important; min-width: 0 !important; width: 34px !important; height: 34px !important; display: inline-flex !important; align-items: center; }
+[data-bizz-collections] main tbody td a:is(.bg-zinc-950, .bg-cyan-600) svg { width: 16px !important; height: 16px !important; margin: 0 !important; }
+/* ============================================================================
+   GLOBAL PALETTE LAYER (2026-10-08)
+   One mapping for every admin and sign-in page, instead of styling page by page:
+   upstream's accent hues (cyan, sky, blue, indigo, violet, purple, fuchsia, pink)
+   become the BizzCMS teal family. Semantic colours keep their meaning:
+   red = danger, green/emerald = success, amber/yellow/orange = warning, lime = brand.
+   Selectors match whole class tokens only ([class^=…] / [class*=" …"]), so variants
+   like hover:bg-blue-50 or dark:text-cyan-400 never fire permanently in light mode.
+   Code blocks keep their own colours. Page-specific rules above only fix layout.
+   ============================================================================ */
+:root { --bz-accent-text-dark: #8fd3c7; --bz-accent-bg-dark: rgb(56 170 150 / .14); }
+
+/* Text (light) */
+html:not(.dark) [data-bizz-surface] :is([class^="text-cyan-"], [class*=" text-cyan-"], [class^="text-sky-"], [class*=" text-sky-"], [class^="text-blue-"], [class*=" text-blue-"], [class^="text-indigo-"], [class*=" text-indigo-"], [class^="text-violet-"], [class*=" text-violet-"], [class^="text-purple-"], [class*=" text-purple-"], [class^="text-fuchsia-"], [class*=" text-fuchsia-"], [class^="text-pink-"], [class*=" text-pink-"]):not(pre, code, pre *, code *) { color: var(--bz-blue) !important; }
+/* Text (dark) */
+.dark [data-bizz-surface] :is([class*="dark:text-cyan-"], [class*="dark:text-sky-"], [class*="dark:text-blue-"], [class*="dark:text-indigo-"], [class*="dark:text-violet-"], [class*="dark:text-purple-"], [class*="dark:text-pink-"]):not(pre, code, pre *, code *) { color: var(--bz-accent-text-dark) !important; }
+
+/* Tinted badges and panels: exact tokens bg-…-50 / bg-…-100 and …-500/10, …-900/20 */
+html:not(.dark) [data-bizz-surface] :is([class~="bg-cyan-50"], [class~="bg-sky-50"], [class~="bg-blue-50"], [class~="bg-indigo-50"], [class~="bg-violet-50"], [class~="bg-purple-50"], [class~="bg-fuchsia-50"], [class~="bg-pink-50"], [class~="bg-cyan-100"], [class~="bg-blue-100"], [class~="bg-indigo-100"], [class~="bg-purple-100"], [class~="bg-pink-100"]):not(button, a.rounded-lg) { background: var(--bz-blue-50) !important; --tw-ring-color: transparent !important; }
+[data-bizz-surface] :is([class^="bg-cyan-500/"], [class*=" bg-cyan-500/"], [class^="bg-sky-500/"], [class*=" bg-sky-500/"], [class^="bg-blue-500/"], [class*=" bg-blue-500/"], [class^="bg-indigo-500/"], [class*=" bg-indigo-500/"], [class^="bg-violet-500/"], [class*=" bg-violet-500/"], [class^="bg-purple-500/"], [class*=" bg-purple-500/"], [class^="bg-pink-500/"], [class*=" bg-pink-500/"]) { background: var(--bz-blue-50) !important; --tw-ring-color: transparent !important; }
+.dark [data-bizz-surface] :is([class*="dark:bg-cyan-"], [class*="dark:bg-sky-"], [class*="dark:bg-blue-"], [class*="dark:bg-indigo-"], [class*="dark:bg-violet-"], [class*="dark:bg-purple-"], [class*="dark:bg-pink-"]):not(button, a) { background: var(--bz-accent-bg-dark) !important; }
+
+/* Solid accent buttons and pills */
+[data-bizz-surface] :is(button, a, span, div):is(.bg-cyan-500, .bg-cyan-600, .bg-sky-500, .bg-sky-600, .bg-blue-500, .bg-blue-600, .bg-indigo-500, .bg-indigo-600, .bg-violet-600, .bg-purple-500, .bg-purple-600, .bg-pink-500, .bg-pink-600) { background: var(--bz-blue) !important; color: #fff !important; }
+[data-bizz-surface] :is(button, a):is(.bg-cyan-500, .bg-cyan-600, .bg-sky-600, .bg-blue-500, .bg-blue-600, .bg-indigo-500, .bg-indigo-600, .bg-violet-600, .bg-purple-500, .bg-purple-600):hover { background: var(--bz-blue-600) !important; }
+
+/* Decorative gradients in accent hues (not hover-only gradients): a calm tint */
+[data-bizz-surface] :is([class^="bg-gradient-"], [class*=" bg-gradient-"]):is([class*=" from-cyan-"], [class*=" from-sky-"], [class*=" from-blue-"], [class*=" from-indigo-"], [class*=" from-violet-"], [class*=" from-purple-"], [class*=" from-pink-"]):not(button, a) { background-image: none !important; background-color: var(--bz-blue-50) !important; }
+
+/* Borders, rings and focus in accent hues */
+[data-bizz-surface] :is([class^="border-cyan-"], [class*=" border-cyan-"], [class^="border-sky-"], [class*=" border-sky-"], [class^="border-blue-"], [class*=" border-blue-"], [class^="border-indigo-"], [class*=" border-indigo-"], [class^="border-purple-"], [class*=" border-purple-"], [class^="border-pink-"], [class*=" border-pink-"]):not(.border-b-2) { border-color: var(--bz-line) !important; }
+[data-bizz-surface] :is([class^="ring-cyan-"], [class*=" ring-cyan-"], [class^="ring-sky-"], [class*=" ring-sky-"], [class^="ring-blue-"], [class*=" ring-blue-"], [class^="ring-indigo-"], [class*=" ring-indigo-"], [class^="ring-purple-"], [class*=" ring-purple-"], [class^="ring-pink-"], [class*=" ring-pink-"]) { --tw-ring-color: var(--bz-line) !important; }
+[data-bizz-surface] :is(input, select, textarea):focus { --tw-ring-color: rgb(8 101 104 / .35) !important; }
+[data-bizz-surface] :is(input[type="checkbox"], input[type="radio"], input[type="range"]) { accent-color: var(--bz-blue); }
+
+/* Selected tabs are filled teal: their label is white (never teal on teal) */
+[data-bizz-surface] :is(nav[data-bizz-tabs] a, .tab-button, button[role="tab"], a[role="tab"]):is([aria-current="page"], [aria-selected="true"], .active, .border-zinc-950, .border-cyan-500, .border-blue-500, .border-indigo-500),
+[data-bizz-surface] :is(nav[data-bizz-tabs] a, .tab-button, button[role="tab"], a[role="tab"]):is([aria-current="page"], [aria-selected="true"], .active, .border-zinc-950, .border-cyan-500, .border-blue-500, .border-indigo-500) * { color: #fff !important; }
+/* Highlighted first stats tile (teal): its number in lime */
+[data-bizz-surface] dl > div:first-child :is(dd, dd *, [class*="text-2xl"], [class*="text-3xl"]) { color: var(--bz-lime) !important; }
+
+/* Legacy "Create New Content" chooser (body.bg-gray-900): light cards */
+html:not(.dark) body.bg-gray-900 :is(.bg-gray-800, .bg-gray-700, .bg-zinc-800) { background: var(--bz-surface) !important; border: 1px solid var(--bz-line) !important; border-radius: 16px; }
+html:not(.dark) body.bg-gray-900 :is(.bg-gray-800, .bg-gray-700, .bg-zinc-800):hover { border-color: var(--bz-blue) !important; box-shadow: 0 10px 28px rgb(18 61 98 / .08); }
+html:not(.dark) body.bg-gray-900 :is(.bg-gray-800, .bg-gray-700, .bg-zinc-800) :is(h2, h3) { color: var(--bz-navy) !important; }
+html:not(.dark) body.bg-gray-900 :is(.bg-gray-800, .bg-gray-700, .bg-zinc-800) p { color: var(--bz-muted) !important; }
+
+/* ---------- Database tools: same rhythm as Migrations ---------- */
+/* Actions directly under the stats, as filled pills (no extra "Safe Operations" card) */
+#settings-content div.space-y-4 > div.rounded-lg:has(> h4 + .flex button[onclick*="refreshDatabaseStats"]) { background: transparent !important; padding: 0 !important; box-shadow: none !important; --tw-ring-shadow: 0 0 #0000; }
+#settings-content div.space-y-4 > div.rounded-lg:has(> h4 + .flex button[onclick*="refreshDatabaseStats"]) > h4 { display: none; }
+#settings-content button:is([onclick*="refreshDatabaseStats"], [onclick*="createDatabaseBackup"], [onclick*="validateDatabase"]) { background: var(--bz-blue) !important; color: #fff !important; box-shadow: none !important; --tw-ring-shadow: 0 0 #0000; border-radius: 10px !important; font-weight: 500; padding: 8px 16px !important; }
+#settings-content button:is([onclick*="refreshDatabaseStats"], [onclick*="createDatabaseBackup"], [onclick*="validateDatabase"]):hover { background: var(--bz-blue-600) !important; }
+/* Stats icons without the tinted circle, like the migrations cards */
+#settings-content .grid > div .rounded-lg.p-3:has(> svg) { background: transparent !important; padding: 0 !important; }
+#settings-content .grid > div .rounded-lg.p-3 > svg { color: var(--bz-blue); }
+#settings-content .grid > div:first-child .rounded-lg.p-3 > svg { color: var(--bz-lime); }
+#settings-content .grid > div:first-child :is(#total-tables, p.text-3xl\/8, p.text-2xl) { color: #fff !important; }
+/* Table list: one card with dividers instead of a box per table */
+#tables-list { padding: 0 !important; }
+#tables-list > * + * { margin-top: 0 !important; border-top: 1px solid var(--bz-line); }
+#tables-list > a { border-radius: 0 !important; box-shadow: none !important; --tw-ring-shadow: 0 0 #0000; padding: 14px 24px !important; background: transparent !important; }
+#tables-list > a:hover { background: var(--bz-blue-50) !important; }
+#tables-list > a span.font-medium { font-weight: 500; font-size: 14px; }
+[data-bizz-settings] #settings-content button:is([onclick*="refreshDatabaseStats"], [onclick*="createDatabaseBackup"], [onclick*="validateDatabase"]) { background: var(--bz-blue) !important; color: #fff !important; border: 0 !important; }
+[data-bizz-settings] #settings-content button:is([onclick*="refreshDatabaseStats"], [onclick*="createDatabaseBackup"], [onclick*="validateDatabase"]):hover { background: var(--bz-blue-600) !important; }
+[data-bizz-settings] #settings-content div.space-y-4 > div.rounded-lg:has(button[onclick*="refreshDatabaseStats"]) { border: 0 !important; background: transparent !important; padding: 0 !important; }
+[data-bizz-settings] #settings-content .grid .rounded-lg.p-3:has(> svg) { background: transparent !important; padding: 0 !important; }

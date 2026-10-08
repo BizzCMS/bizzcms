@@ -5,6 +5,7 @@
 // Package names in code examples (@sonicjs-cms/core) stay, they are real import paths.
 import metadata from '../package.json'
 import { SIDEBAR_ICONS, MOON_ICON, SUN_ICON, pluginIcon, PLUGIN_TITLES } from './icons'
+import { REPEAT_PASSWORD_FIELD } from './auth'
 
 export function applyBranding(response: Response, path: string): Response {
   if (!response.headers.get('content-type')?.includes('text/html')) return response
@@ -21,11 +22,18 @@ export function applyBranding(response: Response, path: string): Response {
       element.prepend(`<script>try{if(localStorage.getItem('darkMode')===null)localStorage.setItem('darkMode','false');if(localStorage.getItem('darkMode')==='true')document.documentElement.classList.add('dark')}catch(e){}</script>`, { html: true })
       // BizzCMS admin theme (public/brand/admin.css) and its font.
       element.append('<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"><link rel="stylesheet" href="/brand/admin.css?v=workspace-20261008">', { html: true })
-      element.append(`<style>.bizz-wordmark{color:#123d62}.dark .bizz-wordmark{color:#f4f4f5}${LIGHT_FIXES}${path.startsWith('/auth') ? LIGHT_AUTH : ''}</style>`, { html: true })
+      element.append(`<style>.bizz-wordmark{color:#172e30}.dark .bizz-wordmark{color:#f4f4f5}${LIGHT_FIXES}${path.startsWith('/auth') ? LIGHT_AUTH : ''}</style>`, { html: true })
     } })
     .on('title', bufferedText(text => text.replace(/SonicJS AI/g, 'BizzCMS')))
     .on('h1, h2, p', bufferedText(text => {
+      // Register shows the site name as its title; "Create your account" says what the page is for.
+      if (path.startsWith('/auth/register') && /^\s*(BizzCMS|SonicJS AI)\s*$/.test(text)) return text.replace(/BizzCMS|SonicJS AI/, 'Create your account')
       if (text.trim() === 'SonicJS AI') return text.replace('SonicJS AI', 'BizzCMS')
+      // Upstream double-escapes this on the permissions page (shows "Roles &amp; Verbs").
+      // Replacement text is escaped on output, so a plain '&' renders as '&'.
+      // Upstream double-escapes some entities (shows "&amp;" or "&mdash;" literally). Replacement text is
+      // escaped on output, so put back the real characters.
+      text = text.replace(/&amp;(amp|mdash|ndash|hellip|rsquo|lsquo|ldquo|rdquo|nbsp);/g, (_m: string, e: string) => ({ amp: '&', mdash: '—', ndash: '–', hellip: '…', rsquo: '’', lsquo: '‘', ldquo: '“', rdquo: '”', nbsp: ' ' } as Record<string, string>)[e])
       return text
         .replace('Welcome to your SonicJS AI admin dashboard', 'Welcome to your BizzCMS admin dashboard')
         .replace('A modern headless CMS powered by AI', 'Lightweight content management for business websites.')
@@ -39,6 +47,12 @@ export function applyBranding(response: Response, path: string): Response {
     .on('span[class*="text-white/80"][class*="bg-white/10"]', {
       element(element) { element.setInnerContent(metadata.version) }
     })
+    // Permissions page: upstream double-escapes "&" in a <strong> ("Roles &amp; Verbs").
+    .on(path.startsWith('/admin/rbac') ? 'strong' : 'bizz-never-matches', (() => { let buf = ''; return { text(chunk: Text) {
+      buf += chunk.text
+      if (!chunk.lastInTextNode) { chunk.remove(); return }
+      chunk.replace(buf.replace(/&amp;amp;/g, '&amp;'), { html: true }); buf = ''
+    } } })())
     .on('svg[viewBox="380 1300 2250 400"]', {
       element(element) {
         element.replace('<span style="display:inline-flex;align-items:center;gap:10px;white-space:nowrap"><img src="/brand/bizzcms.svg" alt="" width="36" height="40" style="object-fit:contain"><span class="bizz-wordmark" style="font-size:22px;font-weight:600;letter-spacing:-.4px">BizzCMS</span></span>', { html: true })
@@ -67,6 +81,8 @@ export function applyBranding(response: Response, path: string): Response {
     .on('body', {
       element(element) {
         element.setAttribute('data-bizz-surface', path.startsWith('/auth') ? 'auth' : 'admin')
+        // Auth pages without upstream layout (invalid reset link / invitation) get the logo; CSS centres them.
+        if (path.startsWith('/auth') && !element.getAttribute('class')) element.prepend(AUTH_LOGO, { html: true })
         if (path === '/admin/content' || path === '/admin/content/') element.setAttribute('data-bizz-content', '')
         if (path.startsWith('/admin/settings')) element.setAttribute('data-bizz-settings', '')
         if (path === '/admin/users') element.setAttribute('data-bizz-users', '')
@@ -75,6 +91,7 @@ export function applyBranding(response: Response, path: string): Response {
         if (path === '/admin/collections') element.setAttribute('data-bizz-collections', '')
         element.append('<div style="padding:12px;text-align:center;font:12px system-ui;opacity:.7"><a href="/about">About BizzCMS</a> · <a href="https://bizzcms.com">bizzcms.com</a></div>', { html: true })
         element.append(path.startsWith('/auth') ? THEME_SWITCH : SWITCH_SCRIPT, { html: true })
+        element.append(ENTITY_FIX, { html: true })
       }
     })
   // Semantic styling hooks keep the shared theme independent of Tailwind's generated CSS.
@@ -142,6 +159,12 @@ export function applyBranding(response: Response, path: string): Response {
       if (label) el.setAttribute('aria-label', label)
     } })
   }
+  // Register: BizzCMS logo instead of upstream's lightning icon, a clear title, and "Repeat password".
+  if (path === '/auth/register' || path === '/auth/register/') {
+    rewriter
+      .on('div.mx-auto.flex.h-12.w-12', { element(el) { el.replace(AUTH_LOGO, { html: true }) } })
+      .on('input#password', { element(el) { el.after(REPEAT_PASSWORD_FIELD, { html: true }) } })
+  }
   // Plugins: a line icon per plugin instead of emoji, readable names for raw ids, tidier texts.
   if (path.startsWith('/admin/plugins')) {
     let card = ''
@@ -169,6 +192,14 @@ const CONTENT_ACCESSIBILITY = `<script>(function(){
     if(event.key==='Escape'&&!menu.classList.contains('hidden')){menu.classList.add('hidden');button.focus()}
   });
 })();</script>`
+
+// Some upstream strings are escaped twice and show "&amp;" or "&mdash;" as text. Fix the visible text
+// after load (the HTML rewriter sees these split across chunks, so a server-side fix is unreliable).
+const ENTITY_FIX = `<script>(function(){var map={'&amp;':'&','&mdash;':'—','&ndash;':'–','&hellip;':'…','&rsquo;':'’','&lsquo;':'‘','&ldquo;':'“','&rdquo;':'”','&nbsp;':' '};
+var re=/&(amp|mdash|ndash|hellip|rsquo|lsquo|ldquo|rdquo|nbsp);/g;function fix(root){var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:function(n){var p=n.parentNode&&n.parentNode.nodeName;return /^(SCRIPT|STYLE|TEXTAREA|CODE|PRE)$/.test(p)?2:(re.test(n.nodeValue)?1:2)}}),n,list=[];re.lastIndex=0;while(n=w.nextNode())list.push(n);list.forEach(function(t){t.nodeValue=t.nodeValue.replace(re,function(m){return map[m]||m})})}
+fix(document.body)})();</script>`
+
+const AUTH_LOGO = '<a href="/auth/login" class="bizz-auth-logo"><img src="/brand/bizzcms.svg" alt="" width="36" height="40"><span class="bizz-wordmark">BizzCMS</span></a>'
 
 // Light/dark switcher: a "Dark mode / Light mode" item under Settings in the admin sidebar,
 // and a round button on the sign-in pages (no sidebar there). Upstream stores the choice in

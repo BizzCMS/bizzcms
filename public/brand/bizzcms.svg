@@ -1,7 +1,3 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="140 155 582 650" role="img" aria-label="BizzCMS">
-  <!-- BizzCMS mark: folded blue hexagon open on the right like a C, navy inner ring, white C with a slit -->
-  <path fill="#0f6cb6" d="M430 165 708 320 588 474v8l122 154-280 156-278-156V320z"/>
-  <path fill="#0b4f86" d="M430 165 343 320l5 0zM708 320 535 324l2 6zM710 636 600 508l-3 6zM430 792 520 636l-6 0zM152 636 325 632l-2-6zM152 320 243 467l3-6z"/>
-  <path fill="#123d62" d="M343 320 535 324 603 447 588 474v8l15 28-83 126-195-4-82-165z"/>
-  <path fill="#fff" d="M430 355 537 416 491 474h97v8h-97l46 58-107 62-107-62V416z"/>
+<path fill="#086568" fill-rule="evenodd" d="M430 165 708 320 588 474v8l122 154-280 156-278-156V320zM430 355 537 416 491 474h97v8h-97l46 58-107 62-107-62V416z"/><path fill="#064e50" d="M430 165 343 320l5 0zM708 320 535 324l2 6zM710 636 600 508l-3 6zM430 792 520 636l-6 0zM152 636 325 632l-2-6zM152 320 243 467l3-6z"/><path fill="#c4f56a" fill-rule="evenodd" d="M343 320 535 324 603 447 588 474v8l15 28-83 126-195-4-82-165zM430 355 537 416 491 474h97v8h-97l46 58-107 62-107-62V416z"/>
 </svg>

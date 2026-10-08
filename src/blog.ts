@@ -8,13 +8,19 @@ const date = (value: number) => new Date(value * 1000).toLocaleDateString('en-GB
 
 // A small allowlist keeps editor HTML useful without trusting saved scripts or attributes.
 export async function safeArticle(html: string): Promise<string> {
-  const allowed = new Set(['p', 'h2', 'h3', 'h4', 'ul', 'ol', 'li', 'strong', 'em', 'b', 'i', 'u', 's', 'blockquote', 'a', 'br', 'hr', 'pre', 'code'])
+  const allowed = new Set(['p', 'h2', 'h3', 'h4', 'ul', 'ol', 'li', 'strong', 'em', 'b', 'i', 'u', 's', 'blockquote', 'a', 'br', 'hr', 'pre', 'code',
+    'img', 'figure', 'figcaption', 'table', 'thead', 'tbody', 'tr', 'th', 'td'])
   const dropped = new Set(['script', 'style', 'iframe', 'object', 'embed', 'svg', 'math', 'template'])
   const result = new HTMLRewriter().on('*', { element(el) {
     if (dropped.has(el.tagName)) { el.remove(); return }
     if (!allowed.has(el.tagName)) { el.removeAndKeepContent(); return }
-    for (const [name, value] of el.attributes) {
+    // Copy first: removing attributes while iterating the live list throws in HTMLRewriter.
+    for (const [name, value] of [...el.attributes]) {
       if (el.tagName === 'a' && name === 'href' && /^(https?:\/\/|mailto:|\/(?!\/)|#)/i.test(value.trim())) continue
+      // Images: web or site addresses only (no data: or javascript:), plus alt text and size hints.
+      if (el.tagName === 'img' && name === 'src' && /^(https:\/\/|\/(?!\/))/i.test(value.trim())) continue
+      if (el.tagName === 'img' && (name === 'alt' || name === 'width' || name === 'height')) continue
+      if ((el.tagName === 'th' || el.tagName === 'td') && (name === 'colspan' || name === 'rowspan') && /^\d{1,2}$/.test(value)) continue
       el.removeAttribute(name)
     }
   } }).transform(new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8' } }))

@@ -4,6 +4,25 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-08
+
+### Added
+- New BizzCMS mark in the theme colours: teal blades, a lime ring and a transparent "C" cut-out; dark-background, mono and app-icon versions (source set in `sites\_templates\logoizzcms-teal`). Apple touch icon.
+- Registration asks to repeat the password; checked in the browser and on the server.
+- Global palette layer in `admin.css`: upstream accent colours (cyan, blue, indigo, purple, pink) map to the BizzCMS teal family on every admin and sign-in page, while red, green and amber keep their meaning.
+- Blog styles: featured first post, card grid with artwork panels, article typography (quotes, code, images, tables) and an end panel.
+
+### Changed
+- All sign-in pages (login, register, reset password, invitation, two-step) use the workspace look in light and dark; register shows the BizzCMS logo and "Create your account".
+- Collections, Roles & permissions and Database tools follow the content library and Migrations layouts; the core landing page feature row became cards.
+- Blog posts may contain images (web or site addresses only) and tables.
+
+### Fixed
+- A blog post containing any HTML attribute (for example pasted content) crashed the post page (500).
+- Upstream text shown double-escaped ("Roles &amp; Verbs", "&mdash;").
+- Collection row action buttons had different sizes; the active tab label could be teal on teal; stats-tile numbers were invisible; table rows stayed tinted after hover classes were matched too broadly.
+
+
 ### Added
 - Blog at /blog with post pages, safe article HTML and a refreshed core landing page (`public/brand/landing.css`).
 - Admin workspace bar (breadcrumb and "View website"), redesigned content library, settings tabs, media rail and migrations cards.

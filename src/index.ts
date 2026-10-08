@@ -8,6 +8,7 @@ import { ensureBizzWelcome } from './welcome'
 import { brandApiSpec } from './api'
 import { landingPage } from './landing'
 import { blogResponse } from './blog'
+import { checkRegisterPasswords } from './auth'
 
 registerCollections([pages, posts])
 
@@ -42,6 +43,9 @@ export default {
         headers: { 'content-type': 'text/html; charset=utf-8' }
       })
     }
+    // Registration needs a matching "Repeat password" (checked before upstream creates the account).
+    const passwordMismatch = await checkRegisterPasswords(request, path)
+    if (passwordMismatch) return passwordMismatch
     const response = await cms.fetch(request, env, ctx)
     // After upstream's startup seeding has run: replace its SonicJS welcome post.
     await ensureBizzWelcome((env as unknown as { DB: D1Database }).DB).catch(e => console.error('welcome post', e))
