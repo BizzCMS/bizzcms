@@ -13,6 +13,7 @@
 - API closed by default with a Settings › API switch and API keys for apps (api-access.md).
 - Google Analytics plugin with a cookie consent banner (Admin › Plugins).
 - Posts › Featured image and its description, used by the blog list, the article and the share image (unreleased).
+- Posts › Sponsored, with sponsor name and link: label, rel="sponsored" on outbound links, left out of teasers (posts.md, unreleased).
 - Fix: admin, sign-in and API pages no longer hang when an earlier request was cancelled (`src/upstream.ts`, unreleased).
 
 ## Now (2026-10-08)

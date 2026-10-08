@@ -39,7 +39,7 @@ export default {
   async fetch(request: Request, env: Parameters<typeof cms.fetch>[1], ctx: ExecutionContext) {
     const path = new URL(request.url).pathname
     if ((path === '/blog' || path.startsWith('/blog/')) && request.method === 'GET') {
-      return blogResponse((env as unknown as { DB: D1Database }).DB, metadata.version, path)
+      return blogResponse((env as unknown as { DB: D1Database }).DB, metadata.version, path, new URL(request.url).hostname)
     }
     if ((path === '/' || path === '/about') && request.method === 'GET') {
       return new Response(landingPage(metadata.version, path === '/about'), {

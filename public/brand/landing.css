@@ -96,3 +96,6 @@ footer .maker{margin-left:14px;color:var(--ink);font-weight:500}
 }
 @media(prefers-reduced-motion:reduce){.blog-card{transition:none}.blog-card:hover{transform:none}}
 .article-end .button.primary{background:var(--lime);color:var(--ink)}.article-end .button.primary>span{background:var(--teal);color:#fff}
+/* Sponsored posts (src/sponsored.ts) */
+.bizz-sponsored-tag{display:inline-block;padding:1px 8px;border-radius:999px;background:#c4f56a;color:#102f31;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;vertical-align:middle}
+.bizz-sponsored{margin:0;font-size:14px;color:#5d7472}.bizz-sponsored a{color:#086568;text-decoration:underline}
