@@ -159,7 +159,12 @@ export interface SeoInput {
   image?: string
   publishedAt?: number | null
   modifiedAt?: number | null
+  /** A person's name and profile page. Leave it out when the organisation wrote the post: the schema then names the organisation. Never invent one. */
   author?: { name: string; url?: string }
+  /** Schema type for posts: Article (default), BlogPosting or NewsArticle. */
+  articleType?: 'Article' | 'BlogPosting' | 'NewsArticle'
+  /** The post's categories (articleSection). */
+  sections?: string[]
   breadcrumbs?: { name: string; path: string }[]
   extraGraph?: unknown[]
 }
@@ -235,10 +240,11 @@ function seoGraph(input: SeoInput, s: SeoSettings, page: { title: string; descri
     ...(input.breadcrumbs?.length ? { breadcrumb: { '@id': `${page.canonical}#breadcrumb` } } : {}) })
   if (input.kind === 'post') {
     const iso = (t?: number | null) => (t ? new Date(t > 1e11 ? t : t * 1000).toISOString() : undefined)
-    graph.push({ '@type': 'Article', '@id': `${page.canonical}#article`, headline: input.title.slice(0, 110), mainEntityOfPage: { '@id': pageId },
+    graph.push({ '@type': input.articleType ?? 'Article', '@id': `${page.canonical}#article`, headline: input.title.slice(0, 110), mainEntityOfPage: { '@id': pageId },
       ...(page.description ? { description: page.description } : {}), ...(page.image ? { image: [page.image] } : {}),
       ...(iso(input.publishedAt) ? { datePublished: iso(input.publishedAt) } : {}), ...(iso(input.modifiedAt ?? input.publishedAt) ? { dateModified: iso(input.modifiedAt ?? input.publishedAt) } : {}),
       ...(input.author?.name ? { author: { '@type': 'Person', name: input.author.name, ...(input.author.url ? { url: abs(o, input.author.url) } : {}) } } : orgName ? { author: { '@id': orgId } } : {}),
+      ...(input.sections?.filter(Boolean).length ? { articleSection: input.sections.filter(Boolean).length === 1 ? input.sections.filter(Boolean)[0] : input.sections.filter(Boolean) } : {}),
       // No "keywords": search engines ignore it and it shows competitors the keyphrases you target.
       // The focus and related keyphrases stay editor-only (SEO analysis).
       ...(orgName ? { publisher: { '@id': orgId } } : {}) })
