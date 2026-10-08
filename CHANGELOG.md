@@ -5,6 +5,7 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 ## [Unreleased]
 
 ### Added
+- SEO › General: **X (Twitter) username**; every page then carries `twitter:site` and `twitter:creator`.
 - **IndexNow** in the SEO plugin (SEO › Indexing, on by default): after every admin save the public addresses of the changed items go to IndexNow (Bing, Yandex, Seznam, Naver…); key file at `/<key>.txt` (generated, or paste your own); "Send all addresses to IndexNow now" from the sitemap; last 30 results listed. Never from local addresses or a hidden site. Sites wire `seoIndexNowKey` and `seoIndexNowChanged` (docs/seo.md).
 
 ## [0.2.6] - 2026-10-08

@@ -21,7 +21,7 @@ The scores are saved with the item; the **Content** list shows them as two dots 
 
 | Tab | |
 |---|---|
-| General | Site name (added as "Title \| Site name"), home page tagline ("Site name - tagline"), default meta description, default social image, company or person behind the site, logo, social profiles. |
+| General | Site name (added as "Title \| Site name"), home page tagline ("Site name - tagline"), default meta description, default social image, company or person behind the site, logo, social profiles, X (Twitter) username (twitter:site and twitter:creator on every page). |
 | Indexing | Hide the whole site from search engines (staging), extra robots.txt lines, llms.txt text, what goes into the sitemap, RSS feed, **IndexNow**. |
 | Redirects | Old URL → new URL (301 or 302), search, delete, CSV import, hit counter. An old URL ending in `*` matches everything that starts with it (`/old/*` → `/new/*` keeps the rest of the path). |
 | Check | Pages, posts and categories that need attention (no keyphrase, no or long description, long or duplicate title, no featured image or category, images without alt text, noindex), Key content first. |

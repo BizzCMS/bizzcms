@@ -25,6 +25,8 @@ export const seoPlugin = definePlugin({
 export interface SeoSettings {
   siteName: string; tagline: string; defaultDescription: string; defaultImage: string
   orgType: 'Organization' | 'Person'; orgName: string; orgLogo: string; sameAs: string
+  /** X (Twitter) username without @, for twitter:site and twitter:creator. */
+  xHandle: string
   hideFromSearch: boolean; robotsExtra: string; llmsText: string
   /** Sitemap parts switched off (pages, posts, categories, tags, other, or a collection name). */
   sitemapOff: string[]
@@ -33,7 +35,7 @@ export interface SeoSettings {
   /** IndexNow (Bing, Yandex, Seznam, Naver…): tell search engines at once when an address changes. */
   indexNowEnabled: boolean; indexNowKey: string
 }
-const DEFAULTS: SeoSettings = { siteName: '', tagline: '', defaultDescription: '', defaultImage: '', orgType: 'Organization', orgName: '', orgLogo: '', sameAs: '', hideFromSearch: false, robotsExtra: '', llmsText: '', sitemapOff: [], feedEnabled: true, feedItems: 20, feedFullText: true, indexNowEnabled: true, indexNowKey: '' }
+const DEFAULTS: SeoSettings = { siteName: '', tagline: '', defaultDescription: '', defaultImage: '', orgType: 'Organization', orgName: '', orgLogo: '', sameAs: '', xHandle: '', hideFromSearch: false, robotsExtra: '', llmsText: '', sitemapOff: [], feedEnabled: true, feedItems: 20, feedFullText: true, indexNowEnabled: true, indexNowKey: '' }
 
 async function ensureTables(db: D1Database) {
   await db.batch([
@@ -207,6 +209,8 @@ export function socialTags(head: SeoHead, data: Record<string, unknown> | undefi
     `<meta property="og:url" content="${e(head.canonical)}">`, head.image ? `<meta property="og:image" content="${e(head.image)}">` : '',
     `<meta name="twitter:card" content="${head.image ? 'summary_large_image' : 'summary'}">`, `<meta name="twitter:title" content="${e(t)}">`,
     desc ? `<meta name="twitter:description" content="${e(desc)}">` : '', head.image ? `<meta name="twitter:image" content="${e(head.image)}">` : '',
+    // The site's X account (SEO › General); the settings are already loaded by the caller's seoSettings().
+    ...(settingsCache?.value.xHandle ? [`<meta name="twitter:site" content="@${e(settingsCache.value.xHandle)}">`, `<meta name="twitter:creator" content="@${e(settingsCache.value.xHandle)}">`] : []),
     feed && publicRoutes?.posts ? `<link rel="alternate" type="application/rss+xml" title="${e(siteName)}" href="${e(new URL('/feed/', head.canonical).href)}">` : ''
   ].filter(Boolean).join('')
 }
@@ -626,7 +630,7 @@ export async function seoAdminRoute(request: Request, path: string, db: D1Databa
       const g = (k: string) => String(f.get(k) ?? '').trim()
       tab = String(f.get('tab') ?? 'general') === 'indexing' ? 'indexing' : 'general'
       const next = { ...(await seoSettings(db)) }
-      if (tab === 'general') Object.assign(next, { siteName: g('siteName'), tagline: g('tagline'), defaultDescription: g('defaultDescription'), defaultImage: g('defaultImage'), orgType: g('orgType') === 'Person' ? 'Person' : 'Organization', orgName: g('orgName'), orgLogo: g('orgLogo'), sameAs: g('sameAs') })
+      if (tab === 'general') Object.assign(next, { siteName: g('siteName'), tagline: g('tagline'), defaultDescription: g('defaultDescription'), defaultImage: g('defaultImage'), orgType: g('orgType') === 'Person' ? 'Person' : 'Organization', orgName: g('orgName'), orgLogo: g('orgLogo'), sameAs: g('sameAs'), xHandle: g('xHandle').replace(/^https?:\/\/(www\.)?(x|twitter)\.com\//i, '').replace(/^@/, '').replace(/[^A-Za-z0-9_]/g, '').slice(0, 15) })
       else Object.assign(next, {
         hideFromSearch: f.get('hideFromSearch') === 'on', robotsExtra: g('robotsExtra'), llmsText: g('llmsText'),
         sitemapOff: g('sitemap_parts').split(',').filter(k => k && f.get(`sitemap_${k}`) !== 'on'),
@@ -706,7 +710,8 @@ async function adminPage(tab: string, s: SeoSettings, db: D1Database, url: URL, 
       <label class="bizz-seo-field"><span>This website represents</span><select name="orgType"${ro}><option value="Organization"${s.orgType === 'Organization' ? ' selected' : ''}>A company or organisation</option><option value="Person"${s.orgType === 'Person' ? ' selected' : ''}>A person</option></select><small>Tells Google who is behind the site.</small></label>
       ${field('orgName', 'Name', 'Company or person name.')}
       ${field('orgLogo', 'Logo or photo', 'Address of the logo (or photo for a person).')}
-      ${field('sameAs', 'Social profiles', 'One address per line: Facebook, LinkedIn, X, YouTube, GitHub…', 'textarea')}` : `
+      ${field('sameAs', 'Social profiles', 'One address per line: Facebook, LinkedIn, X, YouTube, GitHub…', 'textarea')}
+      ${field('xHandle', 'X (Twitter) username', 'For example ingeniumwebcom (with or without @). Shown as the site and author when a page is shared on X.')}` : `
       <label class="bizz-seo-check"><input type="checkbox" name="hideFromSearch"${s.hideFromSearch ? ' checked' : ''}${ro}><span><strong>Hide the whole site from search engines</strong><small>For staging or unfinished sites. robots.txt then blocks everything and every page gets noindex.</small></span></label>
       ${field('robotsExtra', 'Extra robots.txt lines', 'Added to the default rules, e.g. "Disallow: /private/". Sitemap and llms.txt lines are added automatically.', 'textarea')}
       ${field('llmsText', 'llms.txt (instructions for AI assistants)', 'Plain text or Markdown at /llms.txt. Empty = the site\'s built-in text, if it has one.', 'textarea')}
