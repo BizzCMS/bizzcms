@@ -4,7 +4,8 @@
 // fails and the box stays empty, and the editor then writes its (empty or stripped) HTML back into the
 // field that is saved. Imported posts (old websites) hit this all the time.
 //   1. In the browser (CONTENT_GUARD_SCRIPT): every rich text field gets a Visual | HTML | Preview switch.
-//      Content with those elements opens in HTML (Visual is refused for it) instead of Lexical; if Lexical loads other content but loses text or images, the field
+//      With the BizzCMS blocks (src/lexical-blocks.ts) images, tables, embeds and code load in the visual
+//      editor; div/section layouts open in HTML; if Lexical loads other content but loses text or images, the field
 //      is restored and switched to the HTML editor too. Saving an emptied box asks for confirmation.
 //   2. On the server (contentGuardRoute): a save that would replace real text with an empty box is
 //      refused unless the editor confirmed it (bizz_confirm_clear), so no browser can blank a post.
@@ -35,8 +36,11 @@ var form=document.getElementById('content-form');if(!form)return;
 var ZW=new RegExp('[\\u200B-\\u200D\\uFEFF]','g');
 function tlen(h){var d=document.createElement('div');d.innerHTML=h||'';return (d.textContent||'').replace(ZW,'').replace(/\\s+/g,' ').trim().length}
 function tags(h,t){var d=document.createElement('div');d.innerHTML=h||'';return d.getElementsByTagName(t).length}
-var RICH=/<(img|table|iframe|figure|pre|hr|video|audio|embed|object|div|section)\\b/i;
-var RICH_NOTE='This text has images, tables, embeds or code blocks, which the visual editor cannot keep yet, so it opens as HTML. Nothing is lost.';
+var RICH=/<(img|table|iframe|figure|pre|hr|video|audio|embed|object|div|section)\\b/i,KEEP_HTML=/<(div|section)\\b/i;
+// With the BizzCMS blocks (src/lexical-blocks.ts) the visual editor keeps images, tables, embeds and code; only div/section stay HTML-only.
+function needsHtml(h){return window.__bizzLexical?KEEP_HTML.test(h):RICH.test(h)}
+var RICH_NOTE='This text has layout blocks (div or section) that the visual editor cannot keep, so it opens as HTML. Nothing is lost.';
+function lossy(before,after){return tlen(after)<tlen(before)*0.9||['a','img','table','iframe','pre','figure'].some(function(t){return tags(after,t)<tags(before,t)})}
 var wrappers=[].slice.call(form.querySelectorAll('.lexical-editor-wrapper'));
 // Every rich text field gets a Visual | HTML | Preview switch. HTML edits the saved HTML directly;
 // Visual is only offered when the HTML has nothing the visual editor would drop.
@@ -56,10 +60,10 @@ function setup(w,hidden,startHtml,note){
     if(m==='preview')pv.srcdoc='<!doctype html><meta charset="utf-8"><style>body{font:15px/1.6 system-ui,sans-serif;color:#172e30;margin:16px}img,iframe{max-width:100%;height:auto}table{border-collapse:collapse}td,th{border:1px solid #dfe7e4;padding:4px 8px}pre{background:#f3f5f4;padding:10px;overflow:auto}</style>'+hidden.value}
   var api={mode:'visual',go:function(m){
     if(m==='visual'){var e=inst(),L=window.__lexical,html=hidden.value;
-      if(RICH.test(html)){say(RICH_NOTE);return}
+      if(needsHtml(html)){say(RICH_NOTE);return}
       if(!e||!L||!L.$generateNodesFromDOM){say('The visual editor is not available for this field.');return}
       if(api.mode!=='visual'){var before=html;try{e.update(function(){var dom=new DOMParser().parseFromString(html,'text/html');var nodes=L.$generateNodesFromDOM(e,dom);var root=L.$getRoot();root.clear();root.append.apply(root,nodes)})}catch(x){say('This HTML cannot be shown in the visual editor.');return}
-        setTimeout(function(){if(tlen(hidden.value)<tlen(before)*0.9||tags(hidden.value,'a')<tags(before,'a')){hidden.value=before;ta.value=before;api.mode='html';show('html');say('The visual editor would lose part of this HTML, so it stays in HTML.')}},300)}
+        setTimeout(function(){if(lossy(before,hidden.value)){hidden.value=before;ta.value=before;api.mode='html';show('html');say('The visual editor would lose part of this HTML, so it stays in HTML.')}},300)}
       say('');api.mode='visual';show('visual');return}
     ta.value=hidden.value;api.mode=m;show(m)}};
   bar.addEventListener('click',function(e){var b=e.target.closest('button[data-m]');if(b)api.go(b.getAttribute('data-m'))});
@@ -68,8 +72,8 @@ function setup(w,hidden,startHtml,note){
   return api}
 wrappers.forEach(function(w){
   var hidden=w.querySelector('input[type=hidden]');if(!hidden)return;var orig=hidden.value||'';w._bizzOrig=orig;
-  if(RICH.test(orig)){w.setAttribute('data-lexical-initialized','true');setup(w,hidden,true,RICH_NOTE);return}
-  function ready(){setup(w,hidden,false);setTimeout(function(){var now=hidden.value;if(tlen(orig)>0&&(tlen(now)<tlen(orig)*0.9||tags(now,'a')<tags(orig,'a'))){hidden.value=orig;var a=setup(w,hidden,false);a.mode='visual';a.go('html');var n=w.nextSibling&&w.nextSibling.querySelector&&w.nextSibling.querySelector('.bizz-html-note');if(n){n.textContent='The visual editor could not load all of this text, so it opens as HTML. Nothing is lost.';n.hidden=false}}},400)}
+  if(KEEP_HTML.test(orig)){w.setAttribute('data-lexical-initialized','true');setup(w,hidden,true,RICH_NOTE);return}
+  function ready(){setup(w,hidden,false);setTimeout(function(){var now=hidden.value;if(tlen(orig)>0&&lossy(orig,now)){hidden.value=orig;var a=setup(w,hidden,false);a.mode='visual';a.go('html');var n=w.nextSibling&&w.nextSibling.querySelector&&w.nextSibling.querySelector('.bizz-html-note');if(n){n.textContent='The visual editor could not load all of this text, so it opens as HTML. Nothing is lost.';n.hidden=false}}},400)}
   if(w.hasAttribute('data-lexical-initialized'))ready();else{new MutationObserver(function(m,o){if(w.hasAttribute('data-lexical-initialized')){o.disconnect();ready()}}).observe(w,{attributes:true});
     setTimeout(function(){if(!w.hasAttribute('data-lexical-initialized')){w.setAttribute('data-lexical-initialized','true');setup(w,hidden,true,'The visual editor did not load, so this opens as HTML.')}},8000)}
 });

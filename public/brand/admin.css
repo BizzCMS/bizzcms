@@ -786,3 +786,14 @@ html.dark .bizz-view-site { color: #c4f56a; background: rgb(196 245 106 / .1); }
 .bizz-html-preview { width: 100%; min-height: 460px; border: 1px solid var(--bz-line); border-radius: 10px; background: #fff; }
 .bizz-guard-error { padding: 12px 14px; border-radius: 10px; background: #fff1ef; border: 1px solid #f1c5bd; color: #8a2b1d; font-size: 14px; }
 .bizz-html-tabs { margin-bottom: 8px; }
+
+/* Visual editor: images and kept blocks (src/lexical-blocks.ts) */
+.lexical-editor-surface .bizz-lex-img { display: inline-block; max-width: 100%; vertical-align: bottom; cursor: pointer; }
+.lexical-editor-surface .bizz-lex-img img { max-width: 100%; height: auto; border-radius: 6px; }
+.lexical-editor-surface .bizz-lex-img:hover img { outline: 2px solid var(--bz-blue); outline-offset: 2px; }
+.lexical-editor-surface .bizz-lex-block { position: relative; margin: 12px 0; padding: 26px 12px 10px; border: 1px dashed var(--bz-line); border-radius: 10px; background: var(--bz-canvas); overflow-x: auto; user-select: none; }
+.lexical-editor-surface .bizz-lex-block::before { content: attr(data-kind) " · kept as is, edit in HTML"; position: absolute; top: 6px; left: 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--bz-muted); }
+.lexical-editor-surface .bizz-lex-block img { max-width: 100%; height: auto; }
+.lexical-editor-surface .bizz-lex-block table { border-collapse: collapse; } .lexical-editor-surface .bizz-lex-block td, .lexical-editor-surface .bizz-lex-block th { border: 1px solid var(--bz-line); padding: 4px 8px; }
+.lexical-editor-surface .bizz-lex-block pre { margin: 0; white-space: pre-wrap; font: 12.5px/1.5 ui-monospace, Consolas, monospace; }
+.lexical-editor-surface .bizz-lex-embed { padding: 18px; border-radius: 8px; background: var(--bz-surface); color: var(--bz-muted); text-align: center; font-size: 13px; }

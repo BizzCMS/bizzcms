@@ -5,6 +5,7 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 ## [Unreleased]
 
 ### Added
+- **Images, tables, embeds and code in the visual editor.** Images show as images, with an **Image** button in the toolbar (Media library) and double-click to edit the description. Tables, figures, YouTube and other embeds, code blocks and dividers are kept exactly as they are (shown read-only, edited in HTML). Loose text no longer breaks loading. `src/lexical-blocks.ts`.
 - **HTML editor**: every rich text field has a **Visual | HTML | Preview** switch. HTML edits the saved HTML directly; Visual is refused for HTML it would damage (images, tables, embeds, code blocks).
 
 ### Fixed

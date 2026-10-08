@@ -41,6 +41,15 @@ Flat list, no parents. A post stores the category's root id, which stays the sam
 
 Every rich text field has a **Visual | HTML | Preview** switch above it. The visual editor (Lexical, upstream) only knows paragraphs, headings, lists, quotes, links and bold/italic. Content that also has images, tables, iframes, figures, `pre`, `hr` or `div` opens in an HTML editor with a Preview tab instead, so nothing is dropped. If the visual editor loads other content but loses text or links, the field is restored and switched to HTML. Emptying a box that had text asks for confirmation (`bizz_confirm_clear`), and `contentGuardRoute` (wired before `cms.fetch`) refuses any `PUT /admin/content/:id` that would replace real text in `content` or `body` with an empty box.
 
+## Images and other blocks in the visual editor (`src/lexical-blocks.ts`)
+
+Lexical only takes node types when an editor is created, so `LEXICAL_BLOCKS_SCRIPT` loads the same `lexical` module (same import-map URL as upstream) and wraps `window.__lexical.createEditor`, adding two vanilla DecoratorNodes before upstream creates its editors (toolbar, history and save stay upstream's):
+
+- `bizz-image`: `<img>` with src, alt, width; inline; double-click edits the description; the toolbar's **Image** button opens the Media library.
+- `bizz-html`: `table`, `figure`, `iframe`, `pre`, `hr`, `video`, `audio`, `embed`, `object`, stored as the original HTML and written back unchanged; shown read-only (iframes as a placeholder, scripts and event attributes stripped for display only).
+
+`$generateNodesFromDOM` is wrapped so loose text or inline nodes at the top level go into a paragraph instead of failing the import. Only `div`/`section` layouts still open in HTML. If the blocks cannot load (CDN down), the content guard falls back to HTML for anything the plain editor would drop.
+
 ## Posts list by section (`src/sections.ts`)
 
 Content › Posts shows **All posts | Blog | News** tabs with counts. Upstream's list can only filter by collection, status and title, so for `?model=posts&section=…` the request's database handle adds `section = …` to the list and count queries only (`envForSection`); `withSectionTabs` adds the tabs and keeps `section` in paging, per-page and "New Content" links. A new post opened from the News tab starts with Section = News. Posts without a section count as blog. Sites wire both next to `cms.fetch` in `src/index.ts`.
