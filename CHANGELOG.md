@@ -4,6 +4,8 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-10-08
+
 ### Fixed
 - The View on site eye (and the editor's View on Website) also works for extra collections such as a portfolio, using the site's `routes.collections` rule.
 
