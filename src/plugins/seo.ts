@@ -424,6 +424,7 @@ export async function indexNowSubmit(db: D1Database, origin: string, urls: strin
 }
 
 const indexNowSent = new Map<string, number>()
+let updatedIndex = false
 
 /** After a successful admin save (any POST/PUT/DELETE under /admin): the public addresses of the items
  *  changed in the last minute, published or just unpublished/deleted (engines then drop them). Call it
@@ -434,9 +435,11 @@ export async function seoIndexNowChanged(request: Request, status: number, db: D
   if (!url.pathname.startsWith('/admin') || LOCAL_HOST.test(url.hostname)) return
   const s = await seoSettings(db)
   if (!s.indexNowEnabled || s.hideFromSearch) return
+  // An index on updated_at keeps this a short range read instead of a scan of every document (once per isolate).
+  if (!updatedIndex) { await db.prepare('CREATE INDEX IF NOT EXISTS idx_documents_updated_at ON documents(updated_at)').run().catch(() => null); updatedIndex = true }
   const since = Math.floor(Date.now() / 1000) - 60
-  const { results } = await db.prepare(`SELECT type_id, slug, data, updated_at FROM documents
-    WHERE tenant_id = 'default' AND updated_at >= ? AND type_id <> 'media_asset' ORDER BY updated_at DESC LIMIT 200`).bind(since).all<{ type_id: string; slug: string; data: string; updated_at: number }>()
+  const { results } = await db.prepare(`SELECT type_id, slug, data, updated_at FROM documents INDEXED BY idx_documents_updated_at
+    WHERE updated_at >= ? AND tenant_id = 'default' AND type_id <> 'media_asset' ORDER BY updated_at DESC LIMIT 200`).bind(since).all<{ type_id: string; slug: string; data: string; updated_at: number }>()
   const urls: string[] = []
   for (const r of results) {
     let d: Record<string, unknown> = {}; try { d = JSON.parse(r.data) } catch { /* empty */ }

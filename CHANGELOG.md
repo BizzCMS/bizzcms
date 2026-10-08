@@ -4,6 +4,9 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Fixed
+- IndexNow after a save read the whole documents table (no index on `updated_at`); it now creates `idx_documents_updated_at` once and reads only the last minute's changes.
+
 ## [0.2.7] - 2026-10-08
 
 ### Added
