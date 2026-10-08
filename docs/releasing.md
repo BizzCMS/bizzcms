@@ -2,10 +2,11 @@
 
 ## Version numbers
 
-`MAJOR.MINOR.PATCH` ([semver](https://semver.org)). While BizzCMS is in early development it stays at **0.x**:
+`MAJOR.MINOR.PATCH` ([semver](https://semver.org)). While BizzCMS is in early development it stays at **0.x**.
 
-- **Patch** (0.2.0 → 0.2.1): fixes only, nothing new for users.
-- **Minor** (0.2.x → 0.3.0): new features, visible admin changes, or anything a site owner should read about.
+**Default (owner decision, 2026-10-08): every release is a patch bump**, for example 0.2.0 → 0.2.1 → 0.2.2, whether it holds features or fixes.
+
+- **Minor** (0.2.x → 0.3.0): only when the owner asks for it.
 - **1.0.0**: when BizzCMS is deployed in production and the hosting modes on the roadmap work.
 
 The version lives in `package.json`. The admin shows it next to the logo, and sites built on BizzCMS show the core version they run (`npm run sync:core` copies it).
@@ -21,7 +22,7 @@ Release when a batch of work is finished and pushed: at the latest at the end of
 ## How
 
 ```
-npm run release:patch     # or release:minor
+npm run release:patch     # the default; release:minor only on the owner's request
 ```
 
 The script:

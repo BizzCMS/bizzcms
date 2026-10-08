@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to BizzCMS. Versions follow [semantic versioning](https://semver.org): while BizzCMS is 0.x, **minor** = new features or visible changes, **patch** = fixes. How to release: [docs/releasing.md](docs/releasing.md).
+All notable changes to BizzCMS. Versions follow [semantic versioning](https://semver.org): each release bumps the patch number (0.2.1, 0.2.2, …); the minor number moves only on the owner's request. How to release: [docs/releasing.md](docs/releasing.md).
 
 ## [Unreleased]
 
