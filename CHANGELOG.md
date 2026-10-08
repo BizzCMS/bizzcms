@@ -4,6 +4,8 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-10-08
+
 ### Added
 - Posts › **Sponsored** (checkbox), **Sponsored by** and **Sponsored by link**. Sponsored posts stay in the blog list with a "Sponsored" label and "Sponsored by …" on the post; links to other sites in their body get `rel="sponsored noopener"` automatically; "latest posts" teasers leave them out (`NOT_SPONSORED`). Helpers in `src/sponsored.ts`, see docs/posts.md.
 - `sync:core` now also copies the Posts collection and its helpers to the sites.
