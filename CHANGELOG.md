@@ -6,11 +6,16 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ### Changed
 - The BizzCMS mark gets a thin dark-teal border inside the C; the centre stays transparent.
+- Wordmark: "CMS" in green (teal on light, lime on dark) in the admin, sign-in pages, site header/footer and the logo files.
+- One button standard across the admin, taken from the Migrations page: 40px high, 10px corners, 12px medium text, 16px icons. Teal primary, outlined secondary, red danger (Truncate All Data, Deactivate).
+- Roles & permissions: the "Compare roles" checkboxes became toggle pills with a check mark.
+- API Reference: method badges are soft tinted pills; stat numbers no longer use lime on white.
+- `/api/system/info` reports BizzCMS and its version instead of SonicJS.
 
 ## [0.2.1] - 2026-10-08
 
 ### Added
-- New BizzCMS mark in the theme colours: teal blades, a lime ring and a transparent "C" cut-out; dark-background, mono and app-icon versions (source set in `sites\_templates\logoizzcms-teal`). Apple touch icon.
+- New BizzCMS mark in the theme colours: teal blades, a lime ring and a transparent "C" cut-out; dark-background, mono and app-icon versions (source set in `sites/_templates/logo/bizzcms-teal`). Apple touch icon.
 - Registration asks to repeat the password; checked in the browser and on the server.
 - Global palette layer in `admin.css`: upstream accent colours (cyan, blue, indigo, purple, pink) map to the BizzCMS teal family on every admin and sign-in page, while red, green and amber keep their meaning.
 - Blog styles: featured first post, card grid with artwork panels, article typography (quotes, code, images, tables) and an end panel.
