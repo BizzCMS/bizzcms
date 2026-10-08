@@ -31,6 +31,7 @@ Everything below is in BizzCMS today. See the [changelog](../CHANGELOG.md) for w
 - Automatic **sitemaps** per content type, **robots.txt**, and **structured data** for Google: Organization, WebSite, WebPage, Article and breadcrumbs.
 - **Choose what goes into the sitemap**: pages, blog posts, news posts, categories, tags, extra collections such as a portfolio, and the site's built-in pages, each with its own tick box.
 - **Fast images**: every Media library image gets its width and height automatically (no jumping while the page loads), the top image loads first, the rest lazily.
+- **Uploads made web-sized**: big photos are scaled down (2000 px by default) and saved as WebP before they are uploaded; on/off, width and quality under Settings › Images.
 - **IndexNow**, like WordPress plugins: new, changed and removed addresses go to Bing, Yandex and the other IndexNow engines the moment you save; key file created for you; "Send all addresses now"; a log of the last results.
 - **RSS feed** at `/feed/` and per section (`/blog/feed/`, `/news/feed/`), like WordPress: featured image first, author, categories and tags, full text or summary, number of posts adjustable.
 - **No dead ends**: old addresses can be redirected one by one or in bulk, and every address that still ends on "page not found" is listed with its hits, ready to be redirected in one click.

@@ -11,6 +11,7 @@ import { SEO_EDITOR_SCRIPT, SEO_LIST_SCRIPT } from './seo-editor'
 import { sidebarSectionsHtml } from './sections'
 import { CONTENT_GUARD_SCRIPT } from './content-guard'
 import { LEXICAL_BLOCKS_SCRIPT } from './lexical-blocks'
+import { addImageUpload } from './image-upload'
 
 export function applyBranding(response: Response, path: string): Response {
   if (!response.headers.get('content-type')?.includes('text/html')) return response
@@ -106,6 +107,8 @@ export function applyBranding(response: Response, path: string): Response {
     })
   // Semantic styling hooks keep the shared theme independent of Tailwind's generated CSS.
   // No template code or assets from the commercial frontend are copied into this public repo.
+  // Uploads: big images made web-sized before upload; Settings › Images tab (src/image-upload.ts).
+  addImageUpload(rewriter, path)
   if (path.startsWith('/admin')) {
     // The upstream dashboard route exists, but beta.28 omits it from its sidebar.
     rewriter

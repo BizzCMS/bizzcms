@@ -1,3 +1,4 @@
+import { imageUploadRoute } from './image-upload'
 import { createSonicJSApp, registerCollections, mcpPlugin } from 'bizzcms-core'
 import type { SonicJSConfig } from 'bizzcms-core'
 import pages from './collections/pages'
@@ -98,6 +99,9 @@ async function handleRequest(request: Request, env: Parameters<typeof cms.fetch>
     // Settings › Cache (src/edge-cache.ts).
     const cachePage = await cacheSettingsPage(request, path, db, (env as unknown as { CACHE_KV?: KVNamespace }).CACHE_KV, upstream)
     if (cachePage) return applyBranding(withCacheTab(withErrorsTab(withApiTab(cachePage, path), path), path), path)
+    // Settings › Images and the upload script (src/image-upload.ts).
+    const imagesPage = await imageUploadRoute(request, path, db, upstream)
+    if (imagesPage) return imagesPage.headers.get('content-type')?.includes('text/html') ? applyBranding(withCacheTab(withErrorsTab(withApiTab(imagesPage, path), path), path), path) : imagesPage
     const errorLog = await errorLogPage(request, path, db, upstream)
     if (errorLog) return applyBranding(withCacheTab(withErrorsTab(withApiTab(errorLog, path), path), path), path)
     // The REST API is closed unless the owner opens it (Settings › API).

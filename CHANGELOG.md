@@ -5,6 +5,7 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 ## [Unreleased]
 
 ### Added
+- **Uploads made web-sized** (`src/image-upload.ts`): JPEG/PNG/WebP wider than the maximum are scaled down and saved as WebP in the browser before upload (every admin upload). **Settings › Images**: on/off, maximum width (2000), quality (82). See docs/images.md.
 - **Image hints** (`src/image-hints.ts`): Media library images on public pages get their real width and height (read once from the file in R2, kept in KV), lazy images `decoding="async"`, and the first image that is not lazy `fetchpriority="high"`. Less layout shift, faster top image. Sites wrap their page handler with `withImageHints(request, response, env.MEDIA_BUCKET, env.CACHE_KV)`.
 - **Registration closed**: `/auth/register` goes to sign-in and the register endpoints answer 404; administrators create accounts (Users).
 - SEO › General: **X (Twitter) username**; every page then carries `twitter:site` and `twitter:creator`.
