@@ -4,6 +4,7 @@ import pages from './collections/pages'
 import posts from './collections/posts'
 import metadata from '../package.json'
 import { applyBranding } from './branding'
+import { ensureBizzWelcome } from './welcome'
 import { landingPage } from './landing'
 
 registerCollections([pages, posts])
@@ -37,6 +38,8 @@ export default {
       })
     }
     const response = await cms.fetch(request, env, ctx)
+    // After upstream's startup seeding has run: replace its SonicJS welcome post.
+    await ensureBizzWelcome((env as unknown as { DB: D1Database }).DB).catch(e => console.error('welcome post', e))
     return applyBranding(response, path)
   }
 }

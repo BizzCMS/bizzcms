@@ -21,6 +21,7 @@ export function applyBranding(response: Response, path: string): Response {
       return text
         .replace('Welcome to your SonicJS AI admin dashboard', 'Welcome to your BizzCMS admin dashboard')
         .replace('A modern headless CMS powered by AI', 'Lightweight content management for business websites.')
+        .replace('SonicJS uses code-first collection definitions', 'BizzCMS uses code-first collection definitions')
     }))
     .on('svg[viewBox="380 1300 2250 400"]', {
       element(element) {
