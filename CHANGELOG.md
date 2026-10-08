@@ -5,6 +5,8 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 ## [Unreleased]
 
 ### Added
+- **Image hints** (`src/image-hints.ts`): Media library images on public pages get their real width and height (read once from the file in R2, kept in KV), lazy images `decoding="async"`, and the first image that is not lazy `fetchpriority="high"`. Less layout shift, faster top image. Sites wrap their page handler with `withImageHints(request, response, env.MEDIA_BUCKET, env.CACHE_KV)`.
+- **Registration closed**: `/auth/register` goes to sign-in and the register endpoints answer 404; administrators create accounts (Users).
 - SEO › General: **X (Twitter) username**; every page then carries `twitter:site` and `twitter:creator`.
 - **IndexNow** in the SEO plugin (SEO › Indexing, on by default): after every admin save the public addresses of the changed items go to IndexNow (Bing, Yandex, Seznam, Naver…); key file at `/<key>.txt` (generated, or paste your own); "Send all addresses to IndexNow now" from the sitemap; last 30 results listed. Never from local addresses or a hidden site. Sites wire `seoIndexNowKey` and `seoIndexNowChanged` (docs/seo.md).
 

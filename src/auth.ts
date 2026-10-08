@@ -33,6 +33,11 @@ export const REPEAT_PASSWORD_FIELD = `<div class="mt-6 bizz-repeat-password">
 // Upstream ships POST /auth/seed-admin without authentication: it creates or resets admin@sonicjs.com
 // with a password that is published in its source. Never reachable on a BizzCMS site.
 export function blockedRoute(path: string): Response | null {
-  if (path.replace(/\/+$/, '') === '/auth/seed-admin') return new Response('Not found', { status: 404 })
+  const p = path.replace(/\/+$/, '')
+  if (p === '/auth/seed-admin') return new Response('Not found', { status: 404 })
+  // Registration is closed (Ivan, 2026-10-08): only an admin creates accounts. The sign-up page goes to
+  // sign-in; anything under it (the form's POST) answers 404, so calling it directly does not work either.
+  if (p === '/auth/register') return new Response(null, { status: 302, headers: { location: '/auth/login' } })
+  if (p.startsWith('/auth/register/') || p.startsWith('/auth/sign-up')) return new Response('Not found', { status: 404 })
   return null
 }
