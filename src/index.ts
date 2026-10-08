@@ -5,6 +5,7 @@ import posts from './collections/posts'
 import metadata from '../package.json'
 import { applyBranding } from './branding'
 import { ensureBizzWelcome } from './welcome'
+import { finishUpstream } from './upstream'
 import { brandApiSpec } from './api'
 import { landingPage } from './landing'
 import { blogResponse } from './blog'
@@ -51,7 +52,7 @@ export default {
     const passwordMismatch = await checkRegisterPasswords(request, path)
     if (passwordMismatch) return passwordMismatch
     const db = (env as unknown as { DB: D1Database }).DB
-    const upstream = (r: Request) => Promise.resolve(cms.fetch(r, env, ctx))
+    const upstream = (r: Request) => finishUpstream(ctx, cms.fetch(r, env, ctx))
     // Google Analytics plugin: install + after-save redirect (see src/plugins/google-analytics.ts).
     const gaRoute = await gaAdminRoute(request, path, db, async () => {
       const me = await upstream(new Request(new URL('/auth/me', request.url), { headers: { cookie: request.headers.get('cookie') ?? '' } }))
@@ -65,7 +66,7 @@ export default {
     // The REST API is closed unless the owner opens it (Settings › API).
     const denied = await guardApi(request, path, db, upstream)
     if (denied) return denied
-    const response = await cms.fetch(request, env, ctx)
+    const response = await finishUpstream(ctx, cms.fetch(request, env, ctx))
     // After upstream's startup seeding has run: replace its SonicJS welcome post.
     await ensureBizzWelcome((env as unknown as { DB: D1Database }).DB).catch(e => console.error('welcome post', e))
     return applyBranding(withApiTab(await brandApiSpec(await withGoogleAnalytics(response, request, db), path), path), path)

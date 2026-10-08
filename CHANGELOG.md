@@ -10,6 +10,9 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 ### Security
 - Blocked upstream's unauthenticated `POST /auth/seed-admin`, which creates or resets an admin account with a password published in the SonicJS source. It now returns 404 on every BizzCMS site.
 
+### Fixed
+- Admin, sign-in and API pages could hang for about 20 seconds on the live site. SonicJS keeps start-up state as one shared promise per Worker isolate; when the request that started it was cancelled (tab closed, link clicked twice), that promise never settled and every later request on the isolate waited for it. SonicJS calls now always run to completion (`src/upstream.ts`, `ctx.waitUntil`).
+
 ### Changed
 - Content editor: "Preview Content" became "View on Website" and opens the published page in a new tab (pages by path, posts at /blog/<slug>) instead of upstream's bare preview page.
 - bizzcms.com is live: README, package.json (homepage, repository, issues), the API description's contact link and the GitHub repository website now point to https://bizzcms.com.
