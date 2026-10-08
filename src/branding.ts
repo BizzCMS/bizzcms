@@ -94,6 +94,7 @@ export function applyBranding(response: Response, path: string): Response {
         element.append('<div style="padding:12px;text-align:center;font:12px system-ui;opacity:.7"><a href="/about">About BizzCMS</a> · <a href="https://bizzcms.com">bizzcms.com</a> · Made with <span style="color:#e5484d" aria-label="love">♥</span> by <a href="https://ingenium.software/" target="_blank" rel="noopener">Ingenium</a></div>', { html: true })
         element.append(path.startsWith('/auth') ? THEME_SWITCH : SWITCH_SCRIPT, { html: true })
         element.append(ENTITY_FIX, { html: true })
+        if (/^\/admin\/content\/[^/]+\/edit$|^\/admin\/content\/new/.test(path)) element.append(VIEW_ON_SITE, { html: true })
         if (path === '/admin/dashboard' || path === '/admin') element.append(DASHBOARD_FIX, { html: true })
       }
     })
@@ -215,6 +216,17 @@ function run(){paint();empty()}
 if(document.readyState==='complete')setTimeout(run,0);else window.addEventListener('load',function(){setTimeout(run,0)});
 new MutationObserver(paint).observe(document.documentElement,{attributes:true,attributeFilter:['class']});
 document.addEventListener('htmx:afterSwap',empty)})()</script>`
+
+// Content editor: upstream's "Preview Content" posts the form to a bare preview page (plain Arial, ignores
+// the site design, and slow or failing on large pages). It now opens the page's real address on the
+// website instead: pages by their path, posts at /blog/<slug>, anything else at /<slug>. That shows the
+// saved, published version, exactly as visitors see it.
+const VIEW_ON_SITE = `<script>(function(){
+function url(){var f=document.getElementById('content-form');if(!f)return '/';var v=function(n){var e=f.querySelector('[name="'+n+'"]');return e&&e.value?String(e.value).trim():''};
+var path=v('path'),slug=v('slug'),col=v('collection_id');if(path)return path.charAt(0)==='/'?path:'/'+path;if(col==='posts'&&slug)return '/blog/'+encodeURIComponent(slug);return slug?'/'+encodeURIComponent(slug):'/'}
+window.previewContent=function(){window.open(url(),'_blank','noopener')};
+function relabel(){document.querySelectorAll('button[onclick="previewContent()"]').forEach(function(b){b.title='Opens the published page on your website in a new tab';for(var n of b.childNodes){if(n.nodeType===3&&/Preview Content/.test(n.textContent)){n.textContent=n.textContent.replace('Preview Content','View on Website')}}})}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',relabel);else relabel()})()</script>`
 
 const ENTITY_FIX = `<script>(function(){var map={'&amp;':'&','&mdash;':'—','&ndash;':'–','&hellip;':'…','&rsquo;':'’','&lsquo;':'‘','&ldquo;':'“','&rdquo;':'”','&nbsp;':' '};
 var re=/&(amp|mdash|ndash|hellip|rsquo|lsquo|ldquo|rdquo|nbsp);/g;function fix(root){var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:function(n){var p=n.parentNode&&n.parentNode.nodeName;return /^(SCRIPT|STYLE|TEXTAREA|CODE|PRE)$/.test(p)?2:(re.test(n.nodeValue)?1:2)}}),n,list=[];re.lastIndex=0;while(n=w.nextNode())list.push(n);list.forEach(function(t){t.nodeValue=t.nodeValue.replace(re,function(m){return map[m]||m})})}
