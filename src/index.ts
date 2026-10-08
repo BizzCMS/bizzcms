@@ -2,6 +2,7 @@ import { createSonicJSApp, registerCollections, mcpPlugin } from '@sonicjs-cms/c
 import type { SonicJSConfig } from '@sonicjs-cms/core'
 import pages from './collections/pages'
 import posts from './collections/posts'
+import categories from './collections/categories'
 import metadata from '../package.json'
 import { applyBranding } from './branding'
 import { ensureBizzWelcome } from './welcome'
@@ -12,8 +13,9 @@ import { blogResponse } from './blog'
 import { checkRegisterPasswords, blockedRoute } from './auth'
 import { guardApi, apiSettingsPage, withApiTab } from './api-access'
 import { googleAnalyticsPlugin, withGoogleAnalytics, gaAdminRoute } from './plugins/google-analytics'
+import { taxonomyRoute } from './taxonomy'
 
-registerCollections([pages, posts])
+registerCollections([pages, posts, categories])
 
 const readOnlyMcp = mcpPlugin({
   expose: ['pages', 'posts'],
@@ -59,6 +61,9 @@ export default {
       return me.ok && ((await me.json()) as { user?: { role?: string } }).user?.role === 'admin'
     })
     if (gaRoute) return gaRoute
+    // Post editor: categories and tags for the multiselects (src/taxonomy.ts).
+    const taxonomy = await taxonomyRoute(request, path, db, async () => (await upstream(new Request(new URL('/auth/me', request.url), { headers: { cookie: request.headers.get('cookie') ?? '' } }))).ok)
+    if (taxonomy) return taxonomy
     // Settings › API: our page inside upstream's settings layout.
     if (path === '/admin/settings/api') {
       return applyBranding(withApiTab(await apiSettingsPage(request, db, upstream), path), path)

@@ -4,6 +4,10 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Added
+- **Categories** collection (name, slug, section blog/news, description, SEO title and description).
+- Posts: **Section** (blog or news), **Categories** and **Tags** as searchable multiselects in the editor (categories filtered to the post's section, tags suggested from existing ones or added new), **Author name / URL slug / website**, **Legacy ID** and **Legacy URL** for imported posts. See docs/posts.md.
+
 ### Changed
 - Node.js 24 LTS is now the minimum (`engines` `>=24`, `.nvmrc`); verified with 24.21.0.
 
