@@ -91,7 +91,7 @@ export function applyBranding(response: Response, path: string): Response {
         if (path === '/admin/dashboard' || path === '/admin') element.setAttribute('data-bizz-dashboard', '')
         if (path.startsWith('/admin/media')) element.setAttribute('data-bizz-media', '')
         if (path === '/admin/collections') element.setAttribute('data-bizz-collections', '')
-        element.append('<div style="padding:12px;text-align:center;font:12px system-ui;opacity:.7"><a href="/about">About BizzCMS</a> · <a href="https://bizzcms.com">bizzcms.com</a></div>', { html: true })
+        element.append('<div style="padding:12px;text-align:center;font:12px system-ui;opacity:.7"><a href="/about">About BizzCMS</a> · <a href="https://bizzcms.com">bizzcms.com</a> · Made with <span style="color:#e5484d" aria-label="love">♥</span> by <a href="https://ingeniumweb.com" target="_blank" rel="noopener">Ingenium</a></div>', { html: true })
         element.append(path.startsWith('/auth') ? THEME_SWITCH : SWITCH_SCRIPT, { html: true })
         element.append(ENTITY_FIX, { html: true })
         if (path === '/admin/dashboard' || path === '/admin') element.append(DASHBOARD_FIX, { html: true })

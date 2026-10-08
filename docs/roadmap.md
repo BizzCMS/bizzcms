@@ -17,6 +17,7 @@
 - Release 0.2.2: logo border, green "CMS" wordmark, button standard, role chips, API Reference look, API access setting, docs refresh. Then sync the sites.
 - bizzcms-site: replace placeholder content (testimonials, prices) with real copy together with the owner before anything is published.
 - Deployment and DNS for bizzcms.com: only on the owner's request.
+- cPanel / Node.js: upstream SonicJS ships `createNodeSonicApp` (SQLite + filesystem storage), and bizzcms.com says BizzCMS runs on Node.js hosting such as cPanel (owner, 2026-10-08). Gap to close before that is true for BizzCMS: our admin layer (`src/branding.ts`, `api-access.ts`) uses Cloudflare's HTMLRewriter, which Node.js does not have. Needs a Node entry point plus an HTMLRewriter replacement (for example `html-rewriter-wasm`), then a test on a real cPanel Node.js app.
 
 ## Next: bounded SonicJS compatibility review
 
