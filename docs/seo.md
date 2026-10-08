@@ -38,6 +38,8 @@ Everything lives in `src/plugins/seo.ts`, `src/seo-editor.ts` and `src/seo-field
 4. Serves `seoRobots(url, db)`, `seoSitemap(url, db, routes)` (routes map pages, posts, categories and tags to their URL paths; `extra` adds fixed URLs) and `seoLlms(db)` (null when no llms.txt text is set, so the site's own one stays).
 5. Builds each page head with `seoHead({ origin, path, kind, title, data, excerpt, image, publishedAt, modifiedAt, author, breadcrumbs, extraGraph }, settings)` and `socialTags(head, data, siteName)`. It returns the full title, description, canonical, robots (`index,follow,max-image-preview:large` or noindex/nofollow), image and the structured data graph (Organization or Person once set, WebSite, WebPage or CollectionPage, Article for posts, BreadcrumbList).
 
+**View on site.** `setPublicRoutes(routes)` (call once with the same routes object as `seoSitemap`) tells the admin where each page, post and category lives: the Content list then shows an eye before the edit button for published items, and the editor's View on Website opens the same address (`GET /admin/bizz/seo/urls?ids=…`). Without it: pages by `path`, posts under `/blog/<slug>`, categories none. Drafts get no eye (no preview of unpublished changes yet).
+
 Imports add redirects with `addRedirects(db, [{ source, target, status }])`.
 
 Storage: settings in `bizz_settings` (`seo.settings`), redirects in `bizz_redirects` (created on first use). No extra services.

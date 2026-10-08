@@ -770,3 +770,8 @@ html:not(.dark) [data-bizz-surface] :is([class^="text-lime-"], [class*=" text-li
 .bizz-section-tab.is-on span { background: rgb(255 255 255 / .18); color: #fff; }
 .bizz-nav-count { margin-left: auto; padding: 1px 8px; border-radius: 999px; background: var(--bz-canvas); color: var(--bz-muted); font-size: 11.5px; font-weight: 600; }
 nav a[data-current="true"] .bizz-nav-count { background: rgb(255 255 255 / .18); color: inherit; }
+
+/* Content list: View on site eye (src/seo-editor.ts) */
+.bizz-view-site { display: inline-flex; align-items: center; justify-content: center; padding: 6px; border-radius: 8px; background: rgb(196 245 106 / .25); color: #3d6b0f; box-shadow: inset 0 0 0 1px rgb(86 140 20 / .25); }
+.bizz-view-site:hover { background: rgb(196 245 106 / .45); }
+html.dark .bizz-view-site { color: #c4f56a; background: rgb(196 245 106 / .1); }

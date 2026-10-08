@@ -229,7 +229,9 @@ document.addEventListener('htmx:afterSwap',empty)})()</script>`
 const VIEW_ON_SITE = `<script>(function(){
 function url(){var f=document.getElementById('content-form');if(!f)return '/';var v=function(n){var e=f.querySelector('[name="'+n+'"]');return e&&e.value?String(e.value).trim():''};
 var path=v('path'),slug=v('slug'),col=v('collection_id');if(path)return path.charAt(0)==='/'?path:'/'+path;if(col==='posts'&&slug)return '/blog/'+encodeURIComponent(slug);return slug?'/'+encodeURIComponent(slug):'/'}
-window.previewContent=function(){window.open(url(),'_blank','noopener')};
+// The site's own URL rules (SEO plugin, setPublicRoutes) win when the item is published.
+var resolved='',parts=location.pathname.split('/');if(parts[2]==='content'&&parts[4]==='edit'&&parts[3])fetch('/admin/bizz/seo/urls?ids='+encodeURIComponent(parts[3]),{credentials:'same-origin'}).then(function(r){return r.ok?r.json():{}}).then(function(u){resolved=u[parts[3]]||''}).catch(function(){});
+window.previewContent=function(){window.open(resolved||url(),'_blank','noopener')};
 function relabel(){document.querySelectorAll('button[onclick="previewContent()"]').forEach(function(b){b.title='Opens the published page on your website in a new tab';for(var n of b.childNodes){if(n.nodeType===3&&/Preview Content/.test(n.textContent)){n.textContent=n.textContent.replace('Preview Content','View on Website')}}})}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',relabel);else relabel()})()</script>`
 

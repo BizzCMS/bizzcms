@@ -247,6 +247,20 @@ export interface SitemapRoutes {
 
 const XML_HEAD = '<?xml version="1.0" encoding="UTF-8"?>\n'
 const xesc = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]!))
+// Public URL rules of this site (the same object as for the sitemaps), used by the admin's
+// "View on site" eye in the Content list and the editor. Sites call setPublicRoutes(SITEMAP_ROUTES) once.
+let publicRoutes: SitemapRoutes | null = null
+export function setPublicRoutes(routes: SitemapRoutes) { publicRoutes = routes }
+
+/** Public path of a document, or null when the site has no page for it. */
+export function publicPath(type: string, data: Record<string, unknown>, slug: string): string | null {
+  const r = publicRoutes
+  if (type === 'pages') return r?.pages ? r.pages(data, slug) : (typeof data.path === 'string' && data.path ? (data.path.startsWith('/') ? data.path : '/' + data.path) : `/${slug}`)
+  if (type === 'posts') return r?.posts ? r.posts(data, slug) : `/blog/${encodeURIComponent(slug)}`
+  if (type === 'categories') return r?.categories ? r.categories(data, slug) : null
+  return null
+}
+
 const PUBLISHED = `tenant_id = 'default' AND is_published = 1 AND (deleted_at IS NULL OR deleted_at = '')`
 
 /** /sitemap.xml (index) and /sitemap-<type>.xml; null for other paths. Leaves out noindex items and items with a canonical elsewhere. */
@@ -327,9 +341,25 @@ export async function seoAdminRoute(request: Request, path: string, db: D1Databa
     pluginEnsured = false; await ensureSeoPlugin(db)
     return Response.json({ success: true })
   }
-  if (path === '/admin/bizz/seo/context' || path === '/admin/bizz/seo/scores') {
+  if (path === '/admin/bizz/seo/context' || path === '/admin/bizz/seo/scores' || path === '/admin/bizz/seo/urls') {
     if (!(await me(request, fetcher))) return Response.json({ error: 'Sign in required' }, { status: 401 })
     const url = new URL(request.url)
+    if (path === '/admin/bizz/seo/urls') {
+      // Public addresses of published items (list rows and the editor carry a root or a version id).
+      const ids = (url.searchParams.get('ids') ?? '').split(',').filter(Boolean).slice(0, 200)
+      if (!ids.length) return Response.json({})
+      const marks = ids.map(() => '?').join(',')
+      const { results: map } = await db.prepare(`SELECT id, root_id FROM documents WHERE id IN (${marks}) OR root_id IN (${marks})`).bind(...ids, ...ids).all<{ id: string; root_id: string }>()
+      const roots = [...new Set(map.map(m => m.root_id))]
+      if (!roots.length) return Response.json({})
+      const { results } = await db.prepare(`SELECT root_id, type_id, slug, data FROM documents WHERE is_published = 1 AND (deleted_at IS NULL OR deleted_at = '') AND root_id IN (${roots.map(() => '?').join(',')})`)
+        .bind(...roots).all<{ root_id: string; type_id: string; slug: string; data: string }>()
+      const byRoot: Record<string, string> = {}
+      for (const r of results) { let d: Record<string, unknown> = {}; try { d = JSON.parse(r.data) } catch { /* empty */ } const p = publicPath(r.type_id, d, r.slug ?? ''); if (p) byRoot[r.root_id] = new URL(p, url.origin).href }
+      const out: Record<string, string> = {}
+      for (const m of map) { const u = byRoot[m.root_id]; if (!u) continue; if (ids.includes(m.id)) out[m.id] = u; if (ids.includes(m.root_id)) out[m.root_id] = u }
+      return Response.json(out, { headers: { 'cache-control': 'no-store' } })
+    }
     if (path === '/admin/bizz/seo/scores') {
       const ids = (url.searchParams.get('ids') ?? '').split(',').filter(Boolean).slice(0, 200)
       if (!ids.length) return Response.json({})

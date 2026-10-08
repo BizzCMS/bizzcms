@@ -5,6 +5,7 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 ## [Unreleased]
 
 ### Added
+- Content list: an **eye (View on site)** before the edit button opens the published page in a new tab; the editor's View on Website uses the same address. Sites give their URL rules once with `setPublicRoutes(SITEMAP_ROUTES)`. Drafts have no eye.
 - Sidebar: **Blog** and **News** entries under Workspace (after Content) with post counts, highlighted on their list; News only when the site has news posts.
 - Posts list divided by section: **All posts | Blog | News** tabs with counts above the list; filters, paging and "New Content" keep the section (a new post from News starts as News). `src/sections.ts`.
 - **SEO plugin** (Admin › SEO), modelled on Yoast SEO: SEO panel on pages, posts and categories with Google and share previews, focus keyphrase, SEO and readability analysis, **Auto-fill SEO** button, scores in the Content list; General settings (site name, title formats, organisation), Indexing (robots.txt, llms.txt, hide site), **Redirects** with CSV import, and a Check list. Sites get `seoHead`, sitemaps per type, robots.txt and structured data (Article, BreadcrumbList, WebSite, Organization). See docs/seo.md.
