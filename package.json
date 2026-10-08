@@ -9,7 +9,9 @@
     "setup": "node scripts/setup-local.mjs",
     "dev": "wrangler dev --local --ip 127.0.0.1 --port 8787",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "release:patch": "npm version patch -m \"Release %s\" && git push --follow-tags",
+    "release:minor": "npm version minor -m \"Release %s\" && git push --follow-tags"
   },
   "dependencies": {
     "@sonicjs-cms/core": "3.0.0-beta.28"
@@ -27,5 +29,7 @@
     "drizzle-orm": "0.45.2",
     "csv-parse": "7.0.2"
   },
-  "engines": { "node": ">=22" }
+  "engines": {
+    "node": ">=22"
+  }
 }

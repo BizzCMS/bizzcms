@@ -1,0 +1,121 @@
+/* BizzCMS admin theme: a modern BizzCMS look on top of the upstream (SonicJS) admin markup.
+   Loaded on /admin and /auth by src/branding.ts. Brand colours come from the BizzCMS mark.
+   Upstream class names are the hooks; recheck them after a SonicJS upgrade. */
+:root {
+  --bz-blue: #0f6cb6;
+  --bz-blue-600: #0b5a99;
+  --bz-blue-50: rgb(15 108 182 / .08);
+  --bz-navy: #123d62;
+  --bz-canvas: #f3f6fa;
+  --bz-line: #e3e9f1;
+  --bz-muted: #64748b;
+  --bz-radius: 16px;
+}
+
+body { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+
+/* ---------- Light ---------- */
+html:not(.dark) body { background: var(--bz-canvas); }
+@media (min-width: 1024px) {
+  html:not(.dark) .lg\:bg-zinc-100 { background: var(--bz-canvas); }
+  /* Main panel: rounded white sheet with a soft shadow instead of a hairline ring */
+  html:not(.dark) .lg\:bg-white.lg\:rounded-lg {
+    border-radius: 22px; border: 0;
+    box-shadow: 0 1px 2px rgb(16 24 40 / .03), 0 16px 40px rgb(18 61 98 / .06);
+    --tw-ring-shadow: 0 0 #0000;
+  }
+}
+
+/* Sidebar: no panel, no divider lines; it sits on the canvas next to the floating main sheet */
+.fixed.inset-y-0.left-0 > nav { background: transparent !important; box-shadow: none !important; --tw-ring-shadow: 0 0 #0000; --tw-ring-color: transparent; }
+.fixed.inset-y-0.left-0 > nav :is(.border-b, .border-t) { border-color: transparent !important; }
+.fixed.inset-y-0.left-0 > nav > div:first-child { padding: 22px 20px 18px; }
+.fixed.inset-y-0.left-0 > nav > div:not(:first-child) { padding-top: 4px; padding-bottom: 4px; }
+/* Upstream's cyan bar beside the active item: the tinted pill already marks it */
+nav span.absolute.w-0\.5 { display: none; }
+nav a, nav button, .bizz-theme-toggle { padding-top: 9px !important; padding-bottom: 9px !important; }
+nav .bizz-icon { width: 19px; height: 19px; color: #64748b; }
+nav a[data-current="true"] .bizz-icon { color: var(--bz-blue); }
+.dark nav .bizz-icon { color: #a1a1aa; }
+.dark nav a[data-current="true"] .bizz-icon { color: #8cc8ff; }
+/* Mobile sidebar keeps a sheet (it slides over the page) */
+.is-mobile { border-radius: 18px; }
+
+/* Headings */
+html:not(.dark) h1.text-zinc-950 { color: var(--bz-navy); font-weight: 650; letter-spacing: -.015em; }
+html:not(.dark) h1 + p, html:not(.dark) h1 ~ p.text-zinc-500 { color: var(--bz-muted); }
+
+/* Sidebar: brand-tinted active item and hover */
+html:not(.dark) nav a.text-zinc-950:hover, html:not(.dark) .bizz-theme-toggle:hover { background: var(--bz-blue-50); }
+html:not(.dark) nav a[data-current="true"] { background: var(--bz-blue-50); color: var(--bz-blue); font-weight: 600; }
+.bizz-icon { fill: none !important; }
+nav a, .bizz-theme-toggle { border-radius: 10px; transition: background-color .15s, color .15s; }
+
+/* Primary buttons: brand blue instead of black / cyan */
+.bg-zinc-950.text-white, button.bg-zinc-900.text-white, a.bg-zinc-900.text-white,
+.bg-gradient-to-r.from-cyan-500 {
+  background: linear-gradient(135deg, #1580d2 0%, var(--bz-blue) 60%, var(--bz-blue-600) 100%) !important;
+  color: #fff !important; border-radius: 10px;
+  box-shadow: 0 1px 2px rgb(16 24 40 / .08), 0 6px 16px rgb(15 108 182 / .22);
+  transition: filter .15s, box-shadow .15s, transform .15s;
+}
+.bg-zinc-950.text-white:hover, .bg-gradient-to-r.from-cyan-500:hover { filter: brightness(1.06); box-shadow: 0 1px 2px rgb(16 24 40 / .08), 0 10px 22px rgb(15 108 182 / .28); }
+.bg-gradient-to-r.from-cyan-500.rounded-full { border-radius: 999px; }
+
+/* Inputs: neutral border, brand focus ring (upstream uses cyan outlines) */
+html:not(.dark) input:not([type=checkbox]):not([type=radio]), html:not(.dark) select, html:not(.dark) textarea {
+  outline-color: var(--bz-line) !important; border-color: var(--bz-line) !important; --tw-ring-color: var(--bz-line);
+}
+html:not(.dark) input:focus, html:not(.dark) select:focus, html:not(.dark) textarea:focus {
+  outline-color: var(--bz-blue) !important; border-color: var(--bz-blue) !important;
+  --tw-ring-color: rgb(15 108 182 / .35); box-shadow: 0 0 0 3px rgb(15 108 182 / .12);
+}
+html:not(.dark) .ring-cyan-200\/50 { --tw-ring-color: var(--bz-line); }
+
+/* Tables */
+html:not(.dark) table th { color: var(--bz-muted); font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+html:not(.dark) table tbody tr { transition: background-color .12s; }
+html:not(.dark) table tbody tr:hover { background: #f7f9fc; }
+html:not(.dark) table tbody tr + tr td, html:not(.dark) table tbody tr td { border-color: #eef2f7; }
+
+/* Version badge next to the logo (upstream: white/80 text on white/10, invisible on white) */
+html:not(.dark) .text-white\/80.bg-white\/10 { background: var(--bz-blue-50); color: var(--bz-blue); --tw-ring-color: transparent; font-weight: 600; }
+
+/* Dropdowns and floating menus */
+html:not(.dark) .docsDropdown, html:not(.dark) .userDropdown { border-radius: 14px; box-shadow: 0 12px 32px rgb(18 61 98 / .14); }
+
+/* ---------- Dark ---------- */
+.dark nav a[data-current="true"] { background: rgb(56 145 220 / .16); color: #8cc8ff; }
+
+.dark .text-white\/80.bg-white\/10 { color: #8cc8ff; background: rgb(56 145 220 / .14); --tw-ring-color: transparent; }
+.dark input:focus, .dark select:focus, .dark textarea:focus { outline-color: #3a91dc !important; border-color: #3a91dc !important; box-shadow: 0 0 0 3px rgb(58 145 220 / .2); }
+
+/* ---------- Upstream dark-only text, readable in light mode ----------
+   Found by a contrast scan of all 39 admin pages (2026-10-08). Code blocks keep their colours. */
+/* Real dark surfaces (code blocks, dark cards) keep their light text. Note: `dark:bg-zinc-900`
+   is a class too, so match exact classes, never [class*=...] substrings. */
+html:not(.dark) :is(.text-zinc-100, .text-white):not(:is(pre, code, .bg-zinc-900, .bg-zinc-950, .bg-black, .bg-zinc-800) *):not(:is(pre, code)):not([class*="bg-"]):not(button):not(a):is(h1, h2, h3, h4, h5, p, span, div, li, label, dt, dd) { color: var(--bz-navy); }
+html:not(.dark) :is(.text-zinc-300, .text-gray-300):not(:is(pre, code, .bg-zinc-900, .bg-zinc-950, .bg-black, .bg-zinc-800) *) { color: #475569; }
+html:not(.dark) :is(.text-zinc-400, .text-gray-400):not(:is(pre, code, .bg-zinc-900, .bg-zinc-950, .bg-black, .bg-zinc-800) *) { color: #64748b; }
+/* Translucent dark panels (bg-zinc-900/30, border-zinc-700) become light panels */
+html:not(.dark) .bg-zinc-900\/30, html:not(.dark) .bg-zinc-900\/50, html:not(.dark) .bg-zinc-800\/50 { background: #f8fafc; }
+html:not(.dark) .border-zinc-700, html:not(.dark) .border-zinc-800 { border-color: var(--bz-line); }
+/* Legacy "Create New Content" page: body.bg-gray-900 text-white */
+html:not(.dark) body.bg-gray-900 { color: var(--bz-navy); }
+html:not(.dark) body.bg-gray-900 a { color: var(--bz-blue); }
+html:not(.dark) .text-green-500 { color: #15803d; }
+html:not(.dark) .text-cyan-500 { color: #0891b2; }
+/* Dashboard / users stats numbers */
+html:not(.dark) .text-cyan-400 { color: #0891b2; }
+html:not(.dark) .text-lime-400 { color: #4d7c0f; }
+html:not(.dark) .text-pink-400 { color: #db2777; }
+html:not(.dark) .text-purple-400 { color: #9333ea; }
+html:not(.dark) .text-blue-300, html:not(.dark) .text-blue-400 { color: var(--bz-blue); }
+html:not(.dark) .text-green-300 { color: #15803d; }
+html:not(.dark) .text-orange-300 { color: #c2410c; }
+html:not(.dark) .bg-green-900\/50 { background: #dcfce7; border-color: #bbf7d0; }
+/* Info panels on the new-collection screen (cyan glass) */
+html:not(.dark) [class*="bg-cyan-"][class*="/"] :is(h2, h3, p, span, li) { color: var(--bz-navy); }
+
+/* Version badge never wraps */
+.text-white\/80.bg-white\/10 { white-space: nowrap; }

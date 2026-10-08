@@ -16,3 +16,7 @@ Retain complete applicable upstream licenses and copyright notices in source and
 Suggested product credit after integration: "Built on SonicJS." This describes the technical foundation and does not imply upstream endorsement.
 
 MIT permits commercial use, modification, and distribution subject to its notice requirement. BizzCMS is intended to be open source; paid implementation, hosting, or support can coexist with that choice. Commercial packaging and pricing are not defined.
+
+## Lucide icons
+
+The admin sidebar icons in `src/icons.ts` are paths from Lucide (https://lucide.dev), licensed under the ISC License: Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as part of Feather (MIT). All other copyright (c) for Lucide are held by Lucide Contributors 2022.

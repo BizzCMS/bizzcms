@@ -45,6 +45,7 @@ cPanel is an alternative for clients who request it, not automatic failover. Nod
 - [Local development](docs/local-development.md)
 - [Branding and first website](docs/branding.md)
 - [MCP setup and verification](docs/mcp.md)
+- [Changelog](CHANGELOG.md) and [releasing](docs/releasing.md)
 - [Contributing](CONTRIBUTING.md)
 - [Agent instructions](AGENTS.md)
 

@@ -3,6 +3,9 @@
 // on the main site (/about) and in the repository (README, licence notices); the admin
 // shows BizzCMS everywhere it can, including plugin authors (owner decision, 2026-10-08).
 // Package names in code examples (@sonicjs-cms/core) stay, they are real import paths.
+import metadata from '../package.json'
+import { SIDEBAR_ICONS, MOON_ICON, SUN_ICON } from './icons'
+
 export function applyBranding(response: Response, path: string): Response {
   if (!response.headers.get('content-type')?.includes('text/html')) return response
   if (!path.startsWith('/admin') && !path.startsWith('/auth')) return response
@@ -16,6 +19,8 @@ export function applyBranding(response: Response, path: string): Response {
     } })
     .on('head', { element(element) {
       element.prepend(`<script>try{if(localStorage.getItem('darkMode')===null)localStorage.setItem('darkMode','false');if(localStorage.getItem('darkMode')==='true')document.documentElement.classList.add('dark')}catch(e){}</script>`, { html: true })
+      // BizzCMS admin theme (public/brand/admin.css) and its font.
+      element.append('<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"><link rel="stylesheet" href="/brand/admin.css">', { html: true })
       element.append(`<style>.bizz-wordmark{color:#123d62}.dark .bizz-wordmark{color:#f4f4f5}${LIGHT_FIXES}${path.startsWith('/auth') ? LIGHT_AUTH : ''}</style>`, { html: true })
     } })
     .on('title', bufferedText(text => text.replace(/SonicJS AI/g, 'BizzCMS')))
@@ -29,6 +34,10 @@ export function applyBranding(response: Response, path: string): Response {
     // Plugin screens: upstream plugin names, authors and descriptions (no user content there).
     .on(path.startsWith('/admin/plugins') ? 'h1, h2, h3, h4, p, span, div, a, td, dd, dt, li, small, strong' : 'bizz-never-matches', bufferedText(text =>
       text.replace(/SonicJS (Team|Community)/g, 'BizzCMS').replace(/\bSonicJS\b/g, 'BizzCMS')))
+    // Version badge next to the logo: some upstream pages show the SonicJS version; always show BizzCMS's.
+    .on('span[class*="text-white/80"][class*="bg-white/10"]', {
+      element(element) { element.setInnerContent(metadata.version) }
+    })
     .on('svg[viewBox="380 1300 2250 400"]', {
       element(element) {
         element.replace('<span style="display:inline-flex;align-items:center;gap:10px;white-space:nowrap"><img src="/brand/bizzcms.svg" alt="" width="36" height="40" style="object-fit:contain"><span class="bizz-wordmark" style="font-size:22px;font-weight:600;letter-spacing:-.4px">BizzCMS</span></span>', { html: true })
@@ -57,6 +66,8 @@ export function applyBranding(response: Response, path: string): Response {
         element.append(path.startsWith('/auth') ? THEME_SWITCH : SWITCH_SCRIPT, { html: true })
       }
     })
+  // One consistent line-icon set in the sidebar (src/icons.ts).
+  for (const [selector, icon] of SIDEBAR_ICONS) rewriter.on(selector, { element(el) { el.replace(icon, { html: true }) } })
   return rewriter.transform(response)
 }
 
@@ -67,7 +78,7 @@ const SUN = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke=
 const MOON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>'
 const SWITCH_SCRIPT = `<script>document.addEventListener('click',function(e){if(!e.target.closest('#bizz-theme-switch,.bizz-theme-toggle'))return;var d=document.documentElement.classList.toggle('dark');try{localStorage.setItem('darkMode',String(d))}catch(err){}})</script>`
 const SIDEBAR_SWITCH = `<button type="button" class="bizz-theme-toggle mt-0.5 flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left text-sm/5 font-medium text-zinc-950 hover:bg-zinc-950/5 dark:text-white dark:hover:bg-white/5">
-<span class="shrink-0 text-zinc-500 dark:text-zinc-400"><span class="bizz-moon">${MOON.replace('width="18" height="18"', 'width="20" height="20"')}</span><span class="bizz-sun">${SUN.replace('width="18" height="18"', 'width="20" height="20"')}</span></span>
+<span class="shrink-0 text-zinc-500 dark:text-zinc-400"><span class="bizz-moon">${MOON_ICON}</span><span class="bizz-sun">${SUN_ICON}</span></span>
 <span class="truncate"><span class="bizz-moon">Dark mode</span><span class="bizz-sun">Light mode</span></span></button>
 <style>.bizz-theme-toggle .bizz-sun{display:none}.dark .bizz-theme-toggle .bizz-sun{display:inline}.dark .bizz-theme-toggle .bizz-moon{display:none}.bizz-theme-toggle svg{display:block}</style>`
 const THEME_SWITCH = `<button type="button" id="bizz-theme-switch" title="Switch light / dark" aria-label="Switch light or dark mode"
