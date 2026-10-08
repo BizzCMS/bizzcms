@@ -4,6 +4,9 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Added
+- Plugin **Google Analytics** (Admin › Plugins): Measurement ID, consent banner on/off, banner text and policy link in a Settings tab. Public HTML pages get a cookie banner; Google Analytics loads only after Accept (Consent Mode v2, nothing sent before), the choice is remembered, Reject keeps it off. Never on admin, sign-in or API pages, never on localhost (`?bizz-ga-preview` shows it locally). Any element with `data-cookie-settings` reopens the banner. Install works around an upstream slug clash for code-registered plugins.
+
 ### Security
 - Blocked upstream's unauthenticated `POST /auth/seed-admin`, which creates or resets an admin account with a password published in the SonicJS source. It now returns 404 on every BizzCMS site.
 

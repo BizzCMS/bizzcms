@@ -10,6 +10,7 @@ import { landingPage } from './landing'
 import { blogResponse } from './blog'
 import { checkRegisterPasswords, blockedRoute } from './auth'
 import { guardApi, apiSettingsPage, withApiTab } from './api-access'
+import { googleAnalyticsPlugin, withGoogleAnalytics, gaAdminRoute } from './plugins/google-analytics'
 
 registerCollections([pages, posts])
 
@@ -29,7 +30,7 @@ type RegisteredPlugin = NonNullable<NonNullable<SonicJSConfig['plugins']>['regis
 const cms = createSonicJSApp({
   name: 'BizzCMS',
   version: metadata.version,
-  plugins: { register: [readOnlyMcp as unknown as RegisteredPlugin] },
+  plugins: { register: [readOnlyMcp as unknown as RegisteredPlugin, googleAnalyticsPlugin as unknown as RegisteredPlugin] },
   email: { providerName: 'console', from: 'BizzCMS <noreply@bizzcms.local>' }
 })
 
@@ -51,6 +52,12 @@ export default {
     if (passwordMismatch) return passwordMismatch
     const db = (env as unknown as { DB: D1Database }).DB
     const upstream = (r: Request) => Promise.resolve(cms.fetch(r, env, ctx))
+    // Google Analytics plugin: install + after-save redirect (see src/plugins/google-analytics.ts).
+    const gaRoute = await gaAdminRoute(request, path, db, async () => {
+      const me = await upstream(new Request(new URL('/auth/me', request.url), { headers: { cookie: request.headers.get('cookie') ?? '' } }))
+      return me.ok && ((await me.json()) as { user?: { role?: string } }).user?.role === 'admin'
+    })
+    if (gaRoute) return gaRoute
     // Settings › API: our page inside upstream's settings layout.
     if (path === '/admin/settings/api') {
       return applyBranding(withApiTab(await apiSettingsPage(request, db, upstream), path), path)
@@ -61,6 +68,6 @@ export default {
     const response = await cms.fetch(request, env, ctx)
     // After upstream's startup seeding has run: replace its SonicJS welcome post.
     await ensureBizzWelcome((env as unknown as { DB: D1Database }).DB).catch(e => console.error('welcome post', e))
-    return applyBranding(withApiTab(await brandApiSpec(response, path), path), path)
+    return applyBranding(withApiTab(await brandApiSpec(await withGoogleAnalytics(response, request, db), path), path), path)
   }
 }
