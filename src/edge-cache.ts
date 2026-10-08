@@ -80,7 +80,8 @@ export async function edgeCached(request: Request, db: D1Database, kv: KVNamespa
   // Saves in the admin: let them through, then replace every cached page.
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     const res = await handler()
-    if (url.pathname.startsWith('/admin') && res.status < 400) ctx.waitUntil(bumpContentVersion(kv))
+    // Score batches (SEO › Check) change nothing public: no cache flush for them.
+    if (url.pathname.startsWith('/admin') && url.pathname !== '/admin/bizz/seo/score-batch' && res.status < 400) ctx.waitUntil(bumpContentVersion(kv))
     return res
   }
   const local = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname.endsWith('.localhost')

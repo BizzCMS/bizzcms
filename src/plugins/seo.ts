@@ -7,6 +7,7 @@
 //   IndexNow (seoIndexNowKey serves the key file, seoIndexNowChanged pings after admin saves).
 // Settings live in bizz_settings ('seo.settings'), redirects in bizz_redirects; both in the site's D1.
 import { definePlugin, PluginServiceClass as PluginService } from 'bizzcms-core'
+import { SEO_ANALYSE_CORE } from '../seo-editor'
 
 export const SEO_PLUGIN_ID = 'seo'
 
@@ -575,6 +576,24 @@ export async function seoAdminRoute(request: Request, path: string, db: D1Databa
     pluginEnsured = false; await ensureSeoPlugin(db)
     return Response.json({ success: true })
   }
+  // "Calculate missing scores" (SEO › Check): pages of 40 items by id for the browser to analyse, and the
+  // scores it sends back. Updates go by primary key and leave updated_at alone (no IndexNow, no new date).
+  if (path === '/admin/bizz/seo/score-batch') {
+    if ((await me(request, fetcher))?.role !== 'admin') return Response.json({ error: 'Only administrators' }, { status: 403 })
+    if (request.method === 'POST') {
+      const origin = request.headers.get('origin'); if (origin && origin !== new URL(request.url).origin) return new Response('Forbidden', { status: 403 })
+      const body = await request.json().catch(() => null) as { scores?: { id: string; seo: number; read: number }[] } | null
+      const list = (body?.scores ?? []).filter(x => typeof x.id === 'string' && Number.isFinite(x.seo) && Number.isFinite(x.read)).slice(0, 100)
+      if (list.length) await db.batch(list.map(x => db.prepare(`UPDATE documents SET data = json_set(data, '$.seoScore', ?, '$.readabilityScore', ?) WHERE id = ? AND is_current_draft = 1`)
+        .bind(Math.max(0, Math.min(100, Math.round(x.seo))), Math.max(0, Math.min(100, Math.round(x.read))), x.id)))
+      return Response.json({ saved: list.length })
+    }
+    const after = new URL(request.url).searchParams.get('after') ?? ''
+    const { results } = await db.prepare(`SELECT id, root_id, type_id, slug, title, data FROM documents WHERE id > ? AND is_current_draft = 1 AND tenant_id = 'default'
+      AND type_id IN ('posts', 'pages', 'categories') AND (deleted_at IS NULL OR deleted_at = '') ORDER BY id LIMIT 40`).bind(after).all<{ id: string; root_id: string; type_id: string; slug: string; title: string; data: string }>()
+    const items = results.map(r => { let d: Record<string, unknown> = {}; try { d = JSON.parse(r.data) } catch { /* empty */ } return { id: r.id, root: r.root_id, col: r.type_id, slug: r.slug ?? '', title: r.title ?? '', data: d, scored: d.seoScore !== undefined && d.seoScore !== null && d.seoScore !== '' } })
+    return Response.json({ items, next: results.length === 40 ? results[results.length - 1].id : null }, { headers: { 'cache-control': 'no-store' } })
+  }
   if (path === '/admin/bizz/seo/context' || path === '/admin/bizz/seo/scores' || path === '/admin/bizz/seo/urls') {
     if (!(await me(request, fetcher))) return Response.json({ error: 'Sign in required' }, { status: 401 })
     const url = new URL(request.url)
@@ -612,7 +631,7 @@ export async function seoAdminRoute(request: Request, path: string, db: D1Databa
     const root = id ? await db.prepare('SELECT root_id FROM documents WHERE id = ?').bind(id).first<{ root_id: string }>() : null
     const { results } = await db.prepare(`SELECT root_id, title, json_extract(data, '$.focusKeyphrase') AS k FROM documents
       WHERE type_id IN ('posts', 'pages', 'categories') AND tenant_id = 'default' AND is_current_draft = 1 AND deleted_at IS NULL AND json_extract(data, '$.focusKeyphrase') <> ''`).all<{ root_id: string; title: string; k: string }>()
-    const used = results.filter(r => r.root_id !== root?.root_id).map(r => ({ phrase: String(r.k).toLowerCase().trim(), title: r.title }))
+    const used = results.filter(r => r.root_id !== root?.root_id).map(r => ({ phrase: String(r.k).toLowerCase().trim(), title: r.title, root: r.root_id }))
     return Response.json({ siteName: s.siteName || url.hostname, tagline: s.tagline, origin: url.origin, used }, { headers: { 'cache-control': 'no-store' } })
   }
   if (path !== '/admin/seo') return null
@@ -758,6 +777,28 @@ async function adminPage(tab: string, s: SeoSettings, db: D1Database, url: URL, 
     <div class="border-b border-zinc-950/5 dark:border-white/10 bizz-seo-tabbar-page"><nav class="flex overflow-x-auto" role="tablist" aria-label="SEO sections" data-bizz-tabs>${tabs}</nav></div>${saved}${content}</div>`
 }
 
+// Scores are worked out in the browser (the same analysis as the editor), so imported or old items get their
+// dots without opening each one.
+function scorePanel(unscored: number, total: number): string {
+  return `<div class="bizz-seo-group" style="margin-bottom:16px"><p class="bizz-seo-note" style="margin:0 0 8px">${unscored ? `<strong>${unscored} of ${total}</strong> items have no SEO score yet (scores are saved when an item is saved in the editor).` : `All ${total} items have a score.`}</p>
+    <div class="bizz-seo-inline"><button type="button" data-score-all data-mode="missing"${unscored ? '' : ' disabled'}>Calculate missing scores</button><button type="button" data-score-all data-mode="all" class="bizz-seo-mini">Recalculate all</button><small data-score-progress class="bizz-seo-note"></small></div></div>
+  <script>${SEO_ANALYSE_CORE}(function(){var out=document.querySelector('[data-score-progress]');
+  document.querySelectorAll('[data-score-all]').forEach(function(btn){btn.addEventListener('click',function(){
+    var all=btn.getAttribute('data-mode')==='all',done=0,after='',ctx=null;document.querySelectorAll('[data-score-all]').forEach(function(b){b.disabled=true});
+    function stop(msg){out.textContent=msg;document.querySelectorAll('[data-score-all]').forEach(function(b){b.disabled=false})}
+    function step(){fetch('/admin/bizz/seo/score-batch?after='+encodeURIComponent(after),{credentials:'same-origin'}).then(function(r){return r.json()}).then(function(j){
+      var scores=[];(j.items||[]).forEach(function(it){if(!all&&it.scored)return;var data=it.data||{};
+        var val=function(n){if(n==='slug')return it.slug||'';if(n==='title')return String(data.title||it.title||'').trim();var v=data[n];return v==null?'':String(v).trim()};
+        var d=new DOMParser().parseFromString('<div>'+(val('content')||val('body')||val('description'))+'</div>','text/html').body.firstChild;
+        var c={siteName:ctx.siteName,tagline:ctx.tagline,origin:ctx.origin,used:(ctx.used||[]).filter(function(u){return u.root!==it.root})};
+        var res=BizzSeo.analyse(val,d,it.col,c,data.noindex===true||data.noindex==='true');scores.push({id:it.id,seo:res.seo,read:res.read})});
+      var save=scores.length?fetch('/admin/bizz/seo/score-batch',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({scores:scores})}):Promise.resolve();
+      return save.then(function(){done+=scores.length;out.textContent=done+' scored…';if(j.next){after=j.next;setTimeout(step,200)}else stop(done+' items scored. Reload the page to see the dots.')})
+    }).catch(function(){stop('Stopped after '+done+'. Press the button again to continue.')})}
+    fetch('/admin/bizz/seo/context',{credentials:'same-origin'}).then(function(r){return r.json()}).then(function(c){ctx=c;step()}).catch(function(){stop('Could not start. Try again.')})
+  })})})();</script>`
+}
+
 async function checkTab(db: D1Database): Promise<string> {
   const { results } = await db.prepare(`SELECT id, type_id, title, data FROM documents WHERE type_id IN ('posts', 'pages', 'categories') AND tenant_id = 'default' AND is_current_draft = 1 AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT 3000`)
     .all<{ id: string; type_id: string; title: string; data: string }>()
@@ -778,13 +819,15 @@ async function checkTab(db: D1Database): Promise<string> {
     }
     if (/<img(?![^>]*\balt=["'][^"']+["'])[^>]*>/i.test(String(d.content ?? d.body ?? ''))) issues.push('Image without alt text')
     if (d.noindex === true) issues.push('Hidden from search (noindex)')
-    const score = typeof d.seoScore === 'number' ? d.seoScore : null
+    // Saved from the editor form as text, from the bulk scorer as a number.
+    const score = d.seoScore !== undefined && d.seoScore !== null && d.seoScore !== '' && Number.isFinite(Number(d.seoScore)) ? Number(d.seoScore) : null
     return { r, issues, score, key: d.keyContent === true }
   }).filter(x => x.issues.length || (x.score !== null && x.score < 45))
     .sort((a, b) => Number(b.key) - Number(a.key) || b.issues.length - a.issues.length)
   const dot = (n: number | null) => `<span class="bizz-seo-dot ${n === null ? 'is-none' : n >= 70 ? 'is-good' : n >= 45 ? 'is-ok' : 'is-bad'}" title="${n === null ? 'Not analysed yet: open and save it once' : `SEO score ${n}`}"></span>`
   const label: Record<string, string> = { posts: 'Post', pages: 'Page', categories: 'Category' }
-  return `<p class="bizz-seo-note">${rows.length ? `${rows.length} of ${items.length} items need attention. Key content first.` : `All ${items.length} items look good.`} Open an item and use <strong>Auto-fill SEO</strong> in its SEO panel to fix most of these in one click.</p>
+  const unscored = items.filter(x => x.d.seoScore === undefined || x.d.seoScore === null || x.d.seoScore === '').length
+  return `${scorePanel(unscored, items.length)}<p class="bizz-seo-note">${rows.length ? `${rows.length} of ${items.length} items need attention. Key content first.` : `All ${items.length} items look good.`} Open an item and use <strong>Auto-fill SEO</strong> in its SEO panel to fix most of these in one click.</p>
     <table class="bizz-seo-table"><thead><tr><th></th><th>Title</th><th>Type</th><th>To fix</th></tr></thead><tbody>
     ${rows.slice(0, 500).map(x => `<tr><td>${dot(x.score)}</td><td><a href="/admin/content/${e(x.r.id)}/edit">${e(x.r.title || '(no title)')}</a>${x.key ? ' <span class="bizz-seo-key">Key</span>' : ''}</td><td>${label[x.r.type_id] ?? x.r.type_id}</td><td>${x.issues.map(i => `<span class="bizz-seo-issue">${e(i)}</span>`).join('')}</td></tr>`).join('')}
     </tbody></table>`

@@ -15,7 +15,7 @@ Search engine optimisation for every BizzCMS site, modelled on Yoast SEO (our ow
 
 **Auto-fill SEO** (button on the card) fills every empty SEO field from the content: focus keyphrase (best two or three word phrase from the title, headings, summary, tags and text), related keyphrases, meta description (the summary, or the first sentences, preferring the one with the keyphrase, cut at about 155 characters), a shorter SEO title when the title is too long, and the featured image description. It never overwrites a field that already has text. Meta keywords are not used: Google ignores them; the focus and related keyphrases do that job and go into the Article structured data.
 
-The scores are saved with the item; the **Content** list shows them as two dots next to each title.
+The scores are saved with the item; the **Content** list shows them as two dots next to each title. Items that were imported or never opened have no score yet: **SEO › Check › Calculate missing scores** works them out for all items at once (same analysis, in your browser, in batches); **Recalculate all** refreshes every score.
 
 **Admin › SEO** (`/admin/seo`, also under Plugins in the sidebar):
 

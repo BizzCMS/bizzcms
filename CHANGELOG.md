@@ -4,6 +4,9 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Added
+- SEO › Check: **Calculate missing scores** / **Recalculate all**. Imported or old items get their SEO and readability scores (the dots in the Content list) without opening each one: the browser runs the same analysis as the editor in batches of 40, updates go by id and keep `updated_at` (no IndexNow, no cache flush). The analysis now lives in one shared script (`SEO_ANALYSE_CORE`).
+
 ### Fixed
 - IndexNow after a save read the whole documents table (no index on `updated_at`); it now creates `idx_documents_updated_at` once and reads only the last minute's changes.
 
