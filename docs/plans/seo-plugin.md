@@ -8,6 +8,27 @@ SEO is spread out today. Pages have SEO title and description, bizzcms.com pages
 
 One shared plugin gives every BizzCMS site the same SEO tools, and sites keep only their design.
 
+## Modelled on Yoast SEO
+
+Editors already know Yoast from WordPress, so BizzCMS follows its shape (our own code and wording, nothing copied):
+
+| Yoast SEO | BizzCMS SEO plugin |
+|---|---|
+| Yoast box under the editor: Google preview, SEO title, meta description, slug | **SEO panel** on pages, posts and categories with the same live Google preview |
+| Focus keyphrase + SEO analysis with traffic lights (green / orange / red) | Focus keyphrase + checks: keyphrase in title, description, slug, first paragraph and an image alt; title and description length; links in and out; text length |
+| Readability analysis | Sentence and paragraph length, subheadings every ~300 words, passive voice (English first) |
+| Social tab: Facebook and X previews | **Social** tab: share title, description and image, with previews |
+| Advanced: noindex, canonical, breadcrumbs title | **Advanced**: noindex, nofollow, canonical URL, breadcrumb title |
+| Cornerstone content | **Key content** flag: listed first in the Check tab and in internal-link suggestions |
+| Settings: site representation, title templates, separators | **General** tab: Organization or Person, logo, social profiles, title templates per type |
+| XML sitemaps per content type | Automatic sitemap index with one sitemap per type (pages, posts, categories, tags) |
+| Breadcrumbs | `breadcrumbs()` helper + BreadcrumbList structured data |
+| Schema graph (Organization, WebSite, WebPage, Article) | The same graph, built from the settings and each item |
+| Redirect manager (Premium) | **Redirects** tab, included |
+| Score column in the posts list | SEO and readability dots in the Content list |
+
+What we skip: Yoast's paid AI features, internal-linking blocks inside the editor (later, maybe), and anything that needs an external service.
+
 ## What the owner sees
 
 **Admin › Plugins › SEO**, one page with tabs:
@@ -19,10 +40,10 @@ One shared plugin gives every BizzCMS site the same SEO tools, and sites keep on
 | Redirects | List of old URL → new URL with 301/302, search, add, edit, import from CSV. Hit counter, so dead redirects can be removed later. |
 | Check | A list of pages and posts with SEO problems: missing description, title too long or too short, missing image alt text, duplicate titles. |
 
-**On every page, post and category**, a small **SEO** section in the editor:
-- SEO title and description, with a live length hint and a Google-style preview;
-- share image (picked from Media; falls back to the featured image, then the site default);
-- canonical URL (optional) and **noindex** (keep this page out of search).
+**On every page, post and category**, an **SEO panel** in the editor (Yoast style) with three tabs:
+- **SEO**: focus keyphrase, SEO title, meta description, live Google preview, and the traffic-light checks (SEO and readability) updating as you type;
+- **Social**: share title, description and image (picked from Media; falls back to the featured image, then the site default), with Facebook and X previews;
+- **Advanced**: noindex, nofollow, canonical URL, breadcrumb title, Key content flag.
 
 ## What the website gets, automatically
 
@@ -43,16 +64,17 @@ Sites that already render their own tags (bizzcms.com, Ingenium) call one helper
 
 ## Order of work
 
-1. **Redirects** (Ingenium needs them for the import) and the SEO section on posts and categories.
-2. General settings, title pattern, share image fallbacks, `seoHead()` helper; switch bizzcms.com and Ingenium to it.
-3. Automatic sitemap.xml, robots.txt and llms.txt from the plugin.
-4. Structured data (Article, BreadcrumbList).
-5. The Check tab.
+1. **Redirects** (Ingenium needs them for the import).
+2. **SEO panel** with SEO / Social / Advanced tabs, Google preview, General settings, title templates, `seoHead()` helper; switch bizzcms.com and Ingenium to it.
+3. **Analysis**: focus keyphrase checks and readability, with traffic lights in the editor and dots in the Content list.
+4. Automatic sitemaps, robots.txt and llms.txt; structured data graph and breadcrumbs.
+5. The Check tab and Key content.
 
 Each step is local first, tested, and deployed only on the owner's go.
 
 ## Decisions for the owner
 
-1. Build in this order, starting with redirects for Ingenium?
+1. Build in this order, Yoast-style, starting with redirects for Ingenium?
 2. Redirect screen: use the SonicJS plugin if it works, or always our own small one?
-3. Should the Check tab also flag missing featured images and posts without categories?
+3. Readability checks in English only at first, Croatian later?
+4. Should the Check tab also flag missing featured images and posts without categories?
