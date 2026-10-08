@@ -640,3 +640,17 @@ html:not(.dark) [data-bizz-surface] :is([class^="text-lime-"], [class*=" text-li
 .dark [data-bizz-surface] .method-badge.method-post { background: rgb(196 245 106 / .14) !important; color: var(--bz-lime) !important; }
 .dark [data-bizz-surface] .method-badge:is(.method-put, .method-patch) { background: rgb(245 158 11 / .14) !important; color: #fcd34d !important; }
 .dark [data-bizz-surface] .method-badge.method-delete { background: rgb(239 68 68 / .14) !important; color: #fca5a5 !important; }
+
+/* Settings › API: two choice cards */
+.bizz-api-options { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.bizz-api-option { display: flex; gap: 12px; align-items: flex-start; padding: 16px 18px; border: 1px solid var(--bz-line); border-radius: 14px; background: var(--bz-surface); cursor: pointer; transition: border-color .15s, background .15s; }
+.bizz-api-option:hover { border-color: var(--bz-blue); }
+.bizz-api-option:has(input:checked) { border-color: var(--bz-blue); background: var(--bz-blue-50); }
+.dark .bizz-api-option:has(input:checked) { border-color: var(--bz-lime); background: var(--bz-accent-bg-dark); }
+.bizz-api-option input { margin-top: 3px; accent-color: var(--bz-blue); }
+.bizz-api-option strong { display: block; font-size: 14px; font-weight: 600; color: var(--bz-navy); }
+.bizz-api-option small { display: block; margin-top: 4px; font-size: 13px; line-height: 1.5; color: var(--bz-muted); }
+.bizz-api-settings code { font-size: 12px; padding: 1px 6px; border-radius: 6px; background: var(--bz-canvas); }
+.bizz-api-settings a { color: var(--bz-blue); font-weight: 600; }
+.dark .bizz-api-settings a { color: var(--bz-lime); }
+.bizz-api-saved { display: inline-block; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--bz-blue-50); color: var(--bz-blue); }

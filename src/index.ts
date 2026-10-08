@@ -9,6 +9,7 @@ import { brandApiSpec } from './api'
 import { landingPage } from './landing'
 import { blogResponse } from './blog'
 import { checkRegisterPasswords } from './auth'
+import { guardApi, apiSettingsPage, withApiTab } from './api-access'
 
 registerCollections([pages, posts])
 
@@ -46,9 +47,18 @@ export default {
     // Registration needs a matching "Repeat password" (checked before upstream creates the account).
     const passwordMismatch = await checkRegisterPasswords(request, path)
     if (passwordMismatch) return passwordMismatch
+    const db = (env as unknown as { DB: D1Database }).DB
+    const upstream = (r: Request) => Promise.resolve(cms.fetch(r, env, ctx))
+    // Settings › API: our page inside upstream's settings layout.
+    if (path === '/admin/settings/api') {
+      return applyBranding(withApiTab(await apiSettingsPage(request, db, upstream), path), path)
+    }
+    // The REST API is closed unless the owner opens it (Settings › API).
+    const denied = await guardApi(request, path, db, upstream)
+    if (denied) return denied
     const response = await cms.fetch(request, env, ctx)
     // After upstream's startup seeding has run: replace its SonicJS welcome post.
     await ensureBizzWelcome((env as unknown as { DB: D1Database }).DB).catch(e => console.error('welcome post', e))
-    return applyBranding(await brandApiSpec(response, path), path)
+    return applyBranding(withApiTab(await brandApiSpec(response, path), path), path)
   }
 }

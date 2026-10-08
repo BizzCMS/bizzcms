@@ -20,6 +20,10 @@ Create a lightweight open-source business website CMS, preferably by extending S
 - Store4 is proprietary reference material unless the owner separately authorizes code reuse and its licensing is established. Inspect concepts; do not copy it into this open-source repository.
 - Preserve all upstream licenses. Clearly distinguish original BizzCMS code from third-party material.
 - Use codex/ as the default prefix for working branches. Do not publish a GitHub repository, deploy, or configure the domain without a user request.
+- Admin look and behaviour change here first (`src/branding.ts`, `public/brand/admin.css`); sites copy it with `npm run sync:core`. Never patch `node_modules`.
+- Keep the REST API closed by default (docs/api-access.md).
+- Every change gets a CHANGELOG "Unreleased" line; releases are patch bumps (docs/releasing.md).
+- No AI co-author or attribution lines in commits or pull requests.
 - Update documentation when decisions change. Record evidence and measured results rather than inventing benchmarks.
 
 ## Local references

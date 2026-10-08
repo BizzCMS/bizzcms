@@ -7,6 +7,16 @@
 - Add original-project MIT license and planned upstream attribution guidance.
 - Publish the planning repository at https://github.com/BizzCMS/bizzcms following the owner's explicit request.
 - Integrate the pinned SonicJS package for local evaluation; verify login and page creation/editing. See local-development.md. The full compatibility review below is still pending.
+- Branding and admin theme (0.2.0, 0.2.1): teal/lime palette, new logo set, light default with dark switch, every admin and sign-in page restyled, one button standard. See branding.md.
+- First websites on BizzCMS in `C:\RepositoryAI\sites`: bizzcms-site (bizzcms.com, NextSaaS-based home page), ingeniumweb-site, planervjencanja. They copy the admin layer with `npm run sync:core`.
+- Blog: `/blog` list and article pages with sample posts in the local database.
+- API closed by default with a Settings › API switch and API keys for apps (api-access.md).
+
+## Now (2026-10-08)
+
+- Release 0.2.2: logo border, green "CMS" wordmark, button standard, role chips, API Reference look, API access setting, docs refresh. Then sync the sites.
+- bizzcms-site: replace placeholder content (testimonials, prices) with real copy together with the owner before anything is published.
+- Deployment and DNS for bizzcms.com: only on the owner's request.
 
 ## Next: bounded SonicJS compatibility review
 

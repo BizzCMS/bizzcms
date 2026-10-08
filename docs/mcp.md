@@ -14,3 +14,5 @@ For an external MCP client, create an appropriate API key and configure the HTTP
 Verified on 2026-09-16 using an authenticated local session: dashboard HTTP 200, initialize, tools/list, and list_collections. Unauthenticated tools/list returns a JSON-RPC unauthorized error. API-key client integration has not yet been tested. The upstream protocol currently identifies itself as sonicjs-mcp 1.0.0; this is distinct from the BizzCMS product version.
 
 The upstream beta's DefinedPlugin and SonicJSConfig declarations disagree on legacy route/lifecycle signatures. A narrow type assertion bridges that declaration mismatch; runtime mounting and the operations above were verified.
+
+Re-checked on 2026-10-08: `/mcp` answers anonymous calls with JSON-RPC error -32001 ("provide a valid API key"), and a signed-in admin (with the CSRF header) gets the five tools. MCP sits outside `/api`, so the API access setting (docs/api-access.md) does not change it; it always needs a login or an API key.

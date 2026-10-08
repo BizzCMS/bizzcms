@@ -4,7 +4,11 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Added
+- Settings › API: the REST API is closed by default. Anonymous requests to `/api` get 401 (health checks excepted); signed-in users and API keys (Plugins › API Keys) work as before. The owner can open it for anonymous reading. See docs/api-access.md.
+
 ### Changed
+- Documentation: branding.md rewritten for the current theme; roadmap, decisions, README and agent guide updated.
 - The BizzCMS mark gets a thin dark-teal border inside the C; the centre stays transparent.
 - Wordmark: "CMS" in green (teal on light, lime on dark) in the admin, sign-in pages, site header/footer and the logo files.
 - One button standard across the admin, taken from the Migrations page: 40px high, 10px corners, 12px medium text, 16px icons. Teal primary, outlined secondary, red danger (Truncate All Data, Deactivate).

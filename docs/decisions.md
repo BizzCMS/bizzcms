@@ -56,6 +56,17 @@ Date: 2026-09-16. This document separates explicit owner direction from proposed
 
 The owner subsequently requested public GitHub publication. On 2026-09-16, the planning repository was published at https://github.com/BizzCMS/bizzcms with main as the default branch. Earlier statements about no remote describe the initial planning setup. SonicJS integration, domain configuration, and deployment remain pending.
 
+## Owner decisions, 2026-10-08
+
+- All websites live in `C:\RepositoryAI\sites` and run on BizzCMS; templates are kept in `sites\_templates`. GitHub organisation BizzCMS: `bizzcms` public, the site repositories private (commercial template licences).
+- BizzCMS is finished before other site work.
+- Admin look follows the bizzcms.com front end: teal and lime, white by default, dark mode on request. Restyle globally, not page by page. Buttons follow the Migrations page.
+- Logo: no white or black fill in the middle of the C; a thin border inside it; "CMS" in green.
+- Versioning: every release is a patch bump (0.2.1, 0.2.2, …); the minor number moves only on the owner's request.
+- One local admin account for every local BizzCMS site.
+- The REST API is closed by default; the owner can open it in Settings › API. Apps use API keys.
+- Commits carry no AI co-author or attribution lines.
+
 ## Local evaluation follow-up
 
 The owner then requested a working local application. SonicJS 3.0.0-beta.28 was integrated as a package with Pages and Posts collections, local Wrangler emulation, administrator setup, and console-only email. Authentication dependency overrides were required for login; see local-development.md. Local R2 emulation is a development exception, not a change to the external production media requirement. No cloud deployment or domain configuration was performed.
