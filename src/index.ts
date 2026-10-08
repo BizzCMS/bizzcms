@@ -7,6 +7,7 @@ import { applyBranding } from './branding'
 import { ensureBizzWelcome } from './welcome'
 import { brandApiSpec } from './api'
 import { landingPage } from './landing'
+import { blogResponse } from './blog'
 
 registerCollections([pages, posts])
 
@@ -33,6 +34,9 @@ const cms = createSonicJSApp({
 export default {
   async fetch(request: Request, env: Parameters<typeof cms.fetch>[1], ctx: ExecutionContext) {
     const path = new URL(request.url).pathname
+    if ((path === '/blog' || path.startsWith('/blog/')) && request.method === 'GET') {
+      return blogResponse((env as unknown as { DB: D1Database }).DB, metadata.version, path)
+    }
     if ((path === '/' || path === '/about') && request.method === 'GET') {
       return new Response(landingPage(metadata.version, path === '/about'), {
         headers: { 'content-type': 'text/html; charset=utf-8' }

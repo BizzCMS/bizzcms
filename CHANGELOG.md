@@ -4,7 +4,12 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Added
+- Blog at /blog with post pages, safe article HTML and a refreshed core landing page (`public/brand/landing.css`).
+- Admin workspace bar (breadcrumb and "View website"), redesigned content library, settings tabs, media rail and migrations cards.
+
 ### Changed
+- Admin palette is teal and lime to match the BizzCMS website; the BizzCMS mark stays blue.
 - The OpenAPI spec at /api is "BizzCMS API" with BizzCMS contact and licence, pretty-printed; the admin Docs menu calls it "OpenAPI spec (JSON)" and Developer Docs points to GitHub.
 - Plugins screen: a line icon per plugin in BizzCMS tiles instead of emoji, readable names for the two raw ids (Magic Link Login, Email Delivery Sync), tidier descriptions, and rounder cards.
 
