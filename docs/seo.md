@@ -1,6 +1,6 @@
 # SEO plugin
 
-Search engine optimisation for every BizzCMS site, modelled on Yoast SEO (our own code and wording). Plan and background: [plans/seo-plugin.md](plans/seo-plugin.md).
+Search engine optimisation for every BizzCMS site, modelled on Yoast SEO (our own code and wording).
 
 ## For editors
 
@@ -44,4 +44,3 @@ Imports add redirects with `addRedirects(db, [{ source, target, status }])`.
 
 Storage: settings in `bizz_settings` (`seo.settings`), redirects in `bizz_redirects` (created on first use). No extra services.
 
-Example: `sites/bizzcms-site` (`src/index.ts`, `src/pages.ts`, `src/blog.ts`).

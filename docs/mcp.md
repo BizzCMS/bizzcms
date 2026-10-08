@@ -1,18 +1,19 @@
-# Local MCP
+# MCP server (AI assistants)
 
-Enabled in src/index.ts using SonicJS's built-in mcpPlugin.
+Every BizzCMS site has a read-only Model Context Protocol server, so AI assistants can read your pages and posts.
 
-- Dashboard: http://127.0.0.1:8787/admin/mcp (administrator login required).
-- Endpoint: http://127.0.0.1:8787/mcp (JSON-RPC POST).
-- API keys: http://127.0.0.1:8787/admin/plugins/api-keys.
-- Exposed collections: pages and posts only, read-only, limit 25.
+- Admin page: **/admin/mcp** (shows the endpoint, the tools and ready-to-copy client configs).
+- Endpoint: **/mcp** (JSON-RPC over HTTP POST).
+- Access: a signed-in user or an API key (Plugins › API Keys), sent as `Authorization: Bearer sk_…`. Anonymous calls get error -32001.
+- Exposed: pages and posts, read-only, up to 25 items per list.
+- Tools: `list_collections`, `list_pages`, `get_pages`, `list_posts`, `get_posts`. There are no write tools.
 
-Available tools: list_collections, list_pages, get_pages, list_posts, get_posts. No write tools are exposed. Reading drafts depends on the authenticated user's permissions.
+MCP is separate from the REST API, so the API access setting ([api-access.md](api-access.md)) does not change it: it always needs a login or an API key.
 
-For an external MCP client, create an appropriate API key and configure the HTTP endpoint with `Authorization: Bearer <key>`. Keep keys out of Git. A remote/cloud client cannot reach your computer's 127.0.0.1 endpoint. Client-specific transport compatibility remains to be tested.
+## Connect a client
 
-Verified on 2026-09-16 using an authenticated local session: dashboard HTTP 200, initialize, tools/list, and list_collections. Unauthenticated tools/list returns a JSON-RPC unauthorized error. API-key client integration has not yet been tested. The upstream protocol currently identifies itself as sonicjs-mcp 1.0.0; this is distinct from the BizzCMS product version.
+1. In the admin, open **MCP** and click **Mint API Key**. Keep the key out of Git.
+2. Add the server to your client with the URL `https://your-site.com/mcp` and the key as a Bearer token. The admin page has configs for Claude Code and Cursor.
+3. For [Lucy](https://justlucy.ai): Connectors › Add custom, enter the URL and the key (just `sk_…`).
 
-The upstream beta's DefinedPlugin and SonicJSConfig declarations disagree on legacy route/lifecycle signatures. A narrow type assertion bridges that declaration mismatch; runtime mounting and the operations above were verified.
-
-Re-checked on 2026-10-08: `/mcp` answers anonymous calls with JSON-RPC error -32001 ("provide a valid API key"), and a signed-in admin (with the CSRF header) gets the five tools. MCP sits outside `/api`, so the API access setting (docs/api-access.md) does not change it; it always needs a login or an API key.
+A client running in the cloud cannot reach a site on your own computer (127.0.0.1); use a deployed site.

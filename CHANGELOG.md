@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to BizzCMS. Versions follow [semantic versioning](https://semver.org): each release bumps the patch number (0.2.1, 0.2.2, …); the minor number moves only on the owner's request. How to release: [docs/releasing.md](docs/releasing.md).
+All notable changes to BizzCMS. Versions follow [semantic versioning](https://semver.org): each release bumps the patch number (0.2.1, 0.2.2, …)
 
 ## [Unreleased]
 
@@ -35,10 +35,10 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 - Plugin **Google Analytics** (Admin › Plugins): Measurement ID, consent banner on/off, banner text and policy link in a Settings tab. Public HTML pages get a cookie banner; Google Analytics loads only after Accept (Consent Mode v2, nothing sent before), the choice is remembered, Reject keeps it off. Never on admin, sign-in or API pages, never on localhost (`?bizz-ga-preview` shows it locally). Any element with `data-cookie-settings` reopens the banner. Install works around an upstream slug clash for code-registered plugins.
 
 ### Security
-- Blocked upstream's unauthenticated `POST /auth/seed-admin`, which creates or resets an admin account with a password published in the SonicJS source. It now returns 404 on every BizzCMS site.
+- Blocked upstream's unauthenticated `POST /auth/seed-admin`, which creates or resets an admin account with a publicly known password. It now returns 404 on every BizzCMS site.
 
 ### Fixed
-- Admin, sign-in and API pages could hang for about 20 seconds on the live site. SonicJS keeps start-up state as one shared promise per Worker isolate; when the request that started it was cancelled (tab closed, link clicked twice), that promise never settled and every later request on the isolate waited for it. SonicJS calls now always run to completion (`src/upstream.ts`, `ctx.waitUntil`).
+- Admin, sign-in and API pages could hang for about 20 seconds on the live site. The framework keeps start-up state as one shared promise per Worker isolate; when the request that started it was cancelled (tab closed, link clicked twice), that promise never settled and every later request on the isolate waited for it. Framework calls now always run to completion (`src/upstream.ts`, `ctx.waitUntil`).
 
 ### Changed
 - Content editor: "Preview Content" became "View on Website" and opens the published page in a new tab (pages by path, posts at /blog/<slug>) instead of upstream's bare preview page.
@@ -52,16 +52,16 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 ## [0.2.2] - 2026-10-08
 
 ### Added
-- Settings › API: the REST API is closed by default. Anonymous requests to `/api` get 401 (health checks excepted); signed-in users and API keys (Plugins › API Keys) work as before. The owner can open it for anonymous reading. See docs/api-access.md.
+- Settings › API: the REST API is closed by default. Anonymous requests to `/api` get 401 (health checks excepted); signed-in users and API keys (Plugins › API Keys) work as before. An administrator can open it for anonymous reading. See docs/api-access.md.
 
 ### Changed
-- Documentation: branding.md rewritten for the current theme; roadmap, decisions, README and agent guide updated.
+- Documentation updated.
 - The BizzCMS mark gets a thin dark-teal border inside the C; the centre stays transparent.
 - Wordmark: "CMS" in green (dark teal #086568 on light, lime on dark) in the admin, sign-in pages, site header/footer and the logo files.
 - One button standard across the admin, taken from the Migrations page: 40px high, 10px corners, 12px medium text, 16px icons. Teal primary, outlined secondary, red danger (Truncate All Data, Deactivate).
 - Roles & permissions: the "Compare roles" checkboxes became toggle pills with a check mark.
 - API Reference: method badges are soft tinted pills; stat numbers no longer use lime on white.
-- `/api/system/info` reports BizzCMS and its version instead of SonicJS.
+- `/api/system/info` reports BizzCMS and its version.
 
 ## [0.2.1] - 2026-10-08
 
@@ -100,9 +100,9 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 - New BizzCMS mark as SVG (admin logo, favicon, landing page).
 
 ### Changed
-- The starter blog post is "Welcome to BizzCMS" and stays that way after SonicJS upgrades.
-- The admin shows BizzCMS instead of SonicJS wherever it can: plugin names, authors and descriptions, and the new-collection screen. SonicJS is credited on /about and in the repository.
-- The version badge always shows the BizzCMS version; some upstream pages showed the SonicJS version.
+- The starter blog post is "Welcome to BizzCMS" and stays that way after framework upgrades.
+- The admin shows BizzCMS everywhere: plugin names, authors and descriptions, and the new-collection screen.
+- The version badge always shows the BizzCMS version; some pages showed the framework version.
 - The GitHub home is now github.com/BizzCMS/bizzcms.
 
 ### Fixed
@@ -111,4 +111,4 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 ## [0.1.0] - 2026-09-16
 
 ### Added
-- First local version: SonicJS 3.0.0-beta.28, Pages and Posts collections, the BizzCMS name and logo in the admin, read-only MCP, local setup without a cloud account.
+- First local version: Pages and Posts collections, the BizzCMS name and logo in the admin, read-only MCP, local setup without a cloud account.

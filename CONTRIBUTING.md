@@ -1,9 +1,11 @@
 # Contributing
 
-BizzCMS is currently a local evaluation app. Start with the README and documented requirements.
+Thanks for helping. Start with the [README](README.md) and [local development](docs/local-development.md).
 
-For proposed implementation changes, explain the CMS need, maintenance cost, deployment compatibility, and verification. Prefer small changes using upstream SonicJS extension points. New dependencies should have a clear purpose and compatible license.
+- Explain the need, the cost of maintaining it, and how you tested it. Prefer small changes.
+- New dependencies need a clear purpose and a licence compatible with MIT.
+- Never submit credentials, client content or code you do not own.
+- Add a line under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md).
+- Run `npm run type-check` and try the changed admin screens in a browser.
 
-Do not submit credentials, client content, or proprietary code from other projects. Contributions are made under this repository's MIT license; retain third-party notices where applicable.
-
-Use `npm ci`, `npm run setup`, and `npm run dev` for local evaluation. Run `npm run type-check` and verify relevant browser flows after changes. See docs/local-development.md. There are no supported production releases or automated browser tests yet.
+Contributions are made under this repository's [MIT licence](LICENSE); keep the third-party notices.

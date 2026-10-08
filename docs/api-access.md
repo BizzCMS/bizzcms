@@ -1,6 +1,6 @@
 # API access
 
-Since 0.2.2 (unreleased) the REST API under `/api` is **closed by default**. Owner decision, 2026-10-08.
+Since 0.2.2 the REST API under `/api` is **closed by default**.
 
 ## Behaviour
 

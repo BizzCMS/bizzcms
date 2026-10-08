@@ -2,51 +2,36 @@
 
 ## Start
 
-Prerequisite: Node.js 24 (LTS) and npm; `.nvmrc` pins the major version. Verified with Node.js 24.21.0 on Windows.
+Node.js 24 (LTS) and npm; `.nvmrc` pins the major version.
 
-```powershell
-cd C:\RepositoryAI\bizzcms
+```bash
+git clone https://github.com/BizzCMS/bizzcms.git
+cd bizzcms
 npm ci
 npm run setup
 npm run dev
 ```
 
-Visit http://127.0.0.1:8787/admin. Sign in as `admin@bizzcms.local` using the generated password in `private/local-admin.txt`. The setup script is repeatable: migrations run locally and an existing account/content is preserved. It does not reset forgotten passwords.
+Open http://127.0.0.1:8787/admin and sign in as `admin@bizzcms.local` with the generated password in `private/local-admin.txt`. Setup is repeatable: it runs the migrations and never resets an existing account or content. Later, `npm run dev` is all you need; stop it with Ctrl+C. If port 8787 is taken, stop the earlier instance instead of starting a second one.
 
-For subsequent runs, use `npm run dev`. Keep that terminal running and press Ctrl+C to stop it. If port 8787 is already occupied, stop the previous BizzCMS instance rather than launching a second one.
+## What runs locally
 
-## What works in this evaluation
-
-- SonicJS 3.0.0-beta.28 through the npm core package; no maintained fork.
-- Upstream authentication and admin interface.
-- Pages collection with title, slug, rich text, and SEO fields.
-- Posts collection with title, slug, summary, featured image (picked from Media) with its description, sponsored flag with sponsor name and link, and rich text. See posts.md.
-- Local D1 migrations and random-password administrator bootstrap.
-- D1/R2/KV emulation with persisted local state under `.wrangler/`.
-- Console email provider: logs messages rather than sending them.
-
-The existing machine has a draft named "Welcome to BizzCMS" created through the browser during verification. It is local database content, not a tracked seed for every clone. Upstream also seeds its own welcome content and system collections.
+- The full admin: pages, posts, categories, media, users and roles, plugins, settings, SEO.
+- D1 (database), R2 (media) and KV (cache) emulated by Wrangler, kept under `.wrangler/`.
+- E-mail is printed to the console instead of sent.
+- No Cloudflare account is needed.
 
 ## Data and secrets
 
-`.dev.vars` contains generated authentication secrets. `private/local-admin.txt` contains local credentials. Both are ignored by Git, as is `.wrangler/`. Do not delete emulator state unless intentionally resetting local data. Media uploads in this environment are development fixtures stored by the local R2 emulator, not production external storage.
+`.dev.vars` holds generated authentication secrets and `private/local-admin.txt` the local login. Both are ignored by Git, as is `.wrangler/`. Delete `.wrangler/` only when you want to start with an empty local database.
 
-The server listens on 127.0.0.1 only. Cloudflare resources, domain/DNS, production credentials, and outgoing email are not configured. Do not deploy this local configuration: resource IDs are placeholders.
+The dev server listens on 127.0.0.1 only. The resource IDs in `wrangler.toml` are placeholders for local use; a production deployment needs its own D1, R2 and KV resources and secrets.
 
-## Dependency compatibility
+## Dependency pins
 
-The upstream beta permits Better Auth versions that are incompatible with its current organization schema. An initial install resolved Better Auth 1.7.5 and login failed with a Drizzle schema mismatch. The application pins Better Auth, its Drizzle adapter, and telemetry package to 1.6.23 using npm overrides. Login then succeeded.
+`package.json` pins the authentication library and its database adapter (npm `overrides`) to versions that work with the current schema, and pins two packages to versions without known advisories. The lockfile captures the tested dependency tree. Check these pins when upgrading dependencies.
 
-Additional overrides: Drizzle ORM 0.45.2 and csv-parse 7.0.2 address findings reported by npm audit. These exceed upstream's older declared ranges and must be reconsidered when upgrading SonicJS. The lockfile captures the tested dependency tree. The CSV import feature has not been exercised; its override is not a blanket compatibility guarantee.
+## Checks
 
-## Verified on 2026-09-16
-
-- Local migrations and administrator creation.
-- Repeat setup without resetting the account.
-- TypeScript check passed.
-- npm audit reported zero vulnerabilities for the installed tree (not a complete security audit).
-- Browser login, Pages/Posts creation menu, draft page creation, and rich-text editing/save.
-
-## Remaining work
-
-This is the CMS evaluation foundation, not a finished website product. BizzCMS branding and independent versioning are applied to admin/login screens, and a code-rendered landing page is available at /. See branding.md. A CMS-editable public website, publication/preview acceptance, media-upload acceptance, real R2/S3 integration, email delivery, MySQL/cPanel, remote D1 mode, and production hardening remain to be verified/implemented. Do not infer those capabilities from a successful local login.
+- `npm run type-check` before every commit.
+- Try the changed admin screens in a browser: sign in, open and save a page and a post.

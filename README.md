@@ -13,7 +13,7 @@
   <a href="https://bizzcms.com"><strong>bizzcms.com</strong></a> ·
   <a href="https://github.com/BizzCMS/bizzcms/releases">Releases</a> ·
   <a href="CHANGELOG.md">Changelog</a> ·
-  <a href="docs/roadmap.md">Roadmap</a> ·
+  <a href="docs/features.md">Features</a> ·
   MIT licence
 </p>
 
@@ -57,6 +57,8 @@ Most business websites need the same things: pages, a blog, images, a few people
 </table>
 
 ## Features
+
+The highlights are below; the full list is in [docs/features.md](docs/features.md).
 
 **Content**
 - Pages with SEO title, description and share image; posts with summary and rich text (Lexical editor).
@@ -115,30 +117,22 @@ No Cloudflare account is needed locally: D1, R2 and KV are emulated under `.wran
 
 ## Hosting
 
-| Mode | Application and website | Database | Media | Status |
-| --- | --- | --- | --- | --- |
-| Cloudflare | Cloudflare Workers | Cloudflare D1 | R2 | **Available**, in production |
-| cPanel | Node.js on cPanel | MySQL | R2 or S3 | Planned |
-| Hybrid | Node.js on cPanel | Cloudflare D1 | R2 or S3 | Planned |
-
-Media always lives in external storage (R2 or S3), in every mode. PHP is not planned.
+BizzCMS runs serverless on Cloudflare: Workers for the app and website, D1 for the database, R2 for media and KV for caching. Your content stays in your own Cloudflare account.
 
 ## Documentation
 
-- [Architecture and compatibility](docs/architecture.md)
-- [Posts: featured image and sponsored posts](docs/posts.md)
+- [All features](docs/features.md)
+- [Posts, categories, tags, sponsored posts](docs/posts.md)
+- [SEO](docs/seo.md)
 - [API access (closed by default)](docs/api-access.md)
-- [MCP setup](docs/mcp.md)
-- [Branding and admin theme](docs/branding.md)
+- [MCP for AI assistants](docs/mcp.md)
 - [Local development](docs/local-development.md)
-- [Product requirements](docs/product-requirements.md), [decisions](docs/decisions.md) and [research](docs/research.md)
-- [Roadmap](docs/roadmap.md), [changelog](CHANGELOG.md) and [releasing](docs/releasing.md)
-- [Contributing](CONTRIBUTING.md) and [agent instructions](AGENTS.md)
+- [Changelog](CHANGELOG.md) and [contributing](CONTRIBUTING.md)
 
 ## Licence and attribution
 
 BizzCMS is available under the [MIT licence](LICENSE).
 
-**BizzCMS is built on [SonicJS](https://github.com/lane711/sonicjs)** (pinned to 3.0.0-beta.28). Its licence is preserved in [licenses/sonicjs-MIT.txt](licenses/sonicjs-MIT.txt); see the [third-party notices](THIRD_PARTY_NOTICES.md).
+Open-source components used by BizzCMS and their licences: [third-party notices](THIRD_PARTY_NOTICES.md).
 
 <p align="center">Made with ♥ by <a href="https://ingenium.software/">Ingenium</a></p>
