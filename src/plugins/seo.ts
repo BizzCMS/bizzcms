@@ -6,6 +6,7 @@
 //   social tags, structured data graph), seoSitemap (index + one sitemap per type), seoRobots, seoLlms,
 //   IndexNow (seoIndexNowKey serves the key file, seoIndexNowChanged pings after admin saves).
 // Settings live in bizz_settings ('seo.settings'), redirects in bizz_redirects; both in the site's D1.
+import { aiDiscoveryTab } from './ai-discovery'
 import { aiRobotsBlock, contentSignal, AI_BOTS, AI_BOTS_VERSION, type AiPolicy } from './ai-crawlers'
 import { definePlugin, PluginServiceClass as PluginService } from 'bizzcms-core'
 import { SEO_ANALYSE_CORE } from '../seo-editor'
@@ -691,7 +692,7 @@ export async function seoAdminRoute(request: Request, path: string, db: D1Databa
     return Response.redirect(new URL(`/admin/seo?tab=${tab}&saved=1`, url).toString(), 303)
   }
 
-  const tab = ['general', 'indexing', 'redirects', 'check'].includes(url.searchParams.get('tab') ?? '') ? url.searchParams.get('tab')! : 'general'
+  const tab = ['general', 'indexing', 'redirects', 'check', 'ai'].includes(url.searchParams.get('tab') ?? '') ? url.searchParams.get('tab')! : 'general'
   const s = await seoSettings(db)
   const body = await adminPage(tab, s, db, url, isAdmin)
   const base = await fetcher(new Request(new URL('/admin/dashboard', url), { headers: request.headers }))
@@ -726,10 +727,11 @@ async function adminPage(tab: string, s: SeoSettings, db: D1Database, url: URL, 
     general: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
     indexing: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/>',
     redirects: '<path d="M4 12h12"/><path d="m12 6 6 6-6 6"/><path d="M20 4v16"/>',
-    check: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>'
+    check: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+    ai: '<path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/>'
   }
   const tabClass = (on: boolean) => `flex items-center space-x-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap no-underline ${on ? 'border-zinc-950 dark:border-white text-zinc-950 dark:text-white' : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white'}`
-  const tabs = [['general', 'General'], ['indexing', 'Indexing'], ['redirects', 'Redirects'], ['check', 'Check']]
+  const tabs = [['general', 'General'], ['indexing', 'Indexing'], ['redirects', 'Redirects'], ['check', 'Check'], ['ai', 'AI Discovery']]
     .map(([k, l]) => `<a href="/admin/seo?tab=${k}" data-tab="${k}" class="${tabClass(k === tab)}"${k === tab ? ' aria-current="page"' : ''}>${icon(TAB_ICONS[k])}<span>${l}</span></a>`).join('')
   const saved = url.searchParams.has('saved') ? '<p class="bizz-api-saved">Saved.</p>' : ''
   const ro = isAdmin ? '' : ' disabled'
@@ -788,6 +790,8 @@ async function adminPage(tab: string, s: SeoSettings, db: D1Database, url: URL, 
       ${results.map(r => `<tr><td><code>${e(r.source)}</code></td><td><a href="${e(r.target)}" target="_blank">${e(r.target)}</a></td><td>${r.status}</td><td>${r.hits}</td><td>${isAdmin ? `<form method="post"><input type="hidden" name="action" value="delete-redirect"><input type="hidden" name="id" value="${r.id}"><button type="submit" class="bizz-seo-danger" onclick="return confirm('Delete this redirect?')">Delete</button></form>` : ''}</td></tr>`).join('') || '<tr><td colspan="5" class="bizz-seo-empty">No redirects yet.</td></tr>'}
       </tbody></table>
       ${isAdmin ? `<form method="post" class="bizz-seo-form"><input type="hidden" name="action" value="import-redirects"><label class="bizz-seo-field"><span>Import redirects</span><textarea name="csv" rows="5" placeholder="/old-url/,/new-url/,301"></textarea><small>One per line: old URL, new URL, optional 301 or 302. An old URL ending in * matches everything that starts with it.</small></label><div><button type="submit" class="bg-zinc-950">Import</button></div></form>` : ''}`
+  } else if (tab === 'ai') {
+    content = aiDiscoveryTab({ policy: aiPolicyOf(s), hideFromSearch: s.hideFromSearch, orgName: s.orgName, orgLogo: s.orgLogo, sameAs: s.sameAs, defaultImage: s.defaultImage, defaultDescription: s.defaultDescription, llmsText: s.llmsText, indexNowEnabled: s.indexNowEnabled })
   } else {
     content = await checkTab(db)
   }
