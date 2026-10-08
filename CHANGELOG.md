@@ -5,6 +5,12 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 ## [Unreleased]
 
 ### Added
+- Sidebar: sites can pin collections as their own entries with a count (`setSidebarCollections([{ name: 'portfolio', label: 'Portfolio' }])`), next to Blog and News.
+
+### Changed
+- Sidebar counts are kept in KV (`CACHE_KV`) and cleared when content is created, saved or deleted, so the sidebar never waits on a count.
+
+### Added
 - **RSS feed** (SEO plugin): `/feed/` (all posts) and `/<section>/feed/` (blog, news), RSS 2.0 like WordPress: featured image first (`webfeedsFeaturedVisual`) plus `media:content`, author, categories and tags, full text in `content:encoded`, "appeared first on" line; pages link to it. SEO › Indexing: on/off, number of posts, full text or summary. Sites call `seoFeed(url, db)`.
 - SEO › Indexing › **Include in sitemap**: tick which parts go into /sitemap.xml (pages, posts, categories, tags, other pages, and extra collections a site adds with `routes.collections`, e.g. portfolio). Each settings tab now saves only its own fields.
 

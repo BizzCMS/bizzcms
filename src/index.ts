@@ -16,7 +16,7 @@ import { googleAnalyticsPlugin, withGoogleAnalytics, gaAdminRoute } from './plug
 import { socialSharePlugin, shareAdminRoute } from './plugins/social-share'
 import { taxonomyRoute } from './taxonomy'
 import { safeHandle, errorLogPage, withErrorsTab } from './errors'
-import { envForSection, withSectionTabs, primeSidebarCounts } from './sections'
+import { envForSection, withSectionTabs, primeSidebarCounts, clearSidebarCounts } from './sections'
 import { withMediaUsage } from './dashboard-media'
 import { contentGuardRoute } from './content-guard'
 import { seoPlugin, seoAdminRoute } from './plugins/seo'
@@ -68,7 +68,7 @@ async function handleRequest(request: Request, env: Parameters<typeof cms.fetch>
     const db = (env as unknown as { DB: D1Database }).DB
     const upstream = (r: Request) => finishUpstream(ctx, cms.fetch(r, env, ctx))
     // Blog / News counts for the sidebar, drawn by the server (src/sections.ts).
-    if (path.startsWith('/admin')) await primeSidebarCounts(db)
+    if (path.startsWith('/admin')) await primeSidebarCounts(db, (env as unknown as { CACHE_KV?: KVNamespace }).CACHE_KV)
     // Google Analytics plugin: install + after-save redirect (see src/plugins/google-analytics.ts).
     const gaRoute = await gaAdminRoute(request, path, db, async () => {
       const me = await upstream(new Request(new URL('/auth/me', request.url), { headers: { cookie: request.headers.get('cookie') ?? '' } }))
@@ -103,6 +103,8 @@ async function handleRequest(request: Request, env: Parameters<typeof cms.fetch>
     // Posts list by section (Blog | News): src/sections.ts.
     // Dashboard Media Files count and size from the media documents (src/dashboard-media.ts).
     const response = await withMediaUsage(await withSectionTabs(await finishUpstream(ctx, cms.fetch(request, envForSection(env, request, path), ctx)), request, path, db), path, db)
+    // Content created, saved or deleted: the sidebar counts are counted again on the next page.
+    if (request.method !== 'GET' && path.startsWith('/admin/content')) await clearSidebarCounts((env as unknown as { CACHE_KV?: KVNamespace }).CACHE_KV)
     // After upstream's startup seeding has run: replace its SonicJS welcome post.
     await ensureBizzWelcome((env as unknown as { DB: D1Database }).DB).catch(e => console.error('welcome post', e))
     return applyBranding(withErrorsTab(withApiTab(await brandApiSpec(await withGoogleAnalytics(response, request, db), path), path), path), path)

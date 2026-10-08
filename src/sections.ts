@@ -66,34 +66,72 @@ export async function sectionCounts(db: D1Database): Promise<Record<string, numb
   return Object.fromEntries(results.map(r => [r.section, r.n]))
 }
 
-// Sidebar: Blog and News under Workspace, right after Content, with counts. Rendered by the server into
-// every admin page (src/branding.ts), so the sidebar is complete on the first paint and nothing jumps.
-// Counts come from primeSidebarCounts(db), called once per admin request in src/index.ts (cached for a
-// minute per Worker). News only shows when the site has news posts; Blog when it has any posts.
+// Sidebar: Blog and News (and any collection a site pins, e.g. Portfolio) under Workspace, right after
+// Content, with counts. Rendered by the server into every admin page (src/branding.ts), so the sidebar is
+// complete on the first paint and nothing jumps.
+// Counts: primeSidebarCounts(db, kv) once per admin request (src/index.ts). They are kept in KV
+// (CACHE_KV, key below) and in the Worker for 15 seconds, so the sidebar never waits on a COUNT query;
+// clearSidebarCounts(kv) after any content save or delete makes the next page count again.
+// News only shows when the site has news posts; Blog when it has any posts; a pinned collection always.
+export interface PinnedCollection { name: string; label: string; icon?: string }
+let pinned: PinnedCollection[] = []
+/** Collections a site shows as their own sidebar entries (after Blog / News), e.g. [{ name: 'portfolio', label: 'Portfolio' }]. */
+export function setSidebarCollections(list: PinnedCollection[]) { pinned = list }
+
+const COUNTS_KEY = 'bizz:sidebar-counts:v1'
 let sidebarCounts: { at: number; counts: Record<string, number> } | null = null
 
-export async function primeSidebarCounts(db: D1Database): Promise<void> {
-  if (sidebarCounts && Date.now() - sidebarCounts.at < 60_000) return
-  try { sidebarCounts = { at: Date.now(), counts: await sectionCounts(db) } } catch { /* keep the last counts */ }
+async function countAll(db: D1Database): Promise<Record<string, number>> {
+  const counts: Record<string, number> = {}
+  for (const [k, n] of Object.entries(await sectionCounts(db))) counts[`section:${k}`] = n
+  if (pinned.length) {
+    const { results } = await db.prepare(`SELECT type_id, COUNT(*) AS n FROM documents WHERE tenant_id = 'default' AND is_current_draft = 1 AND deleted_at IS NULL AND type_id IN (${pinned.map(() => '?').join(',')}) GROUP BY type_id`)
+      .bind(...pinned.map(c => c.name)).all<{ type_id: string; n: number }>().catch(() => ({ results: [] as { type_id: string; n: number }[] }))
+    for (const r of results) counts[`collection:${r.type_id}`] = r.n
+  }
+  return counts
 }
 
-const NAV_ICON: Record<Section, string> = {
+export async function primeSidebarCounts(db: D1Database, kv?: KVNamespace): Promise<void> {
+  if (sidebarCounts && Date.now() - sidebarCounts.at < 15_000) return
+  try {
+    const cached = kv ? await kv.get<Record<string, number>>(COUNTS_KEY, 'json').catch(() => null) : null
+    if (cached) { sidebarCounts = { at: Date.now(), counts: cached }; return }
+    const counts = await countAll(db)
+    sidebarCounts = { at: Date.now(), counts }
+    if (kv) await kv.put(COUNTS_KEY, JSON.stringify(counts), { expirationTtl: 86400 }).catch(() => null)
+  } catch { /* keep the last counts */ }
+}
+
+/** Forget the counts (call after content is created, saved or deleted). */
+export async function clearSidebarCounts(kv?: KVNamespace): Promise<void> {
+  sidebarCounts = null
+  if (kv) await kv.delete(COUNTS_KEY).catch(() => null)
+}
+
+const NAV_ICON: Record<string, string> = {
   blog: '<path d="M12 20h9"/><path d="M16.4 3.6a2.1 2.1 0 0 1 3 3L7.4 18.6 3 20l1.4-4.4Z"/>',
-  news: '<path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8Z"/>'
+  news: '<path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8Z"/>',
+  collection: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>'
 }
 // The sidebar's own classes for an inactive entry (same as Collections, Users, …).
 const NAV_LINK = 'flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left text-sm/5 font-medium text-zinc-950 hover:bg-zinc-950/5 dark:text-white dark:hover:bg-white/5'
 const NAV_ICON_SPAN = 'shrink-0 fill-zinc-500 dark:fill-zinc-400'
+const escAttr = (v: string) => v.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
 
-/** The Blog / News entries (HTML) to place after the sidebar's Content link; '' when there are no posts. */
+/** The Blog / News / pinned entries (HTML) to place after the sidebar's Content link; '' when there are none. */
 export function sidebarSectionsHtml(): string {
   const counts = sidebarCounts?.counts ?? {}
-  const total = Object.values(counts).reduce((a, n) => a + n, 0)
-  if (!total) return ''
   const fmt = (n: number) => n.toLocaleString('en-GB')
-  const entry = (s: Section) => `<a href="/admin/content?model=posts&amp;section=${s}" class="${NAV_LINK}" data-bizz-section="${s}"><span class="${NAV_ICON_SPAN}"><svg class="h-5 w-5 bizz-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${NAV_ICON[s]}</svg></span><span class="truncate">${LABEL[s]}</span><span class="bizz-nav-count">${fmt(counts[s] ?? 0)}</span></a>`
-  // Runs while the page is still loading (before the first paint): marks Blog or News as the current
-  // entry on its posts list, and Content as not current there.
-  const active = `<script>(function(){var q=new URLSearchParams(location.search),s=q.get('section');if(location.pathname!=='/admin/content'||q.get('model')!=='posts'||!s)return;var p=document.currentScript.parentNode,a=p.querySelector('[data-bizz-section="'+s.replace(/[^a-z]/g,'')+'"]'),c=p.querySelector('a[href="/admin/content"][class*="gap-3"]');if(!a||!c)return;var ai=a.querySelector('span'),ci=c.querySelector('span');a.className=c.className;a.setAttribute('data-current','true');a.setAttribute('aria-current','page');if(ai&&ci){var t=ai.className;ai.className=ci.className;ci.className=t}c.className=${JSON.stringify(NAV_LINK)};c.removeAttribute('data-current');c.removeAttribute('aria-current')})()</script>`
-  return SECTIONS.filter(s => s !== 'news' || (counts.news ?? 0) > 0).map(entry).join('') + active
+  const entry = (key: string, href: string, label: string, icon: string, n: number) => `<a href="${href}" class="${NAV_LINK}" data-bizz-section="${escAttr(key)}"><span class="${NAV_ICON_SPAN}"><svg class="h-5 w-5 bizz-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg></span><span class="truncate">${escAttr(label)}</span><span class="bizz-nav-count">${fmt(n)}</span></a>`
+  const posts = SECTIONS.reduce((a, s) => a + (counts[`section:${s}`] ?? 0), 0)
+  const items = [
+    ...(posts ? SECTIONS.filter(s => s !== 'news' || (counts['section:news'] ?? 0) > 0).map(s => entry(s, `/admin/content?model=posts&amp;section=${s}`, LABEL[s], NAV_ICON[s], counts[`section:${s}`] ?? 0)) : []),
+    ...pinned.map(c => entry(`c-${c.name}`, `/admin/content?model=${encodeURIComponent(c.name)}`, c.label, c.icon ?? NAV_ICON.collection, counts[`collection:${c.name}`] ?? 0))
+  ]
+  if (!items.length) return ''
+  // Runs while the page is still loading (before the first paint): marks the current entry (Blog / News on
+  // their posts list, a pinned collection on its list) and Content as not current there.
+  const active = `<script>(function(){var q=new URLSearchParams(location.search),m=q.get('model'),s=q.get('section'),key=null;if(location.pathname!=='/admin/content'||!m)return;if(m==='posts'&&s)key=s.replace(/[^a-z]/g,'');else if(m!=='posts')key='c-'+m.replace(/[^a-z0-9_-]/gi,'');if(!key)return;var p=document.currentScript.parentNode,a=p.querySelector('[data-bizz-section="'+key+'"]'),c=p.querySelector('a[href="/admin/content"][class*="gap-3"]');if(!a||!c)return;var ai=a.querySelector('span'),ci=c.querySelector('span');a.className=c.className;a.setAttribute('data-current','true');a.setAttribute('aria-current','page');if(ai&&ci){var t=ai.className;ai.className=ci.className;ci.className=t}c.className=${JSON.stringify(NAV_LINK)};c.removeAttribute('data-current');c.removeAttribute('aria-current')})()</script>`
+  return items.join('') + active
 }
