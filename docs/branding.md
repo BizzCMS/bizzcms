@@ -11,3 +11,5 @@ The upstream admin/auth HTML is adapted by src/branding.ts using Workers HTMLRew
 The root route is the first local BizzCMS website preview; /about preserves upstream attribution. The landing page currently uses a code template in src/landing.ts and is not yet edited through the CMS. It describes current capabilities and roadmap separately. The domain is a product link, not the local login origin.
 
 Verified: branded login HTML, authenticated collections/settings screens, displayed 0.1.0 version, logo asset response, settings save, and local homepage. TypeScript check passes.
+
+Admin colour scheme (2026-10-08): the admin is light (white) by default. Upstream hard-codes `class="dark"`. `src/branding.ts` removes it and only re-adds it when a user picked dark with the admin's own toggle (`localStorage.darkMode`). Upstream's dark-only auth pages and the stats bars get small light overrides (`LIGHT_AUTH`, `LIGHT_FIXES`). Verified on login, dashboard, content, editor, collections, media, settings and users.
