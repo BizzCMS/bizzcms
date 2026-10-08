@@ -284,7 +284,9 @@ export function publicPath(type: string, data: Record<string, unknown>, slug: st
   if (type === 'pages') return r?.pages ? r.pages(data, slug) : (typeof data.path === 'string' && data.path ? (data.path.startsWith('/') ? data.path : '/' + data.path) : `/${slug}`)
   if (type === 'posts') return r?.posts ? r.posts(data, slug) : `/blog/${encodeURIComponent(slug)}`
   if (type === 'categories') return r?.categories ? r.categories(data, slug) : null
-  return null
+  // Extra collections a site describes (e.g. portfolio): their own URL rule.
+  const own = r?.collections?.[type]
+  return own ? own(data, slug) : null
 }
 
 const PUBLISHED = `tenant_id = 'default' AND is_published = 1 AND (deleted_at IS NULL OR deleted_at = '')`
