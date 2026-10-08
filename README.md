@@ -4,7 +4,7 @@
 
 Website: **https://bizzcms.com** · Repository: https://github.com/BizzCMS/bizzcms · Licence: MIT
 
-BizzCMS is an open-source CMS built on SonicJS. Pages, a blog and media in a clean admin, with roles, two-step login, a REST API that is closed by default, API keys and read-only MCP access for AI assistants.
+BizzCMS is an open-source CMS built on SonicJS. Pages, a blog with featured images, and media in a clean admin, with roles, two-step login, a REST API that is closed by default, API keys and read-only MCP access for AI assistants.
 
 **Status: in production.** bizzcms.com itself runs on BizzCMS (Cloudflare Workers, D1 and R2) since 2026-10-08. SonicJS 3.0.0-beta.28 is pinned. Hosting on Node.js / cPanel is on the roadmap (see [docs/roadmap.md](docs/roadmap.md)), not available yet.
 

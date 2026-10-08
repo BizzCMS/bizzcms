@@ -20,7 +20,7 @@ For subsequent runs, use `npm run dev`. Keep that terminal running and press Ctr
 - SonicJS 3.0.0-beta.28 through the npm core package; no maintained fork.
 - Upstream authentication and admin interface.
 - Pages collection with title, slug, rich text, and SEO fields.
-- Posts collection with title, slug, summary, and rich text.
+- Posts collection with title, slug, summary, featured image (picked from Media) with its description, and rich text.
 - Local D1 migrations and random-password administrator bootstrap.
 - D1/R2/KV emulation with persisted local state under `.wrangler/`.
 - Console email provider: logs messages rather than sending them.

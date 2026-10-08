@@ -11,12 +11,15 @@
 - First websites on BizzCMS in `C:\RepositoryAI\sites`: bizzcms-site (bizzcms.com, NextSaaS-based home page), ingeniumweb-site, planervjencanja. They copy the admin layer with `npm run sync:core`.
 - Blog: `/blog` list and article pages with sample posts in the local database.
 - API closed by default with a Settings › API switch and API keys for apps (api-access.md).
+- Google Analytics plugin with a cookie consent banner (Admin › Plugins).
+- Posts › Featured image and its description, used by the blog list, the article and the share image (unreleased).
+- Fix: admin, sign-in and API pages no longer hang when an earlier request was cancelled (`src/upstream.ts`, unreleased).
 
 ## Now (2026-10-08)
 
 - Release 0.2.2: logo border, green "CMS" wordmark, button standard, role chips, API Reference look, API access setting, docs refresh. Then sync the sites.
 - bizzcms-site: replace placeholder content (testimonials, prices) with real copy together with the owner before anything is published.
-- Deployment and DNS for bizzcms.com: only on the owner's request.
+- bizzcms.com is live on Cloudflare since 2026-10-08. Further deploys only on the owner's request.
 - cPanel / Node.js: upstream SonicJS ships `createNodeSonicApp` (SQLite + filesystem storage), and bizzcms.com says BizzCMS runs on Node.js hosting such as cPanel (owner, 2026-10-08). Gap to close before that is true for BizzCMS: our admin layer (`src/branding.ts`, `api-access.ts`) uses Cloudflare's HTMLRewriter, which Node.js does not have. Needs a Node entry point plus an HTMLRewriter replacement (for example `html-rewriter-wasm`), then a test on a real cPanel Node.js app.
 
 ## Next: bounded SonicJS compatibility review
