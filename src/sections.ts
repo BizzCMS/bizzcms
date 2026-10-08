@@ -73,10 +73,12 @@ export const SIDEBAR_SECTIONS_SCRIPT = `<script>(function(){
 var ICON={blog:'<path d="M12 20h9"/><path d="M16.4 3.6a2.1 2.1 0 0 1 3 3L7.4 18.6 3 20l1.4-4.4Z"/>',news:'<path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8Z"/>'};
 var LABEL={blog:'Blog',news:'News'};
 var qs=new URLSearchParams(location.search),cur=location.pathname==='/admin/content'&&qs.get('model')==='posts'?qs.get('section'):null;
-fetch('/admin/bizz/taxonomy?sections=1',{credentials:'same-origin'}).then(function(r){return r.ok?r.json():null}).catch(function(){return null}).then(function(d){
-  var counts=(d&&d.sections)||{},total=Object.keys(counts).reduce(function(a,k){return a+counts[k]},0);if(!total)return;
+var KEY='bizz:section-counts';
+function render(counts){var total=Object.keys(counts).reduce(function(a,k){return a+counts[k]},0);if(!total)return;
   document.querySelectorAll('nav a[href="/admin/content"]').forEach(function(content){
-    var nav=content.closest('nav'),tpl=nav&&nav.querySelector('a[href="/admin/collections"]');if(!tpl||nav.querySelector('[data-bizz-section]'))return;
+    var nav=content.closest('nav'),tpl=nav&&nav.querySelector('a[href="/admin/collections"]');if(!tpl)return;
+    var done=nav.querySelectorAll('[data-bizz-section]');
+    if(done.length){done.forEach(function(a){var b=a.querySelector('.bizz-nav-count');if(b)b.textContent=(counts[a.getAttribute('data-bizz-section')]||0).toLocaleString('en-GB')});return}
     var after=content;['blog','news'].forEach(function(s){if(s==='news'&&!counts.news)return;
       var a=tpl.cloneNode(true);a.setAttribute('href','/admin/content?model=posts&section='+s);a.setAttribute('data-bizz-section',s);a.removeAttribute('data-current');a.removeAttribute('aria-current');
       var svg=a.querySelector('svg');if(svg)svg.innerHTML=ICON[s];var t=a.querySelector('.truncate')||a.lastElementChild;if(t)t.textContent=LABEL[s];
@@ -85,5 +87,11 @@ fetch('/admin/bizz/taxonomy?sections=1',{credentials:'same-origin'}).then(functi
         content.className=tpl.className;content.removeAttribute('data-current');var ci=content.querySelector('span');var ti=tpl.querySelector('span');if(ci&&ti)ci.className=ti.className}
       after.after(a);after=a});
   });
-});
+}
+// Draw straight away from the last known counts (no jump while the sidebar loads), then refresh them.
+var cached=null;try{cached=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){}
+function start(){if(cached)render(cached);
+fetch('/admin/bizz/taxonomy?sections=1',{credentials:'same-origin'}).then(function(r){return r.ok?r.json():null}).catch(function(){return null}).then(function(d){
+  if(!d||!d.sections)return;try{localStorage.setItem(KEY,JSON.stringify(d.sections))}catch(e){}render(d.sections)});}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();</script>`
