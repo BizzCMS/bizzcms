@@ -21,8 +21,8 @@ export function applyBranding(response: Response, path: string): Response {
     .on('head', { element(element) {
       element.prepend(`<script>try{if(localStorage.getItem('darkMode')===null)localStorage.setItem('darkMode','false');if(localStorage.getItem('darkMode')==='true')document.documentElement.classList.add('dark')}catch(e){}</script>`, { html: true })
       // BizzCMS admin theme (public/brand/admin.css) and its font.
-      element.append('<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"><link rel="stylesheet" href="/brand/admin.css?v=workspace-20261008">', { html: true })
-      element.append(`<style>.bizz-wordmark{color:#172e30}.bizz-wordmark b{font-weight:inherit;color:#086568}.dark .bizz-wordmark{color:#f4f4f5}.dark .bizz-wordmark b{color:#c4f56a}${LIGHT_FIXES}${path.startsWith('/auth') ? LIGHT_AUTH : ''}</style>`, { html: true })
+      element.append('<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@400&display=swap"><link rel="stylesheet" href="/brand/admin.css?v=workspace-20261008">', { html: true })
+      element.append(`<style>.bizz-wordmark{color:#1a1a1c;font-family:'Inter Tight',Inter,sans-serif!important;font-weight:400!important;letter-spacing:-.02em!important}.bizz-wordmark b{font-weight:inherit;color:#086568}.dark .bizz-wordmark{color:#f4f4f5}.dark .bizz-wordmark b{color:#c4f56a}${LIGHT_FIXES}${path.startsWith('/auth') ? LIGHT_AUTH : ''}</style>`, { html: true })
     } })
     .on('title', bufferedText(text => text.replace(/SonicJS AI/g, 'BizzCMS')))
     .on('h1, h2, p', bufferedText(text => {
@@ -57,7 +57,7 @@ export function applyBranding(response: Response, path: string): Response {
       element(element) {
         // On sign-in pages the logo goes back to the website's home page.
         const tag = path.startsWith('/auth') ? 'a href="/" aria-label="Home"' : 'span'
-        element.replace('<' + tag + ' style="display:inline-flex;align-items:center;gap:10px;white-space:nowrap;text-decoration:none"><img src="/brand/bizzcms.svg" alt="" width="36" height="40" style="object-fit:contain"><span class="bizz-wordmark" style="font-size:22px;font-weight:600;letter-spacing:-.4px">Bizz<b>CMS</b></span></' + tag.split(' ')[0] + '>', { html: true })
+        element.replace('<' + tag + ' style="display:inline-flex;align-items:center;gap:10px;white-space:nowrap;text-decoration:none"><img src="/brand/bizzcms.svg" alt="" width="36" height="40" style="object-fit:contain"><span class="bizz-wordmark" style="font-size:24px">Bizz<b>CMS</b></span></' + tag.split(' ')[0] + '>', { html: true })
       }
     })
     .on('link[rel="icon"]', {

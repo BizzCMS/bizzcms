@@ -148,7 +148,8 @@ body[data-bizz-surface="admin"] { background: var(--bz-canvas); color: var(--bz-
 .bizz-workspace-bar a { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 30px; color: var(--bz-navy); border: 1px solid var(--bz-line); background: var(--bz-surface); white-space: nowrap; }
 .bizz-workspace-bar a:hover { border-color: var(--bz-blue); }
 .bizz-workspace-bar a span { color: var(--bz-blue); font-size: 17px; }
-[data-bizz-surface="admin"] .bizz-wordmark { color: var(--bz-navy); }
+[data-bizz-surface="admin"] .bizz-wordmark { color: #1a1a1c; }
+.dark [data-bizz-surface="admin"] .bizz-wordmark { color: #f4f4f5; }
 [data-bizz-surface="admin"] nav a, [data-bizz-surface="admin"] nav button { min-height: 42px; }
 [data-bizz-surface="admin"] nav a { padding-left: 12px; padding-right: 12px; }
 [data-bizz-surface="admin"] nav a[data-current="true"] { background: var(--bz-blue) !important; color: #fff !important; border-radius: 12px; }
@@ -444,7 +445,7 @@ body[data-bizz-surface="auth"] .text-cyan-400, body[data-bizz-surface="auth"] [c
 /* Logo (register page, and pages without upstream layout) */
 .bizz-auth-logo { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
 .bizz-auth-logo img { width: 36px; height: 40px; }
-.bizz-auth-logo .bizz-wordmark { font-size: 22px; font-weight: 600; letter-spacing: -.4px; }
+.bizz-auth-logo .bizz-wordmark { font-size: 24px; }
 body[data-bizz-surface="auth"] .text-center > .bizz-auth-logo, body[data-bizz-surface="auth"] > .bizz-auth-logo { margin: 0 auto 8px; }
 /* Pages upstream ships without any layout (invalid reset link / invitation): a centred card */
 body[data-bizz-surface="auth"]:not([class]) { min-height: 100vh; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px; text-align: center; }
@@ -667,3 +668,7 @@ html:not(.dark) [data-bizz-surface] :is([class^="text-lime-"], [class*=" text-li
 /* Dark mode: no near-black left. Upstream paints the body zinc-900 and the shell behind the sidebar
    zinc-950; both become the theme's dark canvas (Ivan: "again this black is problem"). */
 .dark body[data-bizz-surface="admin"], .dark body[data-bizz-surface="admin"] [class*="dark:lg:bg-zinc-950"], .dark body[data-bizz-surface="admin"] [class*="dark:bg-zinc-950"]:not(button, a, input, select, textarea) { background-color: var(--bz-canvas) !important; }
+
+/* Version badge next to the logo: teal tint (light) and lime on dark teal (dark), never navy. */
+[data-bizz-surface] span[class*="bg-white/10"][class*="text-white/80"] { background: var(--bz-blue-50) !important; color: var(--bz-blue) !important; --tw-ring-color: transparent !important; box-shadow: none !important; }
+.dark [data-bizz-surface] span[class*="bg-white/10"][class*="text-white/80"] { background: rgb(196 245 106 / .12) !important; color: var(--bz-lime) !important; }
