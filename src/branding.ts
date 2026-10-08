@@ -44,10 +44,21 @@ export function applyBranding(response: Response, path: string): Response {
     .on('body', {
       element(element) {
         element.append('<div style="padding:12px;text-align:center;font:12px system-ui;opacity:.7"><a href="/about">About BizzCMS</a> · <a href="https://bizzcms.com">bizzcms.com</a></div>', { html: true })
+        element.append(THEME_SWITCH, { html: true })
       }
     })
   return rewriter.transform(response)
 }
+
+// Light/dark switcher on every admin and auth page. Upstream has toggleDarkMode() storage
+// (localStorage.darkMode) but no button for it; this uses the same key.
+const SUN = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>'
+const MOON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>'
+const THEME_SWITCH = `<button type="button" id="bizz-theme-switch" title="Switch light / dark" aria-label="Switch light or dark mode"
+style="position:fixed;right:18px;bottom:18px;z-index:60;width:40px;height:40px;border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1px solid rgb(9 9 11/.1);background:#fff;color:#123d62;box-shadow:0 4px 14px rgb(9 9 11/.12)">
+<span class="bizz-sun" style="display:none">${SUN}</span><span class="bizz-moon">${MOON}</span></button>
+<style>.dark #bizz-theme-switch{background:#27272a!important;color:#f4f4f5!important;border-color:rgb(255 255 255/.12)!important}.dark #bizz-theme-switch .bizz-sun{display:inline!important}.dark #bizz-theme-switch .bizz-moon{display:none}</style>
+<script>document.getElementById('bizz-theme-switch').addEventListener('click',function(){var d=document.documentElement.classList.toggle('dark');try{localStorage.setItem('darkMode',String(d))}catch(e){}})</script>`
 
 // Upstream light-mode gaps: the stats bars (dashboard, users) use bg-zinc-800/75 without a dark: prefix.
 const LIGHT_FIXES = 'html:not(.dark) dl.bg-zinc-800\\/75{background:#fff}'

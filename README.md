@@ -4,7 +4,7 @@
 
 Domain: **bizzcms.com** (owned by the project owner).
 
-Public repository: https://github.com/idubravac/bizzcms
+Public repository: https://github.com/BizzCMS/bizzcms
 
 BizzCMS is an open-source CMS project built on SonicJS. The objective is to reuse an existing CMS and keep custom development and long-term maintenance small, allowing the owner to focus on larger projects.
 
