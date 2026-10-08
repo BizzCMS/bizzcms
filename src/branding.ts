@@ -13,7 +13,7 @@ export function applyBranding(response: Response, path: string): Response {
     } })
     .on('head', { element(element) {
       element.prepend(`<script>try{if(localStorage.getItem('darkMode')===null)localStorage.setItem('darkMode','false');if(localStorage.getItem('darkMode')==='true')document.documentElement.classList.add('dark')}catch(e){}</script>`, { html: true })
-      element.append(`<style>.bizz-wordmark{color:#10283d}.dark .bizz-wordmark{color:#f4f4f5}${LIGHT_FIXES}${path.startsWith('/auth') ? LIGHT_AUTH : ''}</style>`, { html: true })
+      element.append(`<style>.bizz-wordmark{color:#123d62}.dark .bizz-wordmark{color:#f4f4f5}${LIGHT_FIXES}${path.startsWith('/auth') ? LIGHT_AUTH : ''}</style>`, { html: true })
     } })
     .on('title', bufferedText(text => text.replace(/SonicJS AI/g, 'BizzCMS')))
     .on('h1, h2, p', bufferedText(text => {
@@ -24,11 +24,11 @@ export function applyBranding(response: Response, path: string): Response {
     }))
     .on('svg[viewBox="380 1300 2250 400"]', {
       element(element) {
-        element.replace('<span style="display:inline-flex;align-items:center;gap:10px;white-space:nowrap"><img src="/brand/bizzcms.png" alt="" width="36" height="40" style="object-fit:contain"><span class="bizz-wordmark" style="font-size:22px;font-weight:700;letter-spacing:-.6px">BizzCMS</span></span>', { html: true })
+        element.replace('<span style="display:inline-flex;align-items:center;gap:10px;white-space:nowrap"><img src="/brand/bizzcms.svg" alt="" width="36" height="40" style="object-fit:contain"><span class="bizz-wordmark" style="font-size:22px;font-weight:600;letter-spacing:-.4px">BizzCMS</span></span>', { html: true })
       }
     })
     .on('link[rel="icon"]', {
-      element(element) { element.setAttribute('href', '/brand/bizzcms.png'); element.setAttribute('type', 'image/png') }
+      element(element) { element.setAttribute('href', '/brand/bizzcms.svg'); element.setAttribute('type', 'image/svg+xml') }
     })
     .on('a[href="https://sonicjs.com"]', {
       element(element) { element.setAttribute('href', 'https://bizzcms.com') }

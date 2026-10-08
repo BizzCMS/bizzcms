@@ -3,7 +3,7 @@
 - Product name: BizzCMS.
 - Display version: package.json version (currently 0.1.0), passed into SonicJS configuration.
 - Product URL: https://bizzcms.com. No DNS or production deployment changes have been made.
-- Logo: owner-supplied PNG at public/brand/bizzcms.png, copied without modification. It is a bundled interface asset, not a customer media upload.
+- Logo: owner-supplied mark, used as SVG at public/brand/bizzcms.svg (2026-10-08: a clean trace of the owner's image, with blue #0f6cb6, fold lines #0b4f86, navy #123d62 and white). public/brand/bizzcms.png is a 256 px render of it, kept as a PNG favicon fallback. It is a bundled interface asset, not a customer media upload. The wordmark next to it is weight 600 in the logo navy.
 - Tagline: Lightweight content management for business websites.
 
 The upstream admin/auth HTML is adapted by src/branding.ts using Workers HTMLRewriter. This replaces product titles, the upstream wordmark, favicon, default name/description, and the main product link without modifying node_modules. Author/license metadata and stored customer content are not globally renamed. Validate these selectors when upgrading SonicJS.
