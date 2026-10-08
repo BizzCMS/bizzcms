@@ -119,3 +119,12 @@ html:not(.dark) [class*="bg-cyan-"][class*="/"] :is(h2, h3, p, span, li) { color
 
 /* Version badge never wraps */
 .text-white\/80.bg-white\/10 { white-space: nowrap; }
+
+/* Plugin icon tiles (src/icons.ts pluginIcon) */
+.bizz-plugin-tile { width: 40px; height: 40px; border-radius: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: var(--bz-blue-50); color: var(--bz-blue); }
+.bizz-plugin-tile-lg { width: 64px; height: 64px; border-radius: 16px; }
+.bizz-plugin-icon { width: 20px; height: 20px; }
+.bizz-plugin-tile-lg .bizz-plugin-icon { width: 30px; height: 30px; }
+.dark .bizz-plugin-tile { background: rgb(56 145 220 / .14); color: #8cc8ff; }
+html:not(.dark) .plugin-card { border-radius: 14px; --tw-ring-color: var(--bz-line); }
+html:not(.dark) .plugin-card:hover { box-shadow: 0 10px 28px rgb(18 61 98 / .08); }

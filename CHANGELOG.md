@@ -4,6 +4,9 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Changed
+- Plugins screen: a line icon per plugin in BizzCMS tiles instead of emoji, readable names for the two raw ids (Magic Link Login, Email Delivery Sync), tidier descriptions, and rounder cards.
+
 ## [0.2.0] - 2026-10-08
 
 ### Added

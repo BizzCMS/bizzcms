@@ -4,7 +4,7 @@
 // shows BizzCMS everywhere it can, including plugin authors (owner decision, 2026-10-08).
 // Package names in code examples (@sonicjs-cms/core) stay, they are real import paths.
 import metadata from '../package.json'
-import { SIDEBAR_ICONS, MOON_ICON, SUN_ICON } from './icons'
+import { SIDEBAR_ICONS, MOON_ICON, SUN_ICON, pluginIcon, PLUGIN_TITLES } from './icons'
 
 export function applyBranding(response: Response, path: string): Response {
   if (!response.headers.get('content-type')?.includes('text/html')) return response
@@ -33,7 +33,8 @@ export function applyBranding(response: Response, path: string): Response {
     }))
     // Plugin screens: upstream plugin names, authors and descriptions (no user content there).
     .on(path.startsWith('/admin/plugins') ? 'h1, h2, h3, h4, p, span, div, a, td, dd, dt, li, small, strong' : 'bizz-never-matches', bufferedText(text =>
-      text.replace(/SonicJS (Team|Community)/g, 'BizzCMS').replace(/\bSonicJS\b/g, 'BizzCMS')))
+      (PLUGIN_TITLES[text.trim()] ?? text).replace(/SonicJS (Team|Community)/g, 'BizzCMS').replace(/\bSonicJS\b/g, 'BizzCMS')
+        .replace(' — on by default for greenfield installs.', '. On by default.')))
     // Version badge next to the logo: some upstream pages show the SonicJS version; always show BizzCMS's.
     .on('span[class*="text-white/80"][class*="bg-white/10"]', {
       element(element) { element.setInnerContent(metadata.version) }
@@ -66,6 +67,13 @@ export function applyBranding(response: Response, path: string): Response {
         element.append(path.startsWith('/auth') ? THEME_SWITCH : SWITCH_SCRIPT, { html: true })
       }
     })
+  // Plugins: a line icon per plugin instead of emoji, readable names for raw ids, tidier texts.
+  if (path.startsWith('/admin/plugins')) {
+    let card = ''
+    rewriter
+      .on('.plugin-card', { element(el) { card = el.getAttribute('data-name') ?? '' } })
+      .on('.plugin-card div.w-10.h-10', { element(el) { el.setInnerContent(pluginIcon(card), { html: true }); el.setAttribute('class', 'bizz-plugin-tile') } })
+      .on('div.w-16.h-16', { element(el) { el.setInnerContent(pluginIcon(path.split('/')[3] ?? ''), { html: true }); el.setAttribute('class', 'bizz-plugin-tile bizz-plugin-tile-lg') } })  }
   // One consistent line-icon set in the sidebar (src/icons.ts).
   for (const [selector, icon] of SIDEBAR_ICONS) rewriter.on(selector, { element(el) { el.replace(icon, { html: true }) } })
   return rewriter.transform(response)
