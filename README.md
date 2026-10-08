@@ -62,13 +62,20 @@ Most business websites need the same things: pages, a blog, images, a few people
 - Pages with SEO title, description and share image; posts with summary and rich text (Lexical editor).
 - **Featured images** for posts, picked from the media library, with alt text. Used on blog lists, articles and social share cards.
 - **Sponsored posts:** one checkbox adds a "Sponsored" label and "Sponsored by …", marks links to other sites `rel="sponsored"` automatically (as Google requires) and keeps the post out of "latest posts" teasers. See [docs/posts.md](docs/posts.md).
-- Media library on R2. Drafts and publishing.
+- Media library on R2. Drafts and publishing, with **auto-save every 30 seconds** while you edit.
+- Field types for every need: text, rich text, number, date, yes/no, select, media and URL slug.
 - **View on Website** from the editor opens the live page, not a technical preview.
 
 **People and security**
 - Roles (admin, editor, author) with permissions, invitations and two-step login.
 - REST API **closed by default**, with API keys for apps ([docs/api-access.md](docs/api-access.md)).
 - Known risky upstream routes are blocked (for example the unauthenticated seed-admin route).
+
+**For developers**
+- **Content model as code.** Collections are TypeScript files; the admin forms and the REST API follow from them.
+- Modern, small stack: Hono on Cloudflare Workers, D1 (SQLite) for data, R2 for files, KV for caching, server-rendered admin with HTMX.
+- Local development with hot reload and full Cloudflare emulation, no account needed.
+- A shared admin layer: every BizzCMS site gets the same admin look, fixes and features with one `npm run sync:core`.
 
 **Integrations**
 - OpenAPI description of the REST API.
