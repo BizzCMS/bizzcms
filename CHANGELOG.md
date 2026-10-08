@@ -4,6 +4,8 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-08
+
 ### Added
 - Settings › API: the REST API is closed by default. Anonymous requests to `/api` get 401 (health checks excepted); signed-in users and API keys (Plugins › API Keys) work as before. The owner can open it for anonymous reading. See docs/api-access.md.
 
