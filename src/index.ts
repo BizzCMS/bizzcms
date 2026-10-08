@@ -13,6 +13,7 @@ import { blogResponse } from './blog'
 import { checkRegisterPasswords, blockedRoute } from './auth'
 import { guardApi, apiSettingsPage, withApiTab } from './api-access'
 import { googleAnalyticsPlugin, withGoogleAnalytics, gaAdminRoute } from './plugins/google-analytics'
+import { socialSharePlugin, shareAdminRoute } from './plugins/social-share'
 import { taxonomyRoute } from './taxonomy'
 import { safeHandle, errorLogPage, withErrorsTab } from './errors'
 import { envForSection, withSectionTabs, primeSidebarCounts } from './sections'
@@ -38,7 +39,7 @@ type RegisteredPlugin = NonNullable<NonNullable<SonicJSConfig['plugins']>['regis
 const cms = createSonicJSApp({
   name: 'BizzCMS',
   version: metadata.version,
-  plugins: { register: [readOnlyMcp as unknown as RegisteredPlugin, googleAnalyticsPlugin as unknown as RegisteredPlugin, seoPlugin as unknown as RegisteredPlugin] },
+  plugins: { register: [readOnlyMcp as unknown as RegisteredPlugin, googleAnalyticsPlugin as unknown as RegisteredPlugin, socialSharePlugin as unknown as RegisteredPlugin, seoPlugin as unknown as RegisteredPlugin] },
   email: { providerName: 'console', from: 'BizzCMS <noreply@bizzcms.local>' }
 })
 
@@ -74,6 +75,12 @@ async function handleRequest(request: Request, env: Parameters<typeof cms.fetch>
       return me.ok && ((await me.json()) as { user?: { role?: string } }).user?.role === 'admin'
     })
     if (gaRoute) return gaRoute
+    // Social Share plugin: install + after-save redirect (src/plugins/social-share.ts).
+    const shareRoute = await shareAdminRoute(request, path, db, async () => {
+      const me = await upstream(new Request(new URL('/auth/me', request.url), { headers: { cookie: request.headers.get('cookie') ?? '' } }))
+      return me.ok && ((await me.json()) as { user?: { role?: string } }).user?.role === 'admin'
+    })
+    if (shareRoute) return shareRoute
     // Post editor: categories and tags for the multiselects (src/taxonomy.ts).
     const taxonomy = await taxonomyRoute(request, path, db, async () => (await upstream(new Request(new URL('/auth/me', request.url), { headers: { cookie: request.headers.get('cookie') ?? '' } }))).ok)
     if (taxonomy) return taxonomy
