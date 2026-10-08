@@ -4,6 +4,9 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Fixed
+- **Sidebar jumped on every click.** Blog and News were added by a script at the end of the page, after the sidebar was drawn. The server now puts them into the page (counts cached for a minute), so the sidebar is complete on the first paint.
+
 ## [0.2.5] - 2026-10-08
 
 ### Changed

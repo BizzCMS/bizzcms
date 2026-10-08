@@ -8,7 +8,7 @@ import { SIDEBAR_ICONS, MOON_ICON, SUN_ICON, pluginIcon, PLUGIN_TITLES } from '.
 import { REPEAT_PASSWORD_FIELD } from './auth'
 import { TAXONOMY_SCRIPT } from './taxonomy'
 import { SEO_EDITOR_SCRIPT, SEO_LIST_SCRIPT } from './seo-editor'
-import { SIDEBAR_SECTIONS_SCRIPT } from './sections'
+import { sidebarSectionsHtml } from './sections'
 import { CONTENT_GUARD_SCRIPT } from './content-guard'
 import { LEXICAL_BLOCKS_SCRIPT } from './lexical-blocks'
 
@@ -99,7 +99,6 @@ export function applyBranding(response: Response, path: string): Response {
         element.append('<div style="padding:12px;text-align:center;font:12px system-ui;opacity:.7"><a href="/about">About BizzCMS</a> · <a href="https://bizzcms.com">bizzcms.com</a> · Made with <span style="color:#e5484d" aria-label="love">♥</span> by <a href="https://ingenium.software/" target="_blank" rel="noopener">Ingenium</a></div>', { html: true })
         element.append(path.startsWith('/auth') ? THEME_SWITCH : SWITCH_SCRIPT, { html: true })
         element.append(ENTITY_FIX, { html: true })
-        if (path.startsWith('/admin')) element.append(SIDEBAR_SECTIONS_SCRIPT, { html: true })
         if (/^\/admin\/content\/[^/]+\/edit$|^\/admin\/content\/new/.test(path)) { element.append(VIEW_ON_SITE, { html: true }); element.append(TAXONOMY_SCRIPT, { html: true }); element.append(SEO_EDITOR_SCRIPT, { html: true }); element.append(LEXICAL_BLOCKS_SCRIPT, { html: true }); element.append(CONTENT_GUARD_SCRIPT, { html: true }) }
         if (path === '/admin/content') element.append(SEO_LIST_SCRIPT, { html: true })
         if (path === '/admin/dashboard' || path === '/admin') element.append(DASHBOARD_FIX, { html: true })
@@ -119,6 +118,8 @@ export function applyBranding(response: Response, path: string): Response {
       .on('nav [data-plugins-submenu]', { element(el) { el.setAttribute('aria-label', 'Plugin pages') } })
     const section = ({ content: 'Content', collections: 'Collections', users: 'Team', rbac: 'Team', plugins: 'Plugins', media: 'Media', settings: 'Settings', 'two-factor': 'Security', seo: 'SEO' } as Record<string, string>)[path.split('/')[2]] ?? 'Overview'
     rewriter.on('main nav[aria-label="Tabs"], main nav[role="tablist"]', { element(el) { el.setAttribute('data-bizz-tabs', '') } })
+    // Blog and News entries in the sidebar, rendered here so nothing jumps after load (src/sections.ts).
+    rewriter.on('nav a[href="/admin/content"][class*="gap-3"]', { element(el) { const entries = sidebarSectionsHtml(); if (entries) el.after(entries, { html: true }) } })
     rewriter.on('main > div.grow', { element(el) {
       el.setAttribute('data-bizz-panel', '')
       el.before(`<div class="bizz-workspace-bar"><div><span class="bizz-workspace-symbol" aria-hidden="true">${WORKSPACE_ICON}</span><span>Workspace</span><span class="bizz-breadcrumb-divider" aria-hidden="true">/</span><strong>${section}</strong></div><a href="/" target="_blank" rel="noopener">View website <span aria-hidden="true">↗</span></a></div>`, { html: true })

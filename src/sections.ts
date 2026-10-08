@@ -66,32 +66,34 @@ export async function sectionCounts(db: D1Database): Promise<Record<string, numb
   return Object.fromEntries(results.map(r => [r.section, r.n]))
 }
 
-// Sidebar: Blog and News under Workspace, right after Content, with counts. Built in the browser by
-// cloning the sidebar's own Collections link, so they look exactly like the other entries (desktop and
-// mobile sidebar). News only shows when the site has news posts; Blog when it has any posts.
-export const SIDEBAR_SECTIONS_SCRIPT = `<script>(function(){
-var ICON={blog:'<path d="M12 20h9"/><path d="M16.4 3.6a2.1 2.1 0 0 1 3 3L7.4 18.6 3 20l1.4-4.4Z"/>',news:'<path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8Z"/>'};
-var LABEL={blog:'Blog',news:'News'};
-var qs=new URLSearchParams(location.search),cur=location.pathname==='/admin/content'&&qs.get('model')==='posts'?qs.get('section'):null;
-var KEY='bizz:section-counts';
-function render(counts){var total=Object.keys(counts).reduce(function(a,k){return a+counts[k]},0);if(!total)return;
-  document.querySelectorAll('nav a[href="/admin/content"]').forEach(function(content){
-    var nav=content.closest('nav'),tpl=nav&&nav.querySelector('a[href="/admin/collections"]');if(!tpl)return;
-    var done=nav.querySelectorAll('[data-bizz-section]');
-    if(done.length){done.forEach(function(a){var b=a.querySelector('.bizz-nav-count');if(b)b.textContent=(counts[a.getAttribute('data-bizz-section')]||0).toLocaleString('en-GB')});return}
-    var after=content;['blog','news'].forEach(function(s){if(s==='news'&&!counts.news)return;
-      var a=tpl.cloneNode(true);a.setAttribute('href','/admin/content?model=posts&section='+s);a.setAttribute('data-bizz-section',s);a.removeAttribute('data-current');a.removeAttribute('aria-current');
-      var svg=a.querySelector('svg');if(svg)svg.innerHTML=ICON[s];var t=a.querySelector('.truncate')||a.lastElementChild;if(t)t.textContent=LABEL[s];
-      var b=document.createElement('span');b.className='bizz-nav-count';b.textContent=(counts[s]||0).toLocaleString('en-GB');a.appendChild(b);
-      if(cur===s){a.className=content.className;a.setAttribute('data-current','true');a.setAttribute('aria-current','page');var ic=a.querySelector('span');var cic=content.querySelector('span');if(ic&&cic)ic.className=cic.className;
-        content.className=tpl.className;content.removeAttribute('data-current');var ci=content.querySelector('span');var ti=tpl.querySelector('span');if(ci&&ti)ci.className=ti.className}
-      after.after(a);after=a});
-  });
+// Sidebar: Blog and News under Workspace, right after Content, with counts. Rendered by the server into
+// every admin page (src/branding.ts), so the sidebar is complete on the first paint and nothing jumps.
+// Counts come from primeSidebarCounts(db), called once per admin request in src/index.ts (cached for a
+// minute per Worker). News only shows when the site has news posts; Blog when it has any posts.
+let sidebarCounts: { at: number; counts: Record<string, number> } | null = null
+
+export async function primeSidebarCounts(db: D1Database): Promise<void> {
+  if (sidebarCounts && Date.now() - sidebarCounts.at < 60_000) return
+  try { sidebarCounts = { at: Date.now(), counts: await sectionCounts(db) } } catch { /* keep the last counts */ }
 }
-// Draw straight away from the last known counts (no jump while the sidebar loads), then refresh them.
-var cached=null;try{cached=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){}
-function start(){if(cached)render(cached);
-fetch('/admin/bizz/taxonomy?sections=1',{credentials:'same-origin'}).then(function(r){return r.ok?r.json():null}).catch(function(){return null}).then(function(d){
-  if(!d||!d.sections)return;try{localStorage.setItem(KEY,JSON.stringify(d.sections))}catch(e){}render(d.sections)});}
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
-})();</script>`
+
+const NAV_ICON: Record<Section, string> = {
+  blog: '<path d="M12 20h9"/><path d="M16.4 3.6a2.1 2.1 0 0 1 3 3L7.4 18.6 3 20l1.4-4.4Z"/>',
+  news: '<path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8Z"/>'
+}
+// The sidebar's own classes for an inactive entry (same as Collections, Users, …).
+const NAV_LINK = 'flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left text-sm/5 font-medium text-zinc-950 hover:bg-zinc-950/5 dark:text-white dark:hover:bg-white/5'
+const NAV_ICON_SPAN = 'shrink-0 fill-zinc-500 dark:fill-zinc-400'
+
+/** The Blog / News entries (HTML) to place after the sidebar's Content link; '' when there are no posts. */
+export function sidebarSectionsHtml(): string {
+  const counts = sidebarCounts?.counts ?? {}
+  const total = Object.values(counts).reduce((a, n) => a + n, 0)
+  if (!total) return ''
+  const fmt = (n: number) => n.toLocaleString('en-GB')
+  const entry = (s: Section) => `<a href="/admin/content?model=posts&amp;section=${s}" class="${NAV_LINK}" data-bizz-section="${s}"><span class="${NAV_ICON_SPAN}"><svg class="h-5 w-5 bizz-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${NAV_ICON[s]}</svg></span><span class="truncate">${LABEL[s]}</span><span class="bizz-nav-count">${fmt(counts[s] ?? 0)}</span></a>`
+  // Runs while the page is still loading (before the first paint): marks Blog or News as the current
+  // entry on its posts list, and Content as not current there.
+  const active = `<script>(function(){var q=new URLSearchParams(location.search),s=q.get('section');if(location.pathname!=='/admin/content'||q.get('model')!=='posts'||!s)return;var p=document.currentScript.parentNode,a=p.querySelector('[data-bizz-section="'+s.replace(/[^a-z]/g,'')+'"]'),c=p.querySelector('a[href="/admin/content"][class*="gap-3"]');if(!a||!c)return;var ai=a.querySelector('span'),ci=c.querySelector('span');a.className=c.className;a.setAttribute('data-current','true');a.setAttribute('aria-current','page');if(ai&&ci){var t=ai.className;ai.className=ci.className;ci.className=t}c.className=${JSON.stringify(NAV_LINK)};c.removeAttribute('data-current');c.removeAttribute('aria-current')})()</script>`
+  return SECTIONS.filter(s => s !== 'news' || (counts.news ?? 0) > 0).map(entry).join('') + active
+}

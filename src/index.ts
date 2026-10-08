@@ -14,7 +14,7 @@ import { checkRegisterPasswords, blockedRoute } from './auth'
 import { guardApi, apiSettingsPage, withApiTab } from './api-access'
 import { googleAnalyticsPlugin, withGoogleAnalytics, gaAdminRoute } from './plugins/google-analytics'
 import { taxonomyRoute } from './taxonomy'
-import { envForSection, withSectionTabs } from './sections'
+import { envForSection, withSectionTabs, primeSidebarCounts } from './sections'
 import { withMediaUsage } from './dashboard-media'
 import { contentGuardRoute } from './content-guard'
 import { seoPlugin, seoAdminRoute } from './plugins/seo'
@@ -59,6 +59,8 @@ export default {
     if (passwordMismatch) return passwordMismatch
     const db = (env as unknown as { DB: D1Database }).DB
     const upstream = (r: Request) => finishUpstream(ctx, cms.fetch(r, env, ctx))
+    // Blog / News counts for the sidebar, drawn by the server (src/sections.ts).
+    if (path.startsWith('/admin')) await primeSidebarCounts(db)
     // Google Analytics plugin: install + after-save redirect (see src/plugins/google-analytics.ts).
     const gaRoute = await gaAdminRoute(request, path, db, async () => {
       const me = await upstream(new Request(new URL('/auth/me', request.url), { headers: { cookie: request.headers.get('cookie') ?? '' } }))
