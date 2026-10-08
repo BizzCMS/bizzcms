@@ -1,5 +1,5 @@
-import { createSonicJSApp, registerCollections, mcpPlugin } from '@sonicjs-cms/core'
-import type { SonicJSConfig } from '@sonicjs-cms/core'
+import { createSonicJSApp, registerCollections, mcpPlugin } from 'bizzcms-core'
+import type { SonicJSConfig } from 'bizzcms-core'
 import pages from './collections/pages'
 import posts from './collections/posts'
 import categories from './collections/categories'

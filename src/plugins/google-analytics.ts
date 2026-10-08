@@ -4,8 +4,8 @@
 // only after the visitor accepts (Google Consent Mode defaults to "denied"), and the choice is remembered.
 // Admin, sign-in and API pages never get it, and local hosts are skipped so test visits stay out of the
 // stats. Any element with data-cookie-settings (e.g. a "Cookie settings" footer link) reopens the banner.
-import { definePlugin, PluginServiceClass as PluginService, applySchemaDefaults, renderSchemaFields } from '@sonicjs-cms/core'
-import type { ConfigSchema } from '@sonicjs-cms/core'
+import { definePlugin, PluginServiceClass as PluginService, applySchemaDefaults, renderSchemaFields } from 'bizzcms-core'
+import type { ConfigSchema } from 'bizzcms-core'
 
 export const GA_PLUGIN_ID = 'google-analytics'
 

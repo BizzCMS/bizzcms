@@ -2,7 +2,7 @@
 // replace names inside saved content, JSON APIs or scripts. Upstream SonicJS is credited
 // on the main site (/about) and in the repository (README, licence notices); the admin
 // shows BizzCMS everywhere it can, including plugin authors (owner decision, 2026-10-08).
-// Package names in code examples (@sonicjs-cms/core) stay, they are real import paths.
+// Package names in code examples (bizzcms-core) stay, they are real import paths.
 import metadata from '../package.json'
 import { SIDEBAR_ICONS, MOON_ICON, SUN_ICON, pluginIcon, PLUGIN_TITLES } from './icons'
 import { REPEAT_PASSWORD_FIELD } from './auth'

@@ -1,4 +1,4 @@
-import type { CollectionConfig } from '@sonicjs-cms/core'
+import type { CollectionConfig } from 'bizzcms-core'
 import { SEO_FIELDS } from '../seo-fields'
 
 // Blog and news categories, picked on posts (Posts › Categories). Flat list, no parents.

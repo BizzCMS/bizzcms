@@ -5,7 +5,7 @@
 // - Website helpers: seoRedirect (before rendering), seoHead (title, description, canonical, robots,
 //   social tags, structured data graph), seoSitemap (index + one sitemap per type), seoRobots, seoLlms.
 // Settings live in bizz_settings ('seo.settings'), redirects in bizz_redirects; both in the site's D1.
-import { definePlugin, PluginServiceClass as PluginService } from '@sonicjs-cms/core'
+import { definePlugin, PluginServiceClass as PluginService } from 'bizzcms-core'
 
 export const SEO_PLUGIN_ID = 'seo'
 

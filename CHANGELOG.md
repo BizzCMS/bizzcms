@@ -4,6 +4,9 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Changed
+- The CMS engine is now the `bizzcms-core` package (in `vendor/`, built from the upstream release; same code and version). All imports use `bizzcms-core`, and the admin's code examples show it too.
+
 ## [0.2.4] - 2026-10-08
 
 ### Added

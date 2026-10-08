@@ -22,7 +22,7 @@
     "release:minor": "npm version minor -m \"Release %s\" && git push --follow-tags"
   },
   "dependencies": {
-    "@sonicjs-cms/core": "3.0.0-beta.28"
+    "bizzcms-core": "file:vendor/bizzcms-core-3.0.0-beta.28.tgz"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260724.1",

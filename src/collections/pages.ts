@@ -1,4 +1,4 @@
-import type { CollectionConfig } from '@sonicjs-cms/core'
+import type { CollectionConfig } from 'bizzcms-core'
 import { SEO_FIELDS } from '../seo-fields'
 
 export default {

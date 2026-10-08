@@ -21,7 +21,7 @@ if (migration.error) throw migration.error
 if (migration.status !== 0) process.exit(migration.status ?? 1)
 
 const { getPlatformProxy } = await import('wrangler')
-const { bootstrapDocumentTypes, RbacService } = await import('@sonicjs-cms/core')
+const { bootstrapDocumentTypes, RbacService } = await import('bizzcms-core')
 const { env, dispose } = await getPlatformProxy()
 try {
   const email = 'admin@bizzcms.local'
