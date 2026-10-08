@@ -9,6 +9,7 @@ import { REPEAT_PASSWORD_FIELD } from './auth'
 import { TAXONOMY_SCRIPT } from './taxonomy'
 import { SEO_EDITOR_SCRIPT, SEO_LIST_SCRIPT } from './seo-editor'
 import { SIDEBAR_SECTIONS_SCRIPT } from './sections'
+import { CONTENT_GUARD_SCRIPT } from './content-guard'
 
 export function applyBranding(response: Response, path: string): Response {
   if (!response.headers.get('content-type')?.includes('text/html')) return response
@@ -98,7 +99,7 @@ export function applyBranding(response: Response, path: string): Response {
         element.append(path.startsWith('/auth') ? THEME_SWITCH : SWITCH_SCRIPT, { html: true })
         element.append(ENTITY_FIX, { html: true })
         if (path.startsWith('/admin')) element.append(SIDEBAR_SECTIONS_SCRIPT, { html: true })
-        if (/^\/admin\/content\/[^/]+\/edit$|^\/admin\/content\/new/.test(path)) { element.append(VIEW_ON_SITE, { html: true }); element.append(TAXONOMY_SCRIPT, { html: true }); element.append(SEO_EDITOR_SCRIPT, { html: true }) }
+        if (/^\/admin\/content\/[^/]+\/edit$|^\/admin\/content\/new/.test(path)) { element.append(VIEW_ON_SITE, { html: true }); element.append(TAXONOMY_SCRIPT, { html: true }); element.append(SEO_EDITOR_SCRIPT, { html: true }); element.append(CONTENT_GUARD_SCRIPT, { html: true }) }
         if (path === '/admin/content') element.append(SEO_LIST_SCRIPT, { html: true })
         if (path === '/admin/dashboard' || path === '/admin') element.append(DASHBOARD_FIX, { html: true })
       }

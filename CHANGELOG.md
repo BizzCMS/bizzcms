@@ -4,6 +4,9 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Fixed
+- **Editor could blank imported posts.** Upstream's visual (Lexical) editor has no images, tables, embeds or code blocks: such HTML was dropped or the box stayed empty, and saving wrote that back. Content with those elements now opens in an HTML editor with a preview (nothing lost); if the visual editor loses text on load it switches too; emptying a box with text asks for confirmation, and the server refuses a save that would blank a post or page unless confirmed. `src/content-guard.ts`.
+
 ### Added
 - Content list: an **eye (View on site)** before the edit button opens the published page in a new tab; the editor's View on Website uses the same address. Sites give their URL rules once with `setPublicRoutes(SITEMAP_ROUTES)`. Drafts have no eye.
 - Sidebar: **Blog** and **News** entries under Workspace (after Content) with post counts, highlighted on their list; News only when the site has news posts.

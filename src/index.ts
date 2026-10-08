@@ -15,6 +15,7 @@ import { guardApi, apiSettingsPage, withApiTab } from './api-access'
 import { googleAnalyticsPlugin, withGoogleAnalytics, gaAdminRoute } from './plugins/google-analytics'
 import { taxonomyRoute } from './taxonomy'
 import { envForSection, withSectionTabs } from './sections'
+import { contentGuardRoute } from './content-guard'
 import { seoPlugin, seoAdminRoute } from './plugins/seo'
 
 registerCollections([pages, posts, categories])
@@ -76,6 +77,9 @@ export default {
     // The REST API is closed unless the owner opens it (Settings › API).
     const denied = await guardApi(request, path, db, upstream)
     if (denied) return denied
+    // Never let a save blank a post or page that has text (src/content-guard.ts).
+    const guarded = await contentGuardRoute(request, path, db)
+    if (guarded) return guarded
     // Posts list by section (Blog | News): src/sections.ts.
     const response = await withSectionTabs(await finishUpstream(ctx, cms.fetch(request, envForSection(env, request, path), ctx)), request, path, db)
     // After upstream's startup seeding has run: replace its SonicJS welcome post.
