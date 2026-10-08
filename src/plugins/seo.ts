@@ -25,8 +25,12 @@ export interface SeoSettings {
   siteName: string; tagline: string; defaultDescription: string; defaultImage: string
   orgType: 'Organization' | 'Person'; orgName: string; orgLogo: string; sameAs: string
   hideFromSearch: boolean; robotsExtra: string; llmsText: string
+  /** Sitemap parts switched off (pages, posts, categories, tags, other, or a collection name). */
+  sitemapOff: string[]
+  /** RSS feed: on/off, number of posts, full text (true) or summary only. */
+  feedEnabled: boolean; feedItems: number; feedFullText: boolean
 }
-const DEFAULTS: SeoSettings = { siteName: '', tagline: '', defaultDescription: '', defaultImage: '', orgType: 'Organization', orgName: '', orgLogo: '', sameAs: '', hideFromSearch: false, robotsExtra: '', llmsText: '' }
+const DEFAULTS: SeoSettings = { siteName: '', tagline: '', defaultDescription: '', defaultImage: '', orgType: 'Organization', orgName: '', orgLogo: '', sameAs: '', hideFromSearch: false, robotsExtra: '', llmsText: '', sitemapOff: [], feedEnabled: true, feedItems: 20, feedFullText: true }
 
 async function ensureTables(db: D1Database) {
   await db.batch([
@@ -190,7 +194,7 @@ export function seoHead(input: SeoInput, settings: SeoSettings): SeoHead {
 }
 
 /** Social tags (Open Graph and X) for sites that print their own head. */
-export function socialTags(head: SeoHead, data: Record<string, unknown> | undefined, siteName: string): string {
+export function socialTags(head: SeoHead, data: Record<string, unknown> | undefined, siteName: string, feed = true): string {
   const e = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
   const t = str(data?.socialTitle) || head.shortTitle
   const desc = str(data?.socialDescription) || head.description || ''
@@ -199,7 +203,8 @@ export function socialTags(head: SeoHead, data: Record<string, unknown> | undefi
     `<meta property="og:title" content="${e(t)}">`, desc ? `<meta property="og:description" content="${e(desc)}">` : '',
     `<meta property="og:url" content="${e(head.canonical)}">`, head.image ? `<meta property="og:image" content="${e(head.image)}">` : '',
     `<meta name="twitter:card" content="${head.image ? 'summary_large_image' : 'summary'}">`, `<meta name="twitter:title" content="${e(t)}">`,
-    desc ? `<meta name="twitter:description" content="${e(desc)}">` : '', head.image ? `<meta name="twitter:image" content="${e(head.image)}">` : ''
+    desc ? `<meta name="twitter:description" content="${e(desc)}">` : '', head.image ? `<meta name="twitter:image" content="${e(head.image)}">` : '',
+    feed && publicRoutes?.posts ? `<link rel="alternate" type="application/rss+xml" title="${e(siteName)}" href="${e(new URL('/feed/', head.canonical).href)}">` : ''
   ].filter(Boolean).join('')
 }
 
@@ -262,6 +267,8 @@ export interface SitemapRoutes {
   tags?: (tag: string, section: string) => string | null
   /** Extra fixed URLs (paths), e.g. /brand. */
   extra?: string[]
+  /** Other collections with public pages, by collection name, e.g. { portfolio: (d, slug) => `/portfolio/${slug}/` }. */
+  collections?: Record<string, (data: Record<string, unknown>, slug: string) => string | null>
 }
 
 const XML_HEAD = '<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -283,14 +290,27 @@ export function publicPath(type: string, data: Record<string, unknown>, slug: st
 const PUBLISHED = `tenant_id = 'default' AND is_published = 1 AND (deleted_at IS NULL OR deleted_at = '')`
 
 /** /sitemap.xml (index) and /sitemap-<type>.xml; null for other paths. Leaves out noindex items and items with a canonical elsewhere. */
+/** The sitemap parts a site offers (for the Indexing tab and the sitemap index). */
+export function sitemapParts(routes: SitemapRoutes | null = publicRoutes): { key: string; label: string }[] {
+  if (!routes) return []
+  const cap = (k: string) => k.charAt(0).toUpperCase() + k.slice(1).replace(/[-_]/g, ' ')
+  return [
+    ...(['pages', 'posts', 'categories', 'tags'] as const).filter(t => routes[t]).map(t => ({ key: t as string, label: cap(t) })),
+    ...Object.keys(routes.collections ?? {}).map(k => ({ key: k, label: cap(k) })),
+    ...(routes.extra?.length ? [{ key: 'other', label: `Other pages (${routes.extra.slice(0, 3).join(', ')}${routes.extra.length > 3 ? ', …' : ''})` }] : [])
+  ]
+}
+
 export async function seoSitemap(url: URL, db: D1Database, routes: SitemapRoutes): Promise<Response | null> {
-  const m = url.pathname.match(/^\/sitemap(?:-(pages|posts|categories|tags|other))?\.xml$/)
+  const m = url.pathname.match(/^\/sitemap(?:-([a-z0-9_-]+))?\.xml$/)
   if (!m) return null
   const xml = (body: string) => new Response(XML_HEAD + body, { headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=3600' } })
   const s = await seoSettings(db)
-  const types = (['pages', 'posts', 'categories', 'tags'] as const).filter(t => routes[t])
+  // Only the parts this site offers and the owner left switched on (SEO › Indexing).
+  const enabled = sitemapParts(routes).map(p => p.key).filter(k => !s.sitemapOff.includes(k))
+  if (m[1] && !enabled.includes(m[1])) return null
   if (!m[1]) {
-    const parts = [...types, ...(routes.extra?.length ? ['other'] : [])].map(t => `<sitemap><loc>${xesc(`${url.origin}/sitemap-${t}.xml`)}</loc></sitemap>`)
+    const parts = enabled.map(t => `<sitemap><loc>${xesc(`${url.origin}/sitemap-${t}.xml`)}</loc></sitemap>`)
     return xml(`<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${s.hideFromSearch ? '' : parts.join('\n')}\n</sitemapindex>\n`)
   }
   const day = (t: number) => new Date(t > 1e11 ? t : t * 1000).toISOString().slice(0, 10)
@@ -304,8 +324,8 @@ export async function seoSitemap(url: URL, db: D1Database, routes: SitemapRoutes
         GROUP BY lower(trim(j.value)), section ORDER BY tag LIMIT 50000`).all<{ tag: string; section: string; t: number }>()
       for (const r of results) { const p = routes.tags(r.tag, r.section || 'blog'); if (p) urls.push({ loc: abs(url.origin, p), lastmod: r.t ? day(r.t) : undefined }) }
     } else {
-      const type = m[1] as 'pages' | 'posts' | 'categories'
-      const route = routes[type]
+      const type = m[1]
+      const route = type === 'pages' || type === 'posts' || type === 'categories' ? routes[type] : routes.collections?.[type]
       if (route) {
         const { results } = await db.prepare(`SELECT slug, data, COALESCE(updated_at, published_at) AS t FROM documents WHERE type_id = ? AND ${PUBLISHED} ORDER BY COALESCE(published_at, updated_at) DESC LIMIT 50000`).bind(type).all<{ slug: string; data: string; t: number }>()
         for (const r of results) {
@@ -319,6 +339,76 @@ export async function seoSitemap(url: URL, db: D1Database, routes: SitemapRoutes
   const seen = new Set<string>()
   const body = urls.filter(u => u.loc && !seen.has(u.loc) && seen.add(u.loc)).map(u => `<url><loc>${xesc(u.loc)}</loc>${u.lastmod ? `<lastmod>${u.lastmod}</lastmod>` : ''}</url>`).join('\n')
   return xml(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`)
+}
+
+// ---------- RSS feed ----------
+
+const rfc822 = (t: number) => new Date(t > 1e11 ? t : t * 1000).toUTCString().replace('GMT', '+0000')
+const cdata = (v: string) => `<![CDATA[${v.split(']]>').join(']]]]><![CDATA[>')}]]>`
+const absolutise = (html: string, origin: string) => html.replace(/\s(src|href)="\/(?!\/)/g, ` $1="${origin}/`)
+
+/** RSS 2.0 feeds: /feed/ (all posts) and /<section>/feed/ (blog, news). Featured image first (with the
+ *  webfeedsFeaturedVisual class readers such as Feedly use) plus media:content, categories and tags,
+ *  author, and the full text in content:encoded. Null for other paths or when the feed is switched off. */
+export async function seoFeed(url: URL, db: D1Database, routes: SitemapRoutes | null = publicRoutes): Promise<Response | null> {
+  const m = url.pathname.match(/^\/(?:(blog|news)\/)?(?:feed|rss)(?:\/|\.xml)?$/)
+  if (!m || !routes?.posts) return null
+  const s = await seoSettings(db)
+  if (!s.feedEnabled || s.hideFromSearch) return null
+  const section = m[1] ?? ''
+  const site = s.siteName || url.hostname
+  const where = `type_id = 'posts' AND ${PUBLISHED}${section ? ` AND COALESCE(NULLIF(json_extract(data, '$.section'), ''), 'blog') = ?` : ''}`
+  const limit = Math.min(Math.max(Number(s.feedItems) || 20, 5), 100)
+  const [{ results }, cats] = await Promise.all([
+    db.prepare(`SELECT title, slug, data, published_at, updated_at FROM documents WHERE ${where} ORDER BY COALESCE(published_at, updated_at) DESC LIMIT ?`).bind(...(section ? [section, limit] : [limit])).all<{ title: string; slug: string; data: string; published_at: number | null; updated_at: number }>(),
+    db.prepare(`SELECT root_id, title FROM documents WHERE type_id = 'categories' AND is_current_draft = 1 AND (deleted_at IS NULL OR deleted_at = '')`).all<{ root_id: string; title: string }>()
+  ])
+  const catName = new Map(cats.results.map(c => [c.root_id, c.title]))
+  const selfUrl = `${url.origin}${url.pathname}`
+  const listUrl = `${url.origin}/${section ? section + '/' : ''}`
+  const title = section ? `${site} ${section === 'news' ? 'News' : 'Blog'}` : site
+  const logo = s.orgLogo || s.defaultImage
+  const items = results.map(r => {
+    let d: Record<string, unknown> = {}; try { d = JSON.parse(r.data) } catch { /* empty */ }
+    const path = routes.posts!(d, r.slug); if (!path) return ''
+    const link = abs(url.origin, path)
+    const img = str(d.featuredImage) ? abs(url.origin, str(d.featuredImage)) : ''
+    const alt = str(d.featuredImageAlt) || r.title
+    const imgHtml = img ? `<img src="${xesc(img)}" alt="${xesc(alt)}" class="webfeedsFeaturedVisual" style="display:block;margin-bottom:5px;clear:both;max-width:100%;" />` : ''
+    const content = absolutise(str(d.content) || str(d.body), url.origin)
+    const summary = str(d.excerpt) || content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300)
+    const footer = `<p>The post <a href="${xesc(link)}">${xesc(r.title)}</a> appeared first on <a href="${xesc(url.origin)}">${xesc(site)}</a>.</p>`
+    const terms = [...(Array.isArray(d.categories) ? d.categories.map(id => catName.get(String(id))).filter(Boolean) : []), ...(Array.isArray(d.tags) ? d.tags.map(String) : [])] as string[]
+    return `<item>
+<title>${cdata(r.title)}</title>
+<link>${xesc(link)}</link>
+<dc:creator>${cdata(str(d.authorName) || s.orgName || site)}</dc:creator>
+<pubDate>${rfc822(r.published_at ?? r.updated_at)}</pubDate>
+${[...new Set(terms)].map(t => `<category>${cdata(t)}</category>`).join('\n')}
+<guid isPermaLink="true">${xesc(link)}</guid>
+<description>${cdata(`${imgHtml}<p>${xesc(summary)}</p>\n${footer}`)}</description>
+${s.feedFullText ? `<content:encoded>${cdata(`${imgHtml}${content}\n${footer}`)}</content:encoded>` : ''}
+${img ? `<media:content url="${xesc(img)}" medium="image"><media:description type="plain">${cdata(alt)}</media:description></media:content>` : ''}
+</item>`
+  }).filter(Boolean).join('\n')
+  const newest = results[0] ? rfc822(results[0].published_at ?? results[0].updated_at) : new Date().toUTCString()
+  const body = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:sy="http://purl.org/rss/1.0/modules/syndication/" xmlns:media="http://search.yahoo.com/mrss/">
+<channel>
+<title>${xesc(title)}</title>
+<atom:link href="${xesc(selfUrl)}" rel="self" type="application/rss+xml" />
+<link>${xesc(listUrl)}</link>
+<description>${xesc(s.tagline || s.defaultDescription || site)}</description>
+<lastBuildDate>${newest}</lastBuildDate>
+<language>en</language>
+<sy:updatePeriod>hourly</sy:updatePeriod>
+<sy:updateFrequency>1</sy:updateFrequency>
+${logo ? `<image><url>${xesc(abs(url.origin, logo))}</url><title>${xesc(title)}</title><link>${xesc(listUrl)}</link></image>` : ''}
+${items}
+</channel>
+</rss>
+`
+  return new Response(body, { headers: { 'content-type': 'application/rss+xml; charset=utf-8', 'cache-control': 'public, max-age=900' } })
 }
 
 // ---------- admin ----------
@@ -414,9 +504,17 @@ export async function seoAdminRoute(request: Request, path: string, db: D1Databa
     const action = String(f.get('action') ?? '')
     let tab = 'general'
     if (action === 'settings') {
+      // Each tab saves only its own fields.
       const g = (k: string) => String(f.get(k) ?? '').trim()
-      await saveSettings(db, { siteName: g('siteName'), tagline: g('tagline'), defaultDescription: g('defaultDescription'), defaultImage: g('defaultImage'), orgType: g('orgType') === 'Person' ? 'Person' : 'Organization', orgName: g('orgName'), orgLogo: g('orgLogo'), sameAs: g('sameAs'), hideFromSearch: f.get('hideFromSearch') === 'on', robotsExtra: g('robotsExtra'), llmsText: g('llmsText') })
-      tab = String(f.get('tab') ?? 'general')
+      tab = String(f.get('tab') ?? 'general') === 'indexing' ? 'indexing' : 'general'
+      const next = { ...(await seoSettings(db)) }
+      if (tab === 'general') Object.assign(next, { siteName: g('siteName'), tagline: g('tagline'), defaultDescription: g('defaultDescription'), defaultImage: g('defaultImage'), orgType: g('orgType') === 'Person' ? 'Person' : 'Organization', orgName: g('orgName'), orgLogo: g('orgLogo'), sameAs: g('sameAs') })
+      else Object.assign(next, {
+        hideFromSearch: f.get('hideFromSearch') === 'on', robotsExtra: g('robotsExtra'), llmsText: g('llmsText'),
+        sitemapOff: g('sitemap_parts').split(',').filter(k => k && f.get(`sitemap_${k}`) !== 'on'),
+        feedEnabled: f.get('feedEnabled') === 'on', feedItems: Math.min(Math.max(Number(g('feedItems')) || 20, 5), 100), feedFullText: g('feedFullText') !== 'summary'
+      })
+      await saveSettings(db, next)
     } else if (action === 'add-redirect' || action === 'import-redirects') {
       tab = 'redirects'
       const lines = action === 'add-redirect' ? [`${f.get('source')},${f.get('target')},${f.get('status')}`] : String(f.get('csv') ?? '').split(/\r?\n/)
@@ -473,9 +571,15 @@ async function adminPage(tab: string, s: SeoSettings, db: D1Database, url: URL, 
       <label class="bizz-seo-check"><input type="checkbox" name="hideFromSearch"${s.hideFromSearch ? ' checked' : ''}${ro}><span><strong>Hide the whole site from search engines</strong><small>For staging or unfinished sites. robots.txt then blocks everything and every page gets noindex.</small></span></label>
       ${field('robotsExtra', 'Extra robots.txt lines', 'Added to the default rules, e.g. "Disallow: /private/". Sitemap and llms.txt lines are added automatically.', 'textarea')}
       ${field('llmsText', 'llms.txt (instructions for AI assistants)', 'Plain text or Markdown at /llms.txt. Empty = the site\'s built-in text, if it has one.', 'textarea')}
-      <p class="bizz-seo-note">Sitemap: <a href="/sitemap.xml" target="_blank">/sitemap.xml</a> · Robots: <a href="/robots.txt" target="_blank">/robots.txt</a> · <a href="/llms.txt" target="_blank">/llms.txt</a></p>`
+      ${sitemapParts().length ? `<fieldset class="bizz-seo-group"><legend>Include in sitemap</legend><input type="hidden" name="sitemap_parts" value="${e(sitemapParts().map(p => p.key).join(','))}">
+        ${sitemapParts().map(p => `<label class="bizz-seo-check"><input type="checkbox" name="sitemap_${e(p.key)}"${s.sitemapOff.includes(p.key) ? '' : ' checked'}${ro}><span>${e(p.label)}</span></label>`).join('')}
+        <small>Unticked parts are left out of /sitemap.xml. The pages themselves stay online.</small></fieldset>` : ''}
+      ${publicRoutes?.posts ? `<fieldset class="bizz-seo-group"><legend>RSS feed</legend>
+        <label class="bizz-seo-check"><input type="checkbox" name="feedEnabled"${s.feedEnabled ? ' checked' : ''}${ro}><span><strong>Publish an RSS feed</strong><small>At <a href="/feed/" target="_blank">/feed/</a> (all posts) and per section, e.g. <a href="/blog/feed/" target="_blank">/blog/feed/</a>. News readers, Feedly and aggregators use it.</small></span></label>
+        <label class="bizz-seo-field"><span>Posts in the feed</span><input type="number" name="feedItems" min="5" max="100" value="${s.feedItems}"${ro}></label>
+        <label class="bizz-seo-field"><span>Each post shows</span><select name="feedFullText"${ro}><option value="full"${s.feedFullText ? ' selected' : ''}>Full text (with featured image)</option><option value="summary"${s.feedFullText ? '' : ' selected'}>Summary only (with featured image)</option></select></label></fieldset>` : ''}
+      <p class="bizz-seo-note">Sitemap: <a href="/sitemap.xml" target="_blank">/sitemap.xml</a> · Robots: <a href="/robots.txt" target="_blank">/robots.txt</a> · <a href="/llms.txt" target="_blank">/llms.txt</a>${publicRoutes?.posts && s.feedEnabled ? ' · Feed: <a href="/feed/" target="_blank">/feed/</a>' : ''}</p>`
     content = `<form method="post" class="bizz-seo-form"><input type="hidden" name="action" value="settings"><input type="hidden" name="tab" value="${tab}">
-      ${tab === 'general' ? hiddenOf(s, ['hideFromSearch', 'robotsExtra', 'llmsText']) : hiddenOf(s, ['siteName', 'tagline', 'defaultDescription', 'defaultImage', 'orgType', 'orgName', 'orgLogo', 'sameAs'])}
       ${inner}${isAdmin ? '<div><button type="submit" class="bg-zinc-950">Save changes</button></div>' : '<p class="bizz-seo-note">Only administrators can change these settings.</p>'}</form>`
   } else if (tab === 'redirects') {
     await ensureTables(db)
@@ -503,10 +607,6 @@ async function adminPage(tab: string, s: SeoSettings, db: D1Database, url: URL, 
   }
   return `<div class="bizz-seo-page"><div class="mb-8"><h1 class="text-2xl/8 font-semibold text-zinc-950 dark:text-white sm:text-xl/8">SEO</h1><p class="mt-2 text-sm/6 text-zinc-500 dark:text-zinc-400">How your website appears in Google and when it is shared. Each page and post also has its own SEO panel in the editor.</p></div>
     <div class="border-b border-zinc-950/5 dark:border-white/10 bizz-seo-tabbar-page"><nav class="flex overflow-x-auto" role="tablist" aria-label="SEO sections" data-bizz-tabs>${tabs}</nav></div>${saved}${content}</div>`
-}
-
-function hiddenOf(s: SeoSettings, keys: (keyof SeoSettings)[]) {
-  return keys.map(k => k === 'hideFromSearch' ? (s.hideFromSearch ? '<input type="hidden" name="hideFromSearch" value="on">' : '') : `<input type="hidden" name="${k}" value="${e(s[k])}">`).join('')
 }
 
 async function checkTab(db: D1Database): Promise<string> {

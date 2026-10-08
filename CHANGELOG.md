@@ -4,6 +4,10 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Added
+- **RSS feed** (SEO plugin): `/feed/` (all posts) and `/<section>/feed/` (blog, news), RSS 2.0 like WordPress: featured image first (`webfeedsFeaturedVisual`) plus `media:content`, author, categories and tags, full text in `content:encoded`, "appeared first on" line; pages link to it. SEO › Indexing: on/off, number of posts, full text or summary. Sites call `seoFeed(url, db)`.
+- SEO › Indexing › **Include in sitemap**: tick which parts go into /sitemap.xml (pages, posts, categories, tags, other pages, and extra collections a site adds with `routes.collections`, e.g. portfolio). Each settings tab now saves only its own fields.
+
 ### Security
 - **No technical errors shown to visitors.** Any error, or a 5xx from the CMS engine (some of which included the raw database error), becomes a friendly page (or `{"error":"Something went wrong","reference":"…"}` for the API) with a short reference code. The details go to the console and to **Settings › Error log** (30 days, administrators only, search by reference). `src/errors.ts`; sites can give the page their own design with `setErrorPage()`.
 
