@@ -12,8 +12,11 @@
 type Ctx = { waitUntil(p: Promise<unknown>): void }
 type Fetcher = (request: Request) => Promise<Response>
 
-export interface CacheSettings { enabled: boolean; pageMinutes: number; feedMinutes: number }
-const DEFAULTS: CacheSettings = { enabled: true, pageMinutes: 5, feedMinutes: 60 }
+/** feedsUntilChange: sitemaps, feeds, robots.txt and llms.txt stay at the edge until content changes (any admin
+ *  save bumps the content version); feedMinutes applies when it is off. */
+export interface CacheSettings { enabled: boolean; pageMinutes: number; feedMinutes: number; feedsUntilChange: boolean }
+const DEFAULTS: CacheSettings = { enabled: true, pageMinutes: 5, feedMinutes: 60, feedsUntilChange: true }
+const UNTIL_CHANGE_MINUTES = 30 * 24 * 60
 const VERSION_KEY = 'bizz:content-version'
 const SKIP = /^\/(admin|auth|api|files|mcp|cdn-cgi)(\/|$)/
 const SESSION_COOKIE = /(^|;\s*)(better-auth\.session_token|__Secure-better-auth\.session_token|auth_token|session)=/i
@@ -87,7 +90,8 @@ export async function edgeCached(request: Request, db: D1Database, kv: KVNamespa
   const local = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname.endsWith('.localhost')
   if (SKIP.test(url.pathname) || SESSION_COOKIE.test(request.headers.get('cookie') ?? '') || url.searchParams.has('nocache')) return handler()
   const s = await cacheSettings(db)
-  const minutes = FEEDLIKE.test(url.pathname) ? s.feedMinutes : s.pageMinutes
+  // Browsers still revalidate every time (toClient); only the edge copy lives this long.
+  const minutes = FEEDLIKE.test(url.pathname) ? (s.feedsUntilChange ? UNTIL_CHANGE_MINUTES : s.feedMinutes) : s.pageMinutes
   if (!s.enabled || !(minutes > 0) || typeof caches === 'undefined') return handler()
   const version = await contentVersion(kv)
   const keyUrl = new URL(url); keyUrl.searchParams.set('__bizz_v', version)
@@ -144,7 +148,7 @@ export async function cacheSettingsPage(request: Request, path: string, db: D1Da
     const f = await request.formData()
     if (f.get('action') === 'clear') { await bumpContentVersion(kv); return Response.redirect(new URL('/admin/settings/cache?cleared=1', url).toString(), 303) }
     const num = (k: string, d: number, max: number) => { const n = Number(f.get(k)); return Number.isFinite(n) ? Math.min(Math.max(n, 0), max) : d }
-    const value: CacheSettings = { enabled: f.get('enabled') === 'on', pageMinutes: num('pageMinutes', DEFAULTS.pageMinutes, 1440), feedMinutes: num('feedMinutes', DEFAULTS.feedMinutes, 1440) }
+    const value: CacheSettings = { enabled: f.get('enabled') === 'on', pageMinutes: num('pageMinutes', DEFAULTS.pageMinutes, 1440), feedMinutes: num('feedMinutes', DEFAULTS.feedMinutes, 1440), feedsUntilChange: f.get('feedsUntilChange') === 'on' }
     await db.prepare("INSERT INTO bizz_settings (key, value, updated_at) VALUES ('cache.settings', ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at").bind(JSON.stringify(value), Date.now()).run()
     settingsCache = null
     await bumpContentVersion(kv)
@@ -158,7 +162,8 @@ export async function cacheSettingsPage(request: Request, path: string, db: D1Da
     <form method="post" class="bizz-seo-form">
       <label class="bizz-seo-check"><input type="checkbox" name="enabled"${s.enabled ? ' checked' : ''}><span><strong>Cache public pages</strong><small>Pages, posts, lists and the home page. Never the admin, sign-in, API or files.</small></span></label>
       <label class="bizz-seo-field"><span>Keep pages for (minutes)</span><input type="number" name="pageMinutes" min="0" max="1440" step="1" value="${s.pageMinutes}"><small>0 = no caching for pages. 5 is a good default.</small></label>
-      <label class="bizz-seo-field"><span>Keep sitemaps, feeds, robots.txt and llms.txt for (minutes)</span><input type="number" name="feedMinutes" min="0" max="1440" step="1" value="${s.feedMinutes}"><small>They change less often. 60 is a good default.</small></label>
+      <label class="bizz-seo-check"><input type="checkbox" name="feedsUntilChange"${s.feedsUntilChange ? ' checked' : ''}><span><strong>Keep sitemaps and feeds until content changes</strong><small>Sitemaps, RSS feeds, robots.txt and llms.txt are built once and kept until you save something in the admin, then built fresh. Search engines and feed readers still always get the current version.</small></span></label>
+      <label class="bizz-seo-field"><span>Keep sitemaps, feeds, robots.txt and llms.txt for (minutes, when the box above is off)</span><input type="number" name="feedMinutes" min="0" max="1440" step="1" value="${s.feedMinutes}"><small>They change less often. 60 is a good default.</small></label>
       <div><button type="submit" class="bg-zinc-950">Save changes</button></div>
     </form>
     <form method="post"><input type="hidden" name="action" value="clear"><button type="submit" class="bizz-seo-mini">Clear the cache now</button></form>

@@ -16,10 +16,11 @@ BizzCMS serves public pages from Cloudflare's edge cache, so visitors and search
 |---|---|---|
 | Cache public pages | on | Switch the whole cache off or on. |
 | Keep pages for (minutes) | 5 | 0 turns caching off for pages. |
-| Keep sitemaps, feeds, robots.txt and llms.txt for (minutes) | 60 | They change less often. |
+| Keep sitemaps and feeds until content changes | on | Sitemaps, RSS feeds, robots.txt and llms.txt are built once and kept at the edge until something is saved in the admin. Browsers and crawlers still revalidate every time, so they never get an old copy. |
+| Keep sitemaps, feeds, robots.txt and llms.txt for (minutes) | 60 | Used when the box above is off. |
 | Clear the cache now | | Replaces every cached page straight away. |
 
-Saving the settings also clears the cache.
+Saving the settings also clears the cache. A post that goes live through a schedule (no save at that moment) shows up in the sitemap and feed after the next save or **Clear the cache now**.
 
 ## Your changes show right away
 

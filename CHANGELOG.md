@@ -5,6 +5,7 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 ## [Unreleased]
 
 ### Added
+- Settings › Cache: **Keep sitemaps and feeds until content changes** (on by default). Sitemaps, feeds, robots.txt and llms.txt stay at the edge until the next admin save instead of 60 minutes; clients still revalidate with the ETag.
 - SEO › Check: **Calculate missing scores** / **Recalculate all**. Imported or old items get their SEO and readability scores (the dots in the Content list) without opening each one: the browser runs the same analysis as the editor in batches of 40, updates go by id and keep `updated_at` (no IndexNow, no cache flush). The analysis now lives in one shared script (`SEO_ANALYSE_CORE`).
 
 ### Fixed
