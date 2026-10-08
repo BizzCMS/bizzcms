@@ -39,7 +39,7 @@ Flat list, no parents. A post stores the category's root id, which stays the sam
 
 ## Editing imported and rich HTML (`src/content-guard.ts`)
 
-The visual editor (Lexical, upstream) only knows paragraphs, headings, lists, quotes, links and bold/italic. Content that also has images, tables, iframes, figures, `pre`, `hr` or `div` opens in an HTML editor with a Preview tab instead, so nothing is dropped. If the visual editor loads other content but loses text or links, the field is restored and switched to HTML. Emptying a box that had text asks for confirmation (`bizz_confirm_clear`), and `contentGuardRoute` (wired before `cms.fetch`) refuses any `PUT /admin/content/:id` that would replace real text in `content` or `body` with an empty box.
+Every rich text field has a **Visual | HTML | Preview** switch above it. The visual editor (Lexical, upstream) only knows paragraphs, headings, lists, quotes, links and bold/italic. Content that also has images, tables, iframes, figures, `pre`, `hr` or `div` opens in an HTML editor with a Preview tab instead, so nothing is dropped. If the visual editor loads other content but loses text or links, the field is restored and switched to HTML. Emptying a box that had text asks for confirmation (`bizz_confirm_clear`), and `contentGuardRoute` (wired before `cms.fetch`) refuses any `PUT /admin/content/:id` that would replace real text in `content` or `body` with an empty box.
 
 ## Posts list by section (`src/sections.ts`)
 

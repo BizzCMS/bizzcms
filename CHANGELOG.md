@@ -4,6 +4,9 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Added
+- **HTML editor**: every rich text field has a **Visual | HTML | Preview** switch. HTML edits the saved HTML directly; Visual is refused for HTML it would damage (images, tables, embeds, code blocks).
+
 ### Fixed
 - **Editor could blank imported posts.** Upstream's visual (Lexical) editor has no images, tables, embeds or code blocks: such HTML was dropped or the box stayed empty, and saving wrote that back. Content with those elements now opens in an HTML editor with a preview (nothing lost); if the visual editor loses text on load it switches too; emptying a box with text asks for confirmation, and the server refuses a save that would blank a post or page unless confirmed. `src/content-guard.ts`.
 

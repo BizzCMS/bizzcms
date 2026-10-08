@@ -785,3 +785,4 @@ html.dark .bizz-view-site { color: #c4f56a; background: rgb(196 245 106 / .1); }
 .bizz-html-editor textarea { min-height: 460px; width: 100%; padding: 12px; border: 1px solid var(--bz-line); border-radius: 10px; background: var(--bz-surface); color: var(--bz-navy); font: 13px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace; }
 .bizz-html-preview { width: 100%; min-height: 460px; border: 1px solid var(--bz-line); border-radius: 10px; background: #fff; }
 .bizz-guard-error { padding: 12px 14px; border-radius: 10px; background: #fff1ef; border: 1px solid #f1c5bd; color: #8a2b1d; font-size: 14px; }
+.bizz-html-tabs { margin-bottom: 8px; }
