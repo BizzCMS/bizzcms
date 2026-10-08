@@ -2,7 +2,15 @@
   "name": "bizzcms",
   "version": "0.2.2",
   "private": true,
-  "description": "Lightweight business CMS built on SonicJS",
+  "description": "Free, open-source headless CMS for business websites, built on SonicJS",
+  "homepage": "https://bizzcms.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BizzCMS/bizzcms.git"
+  },
+  "bugs": {
+    "url": "https://github.com/BizzCMS/bizzcms/issues"
+  },
   "license": "MIT",
   "type": "module",
   "scripts": {

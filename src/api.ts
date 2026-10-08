@@ -15,7 +15,7 @@ export async function brandApiSpec(response: Response, path: string): Promise<Re
     title: 'BizzCMS API',
     version: metadata.version,
     description: 'REST API for BizzCMS, lightweight content management for business websites. Built on SonicJS.',
-    contact: { name: 'BizzCMS', url: 'https://github.com/BizzCMS/bizzcms' },
+    contact: { name: 'BizzCMS', url: 'https://bizzcms.com' },
     license: { name: 'MIT', url: 'https://github.com/BizzCMS/bizzcms/blob/main/LICENSE' }
   }
   const headers = new Headers(response.headers)

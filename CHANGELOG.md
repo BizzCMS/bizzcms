@@ -8,6 +8,7 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 - Blocked upstream's unauthenticated `POST /auth/seed-admin`, which creates or resets an admin account with a password published in the SonicJS source. It now returns 404 on every BizzCMS site.
 
 ### Changed
+- bizzcms.com is live: README, package.json (homepage, repository, issues), the API description's contact link and the GitHub repository website now point to https://bizzcms.com.
 - Wordmark in Inter Tight regular in the admin and on sign-in pages, like the website; the version badge uses the theme colours in light and dark.
 - Admin footer and README: "Made with ♥ by Ingenium" (links to ingenium.software).
 - Dark mode: the page body and the shell behind the sidebar use the dark teal canvas instead of near-black.
