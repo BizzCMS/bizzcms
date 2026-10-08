@@ -422,8 +422,17 @@ export async function seoAdminRoute(request: Request, path: string, db: D1Databa
 }
 
 async function adminPage(tab: string, s: SeoSettings, db: D1Database, url: URL, isAdmin: boolean): Promise<string> {
+  // The admin's standard tab bar (same markup as Settings, styled by admin.css [data-bizz-tabs]).
+  const icon = (d: string) => `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`
+  const TAB_ICONS: Record<string, string> = {
+    general: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+    indexing: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/>',
+    redirects: '<path d="M4 12h12"/><path d="m12 6 6 6-6 6"/><path d="M20 4v16"/>',
+    check: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>'
+  }
+  const tabClass = (on: boolean) => `flex items-center space-x-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap no-underline ${on ? 'border-zinc-950 dark:border-white text-zinc-950 dark:text-white' : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-white'}`
   const tabs = [['general', 'General'], ['indexing', 'Indexing'], ['redirects', 'Redirects'], ['check', 'Check']]
-    .map(([k, l]) => `<a href="/admin/seo?tab=${k}" class="bizz-seo-tab${k === tab ? ' is-on' : ''}">${l}</a>`).join('')
+    .map(([k, l]) => `<a href="/admin/seo?tab=${k}" data-tab="${k}" class="${tabClass(k === tab)}"${k === tab ? ' aria-current="page"' : ''}>${icon(TAB_ICONS[k])}<span>${l}</span></a>`).join('')
   const saved = url.searchParams.has('saved') ? '<p class="bizz-api-saved">Saved.</p>' : ''
   const ro = isAdmin ? '' : ' disabled'
   const field = (name: keyof SeoSettings, label: string, help: string, kind: 'text' | 'textarea' = 'text') => `<label class="bizz-seo-field"><span>${label}</span>${kind === 'textarea'
@@ -464,7 +473,7 @@ async function adminPage(tab: string, s: SeoSettings, db: D1Database, url: URL, 
     content = await checkTab(db)
   }
   return `<div class="bizz-seo-page"><div class="mb-8"><h1 class="text-2xl/8 font-semibold text-zinc-950 dark:text-white sm:text-xl/8">SEO</h1><p class="mt-2 text-sm/6 text-zinc-500 dark:text-zinc-400">How your website appears in Google and when it is shared. Each page and post also has its own SEO panel in the editor.</p></div>
-    <nav class="bizz-seo-tabs">${tabs}</nav>${saved}${content}</div>`
+    <div class="border-b border-zinc-950/5 dark:border-white/10 bizz-seo-tabbar-page"><nav class="flex overflow-x-auto" role="tablist" aria-label="SEO sections" data-bizz-tabs>${tabs}</nav></div>${saved}${content}</div>`
 }
 
 function hiddenOf(s: SeoSettings, keys: (keyof SeoSettings)[]) {

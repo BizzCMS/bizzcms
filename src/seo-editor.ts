@@ -19,7 +19,7 @@ var idm=location.pathname.match(/\\/admin\\/content\\/([^/]+)\\/edit/);
 // ---- build the panel
 var card=document.createElement('div');card.className='field-group rounded-lg bg-white dark:bg-zinc-900 shadow-sm ring-1 ring-zinc-950/5 dark:ring-white/10 mb-6 bizz-seo-card';
 card.innerHTML='<div class="field-group-header border-b border-zinc-950/5 dark:border-white/10 px-6 py-4 bizz-seo-head"><h3 class="text-base/7 font-semibold text-zinc-950 dark:text-white">SEO</h3><span class="bizz-seo-badge" data-badge="seo">SEO</span><span class="bizz-seo-badge" data-badge="read">Readability</span><button type="button" class="bizz-seo-auto" data-auto>Auto-fill SEO</button></div>'
- +'<div class="bizz-seo-tabbar" role="tablist"><button type="button" data-t="seo" class="is-on">SEO</button><button type="button" data-t="social">Social</button><button type="button" data-t="adv">Advanced</button></div>'
+ +'<div class="bizz-seo-tabbar"><nav class="flex overflow-x-auto" role="tablist" aria-label="SEO panel" data-bizz-tabs><a href="#" data-t="seo" aria-current="page">SEO</a><a href="#" data-t="social">Social</a><a href="#" data-t="adv">Advanced</a></nav></div>'
  +'<div class="px-6 py-6"><div data-p="seo"><div class="bizz-seo-msg" data-msg hidden></div><div data-slot="seo"></div><div class="bizz-seo-preview" data-gp></div><div class="bizz-seo-results"><h4>SEO analysis</h4><ul data-r="seo"></ul><h4>Readability</h4><ul data-r="read"></ul></div></div>'
  +'<div data-p="social" hidden><div data-slot="social"></div><div class="bizz-seo-social" data-sp></div></div><div data-p="adv" hidden><div data-slot="adv"></div></div></div>';
 var anchor=form.querySelector('[data-group-id="content-details"]')||form.querySelector('.field-group:last-of-type');
@@ -27,8 +27,8 @@ if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(card,anchor.nextSibl
 var slots={seo:['focusKeyphrase','relatedKeyphrases','seoTitle','seoDescription'],social:['socialTitle','socialDescription','seoImage'],adv:['noindex','nofollow','canonical','breadcrumbTitle','keyContent']};
 Object.keys(slots).forEach(function(k){var slot=card.querySelector('[data-slot="'+k+'"]');slots[k].forEach(function(n){var g=group(n);if(g){g.classList.add('bizz-seo-field-moved');slot.appendChild(g)}})});
 ['seoScore','readabilityScore'].forEach(function(n){var g=group(n);if(g)g.style.display='none'});
-card.querySelector('.bizz-seo-tabbar').addEventListener('click',function(e){var b=e.target.closest('button[data-t]');if(!b)return;
-  card.querySelectorAll('.bizz-seo-tabbar button').forEach(function(x){x.classList.toggle('is-on',x===b)});
+card.querySelector('.bizz-seo-tabbar').addEventListener('click',function(e){var b=e.target.closest('a[data-t]');if(!b)return;e.preventDefault();
+  card.querySelectorAll('.bizz-seo-tabbar a[data-t]').forEach(function(x){if(x===b)x.setAttribute('aria-current','page');else x.removeAttribute('aria-current')});
   card.querySelectorAll('[data-p]').forEach(function(p){p.hidden=p.getAttribute('data-p')!==b.getAttribute('data-t')})});
 // ---- reading the content
 function html(){return val('content')||val('body')||val('description')||''}

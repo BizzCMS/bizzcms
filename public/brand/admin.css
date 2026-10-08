@@ -717,9 +717,7 @@ html:not(.dark) [data-bizz-surface] :is([class^="text-lime-"], [class*=" text-li
 .bizz-seo-auto { margin-left: 6px; padding: 8px 14px; border: 0; border-radius: 10px; background: var(--bz-blue); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
 .bizz-seo-auto::before { content: "\2726  "; color: var(--bz-lime); }
 .bizz-seo-auto:hover { filter: brightness(1.1); }
-.bizz-seo-tabbar { display: flex; gap: 4px; padding: 0 24px; border-bottom: 1px solid var(--bz-line); }
-.bizz-seo-tabbar button { padding: 12px 14px; border: 0; border-bottom: 2px solid transparent; background: none; font-size: 14px; font-weight: 500; color: var(--bz-muted); cursor: pointer; }
-.bizz-seo-tabbar button.is-on { color: var(--bz-navy); border-bottom-color: var(--bz-blue); }
+.bizz-seo-tabbar { padding: 16px 24px 0; }
 .bizz-seo-card [data-slot] { display: grid; gap: 22px; }
 .bizz-seo-msg { margin-bottom: 18px; padding: 10px 14px; border-radius: 10px; background: var(--bz-blue-50, #e6f2f1); color: var(--bz-navy); font-size: 13px; }
 .bizz-seo-gp-label { margin: 26px 0 8px; font-size: 13px; font-weight: 600; color: var(--bz-navy); }
@@ -741,9 +739,6 @@ html:not(.dark) [data-bizz-surface] :is([class^="text-lime-"], [class*=" text-li
 .bizz-seo-share > div:last-child { display: grid; gap: 2px; padding: 12px 14px; }
 .bizz-seo-share small { font-size: 11px; text-transform: uppercase; color: var(--bz-muted); }
 .bizz-seo-share strong { font-size: 15px; color: var(--bz-navy); } .bizz-seo-share p { margin: 0; font-size: 13px; color: var(--bz-muted); }
-.bizz-seo-tabs { display: flex; gap: 6px; margin-bottom: 22px; border-bottom: 1px solid var(--bz-line); }
-.bizz-seo-tab { padding: 10px 14px; border-bottom: 2px solid transparent; font-size: 14px; font-weight: 500; color: var(--bz-muted); text-decoration: none; }
-.bizz-seo-tab.is-on { color: var(--bz-navy); border-bottom-color: var(--bz-blue); }
 .bizz-seo-form { display: grid; gap: 20px; max-width: 760px; margin-bottom: 28px; }
 .bizz-seo-field { display: grid; gap: 6px; } .bizz-seo-field > span { font-size: 14px; font-weight: 500; color: var(--bz-navy); }
 .bizz-seo-field small, .bizz-seo-check small { font-size: 12.5px; color: var(--bz-muted); }
@@ -797,3 +792,6 @@ html.dark .bizz-view-site { color: #c4f56a; background: rgb(196 245 106 / .1); }
 .lexical-editor-surface .bizz-lex-block table { border-collapse: collapse; } .lexical-editor-surface .bizz-lex-block td, .lexical-editor-surface .bizz-lex-block th { border: 1px solid var(--bz-line); padding: 4px 8px; }
 .lexical-editor-surface .bizz-lex-block pre { margin: 0; white-space: pre-wrap; font: 12.5px/1.5 ui-monospace, Consolas, monospace; }
 .lexical-editor-surface .bizz-lex-embed { padding: 18px; border-radius: 8px; background: var(--bz-surface); color: var(--bz-muted); text-align: center; font-size: 13px; }
+
+.bizz-seo-tabbar-page { margin-bottom: 22px; }
+.bizz-seo-check input[type=checkbox] { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--bz-blue); flex: none; }
