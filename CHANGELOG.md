@@ -8,6 +8,7 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 - **No technical errors shown to visitors.** Any error, or a 5xx from the CMS engine (some of which included the raw database error), becomes a friendly page (or `{"error":"Something went wrong","reference":"…"}` for the API) with a short reference code. The details go to the console and to **Settings › Error log** (30 days, administrators only, search by reference). `src/errors.ts`; sites can give the page their own design with `setErrorPage()`.
 
 ### Added
+- **Social Share plugin** (Admin › Plugins › Social Share): a share bar for posts with copy link, LinkedIn, X, Facebook, WhatsApp, Pinterest, e-mail and the phone's share menu. Plain links with built-in icons: no third-party scripts or tracking. Pick the buttons and the label in the settings. Sites place it with `await shareBar(db, url, title, image?)` (empty while the plugin is off) and theme it with CSS on `.bz-share` / `.bz-share-btn` (`--bz-share-c` = brand colour). `src/plugins/social-share.ts`.
 - SEO › Redirects: a **Not found** list (last 90 days) of addresses that ended on "page not found", with hits, last visit and where visitors came from; **Redirect…** pre-fills a redirect, **Dismiss** removes it, and adding a redirect clears it. Sites call `seoNotFound()` where they return their 404 page.
 
 ### Fixed
