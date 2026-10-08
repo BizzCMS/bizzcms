@@ -40,7 +40,7 @@ Everything lives in `src/plugins/seo.ts`, `src/seo-editor.ts` and `src/seo-field
 
 **View on site.** `setPublicRoutes(routes)` (call once with the same routes object as `seoSitemap`) tells the admin where each page, post and category lives: the Content list then shows an eye before the edit button for published items, and the editor's View on Website opens the same address (`GET /admin/bizz/seo/urls?ids=…`). Without it: pages by `path`, posts under `/blog/<slug>`, categories none. Drafts get no eye (no preview of unpublished changes yet).
 
-**Sitemap choices.** SEO › Indexing lists the parts the site offers (from `setPublicRoutes`): pages, posts, categories, tags, `routes.collections` (e.g. `{ portfolio: (d, slug) => \`/portfolio/${slug}/\` }`) and other pages (`routes.extra`). Unticked parts leave the sitemap index and their sitemap returns 404.
+**Sitemap choices.** SEO › Indexing lists the parts the site offers (from `setPublicRoutes`): pages, posts, categories, tags, `routes.collections` (e.g. `portfolio: (d, slug) => "/portfolio/" + slug + "/"`) and other pages (`routes.extra`). Unticked parts leave the sitemap index and their sitemap returns 404.
 
 **RSS feed.** `seoFeed(url, db)` answers `/feed/`, `/feed`, `/rss.xml` and `/<blog|news>/feed/` (call it before the site's blog routes). Settings: on/off, posts (5–100), full text or summary. `socialTags()` adds the `<link rel="alternate">` to every page.
 
