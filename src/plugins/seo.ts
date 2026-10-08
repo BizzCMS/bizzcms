@@ -226,8 +226,9 @@ function seoGraph(input: SeoInput, s: SeoSettings, page: { title: string; descri
       ...(page.description ? { description: page.description } : {}), ...(page.image ? { image: [page.image] } : {}),
       ...(iso(input.publishedAt) ? { datePublished: iso(input.publishedAt) } : {}), ...(iso(input.modifiedAt ?? input.publishedAt) ? { dateModified: iso(input.modifiedAt ?? input.publishedAt) } : {}),
       ...(input.author?.name ? { author: { '@type': 'Person', name: input.author.name, ...(input.author.url ? { url: abs(o, input.author.url) } : {}) } } : orgName ? { author: { '@id': orgId } } : {}),
-      ...(orgName ? { publisher: { '@id': orgId } } : {}),
-      ...(str(input.data?.focusKeyphrase) ? { keywords: [str(input.data?.focusKeyphrase), ...str(input.data?.relatedKeyphrases).split(',').map(k => k.trim()).filter(Boolean)].join(', ') } : {}) })
+      // No "keywords": search engines ignore it and it shows competitors the keyphrases you target.
+      // The focus and related keyphrases stay editor-only (SEO analysis).
+      ...(orgName ? { publisher: { '@id': orgId } } : {}) })
   }
   if (input.breadcrumbs?.length) {
     graph.push({ '@type': 'BreadcrumbList', '@id': `${page.canonical}#breadcrumb`, itemListElement: input.breadcrumbs.map((b, i) => ({ '@type': 'ListItem', position: i + 1, name: b.name, item: abs(o, b.path) })) })

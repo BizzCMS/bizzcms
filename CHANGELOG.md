@@ -8,6 +8,7 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 - SEO › Redirects: a **Not found** list (last 90 days) of addresses that ended on "page not found", with hits, last visit and where visitors came from; **Redirect…** pre-fills a redirect, **Dismiss** removes it, and adding a redirect clears it. Sites call `seoNotFound()` where they return their 404 page.
 
 ### Fixed
+- **SEO: no "keywords" in the Article structured data.** Search engines ignore it, and it showed anyone the keyphrases a post targets. Focus and related keyphrases stay in the editor's SEO analysis only. `src/plugins/seo.ts`.
 - SEO page and the editor's SEO card use the admin's standard tab bar (as on Settings) instead of their own underline tabs.
 - **Sidebar jumped on every click.** Blog and News were added by a script at the end of the page, after the sidebar was drawn. The server now puts them into the page (counts cached for a minute), so the sidebar is complete on the first paint.
 
