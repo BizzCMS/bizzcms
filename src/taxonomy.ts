@@ -6,9 +6,13 @@
 // The saved data stays the same shape upstream expects: a JSON array of category root ids and a JSON
 // array of tag strings. GET /admin/bizz/taxonomy feeds the lists (signed-in users only).
 
+import { sectionCounts } from './sections'
+
 export async function taxonomyRoute(request: Request, path: string, db: D1Database, signedIn: () => Promise<boolean>): Promise<Response | null> {
   if (path !== '/admin/bizz/taxonomy' || request.method !== 'GET') return null
   if (!(await signedIn())) return Response.json({ error: 'Sign in required' }, { status: 401 })
+  // Sidebar Blog / News counts (src/sections.ts).
+  if (new URL(request.url).searchParams.has('sections')) return Response.json({ sections: await sectionCounts(db) }, { headers: { 'cache-control': 'no-store' } })
   const live = `tenant_id = 'default' AND is_current_draft = 1 AND deleted_at IS NULL`
   const [cats, tags] = await Promise.all([
     db.prepare(`SELECT root_id AS id, title, json_extract(data, '$.section') AS section FROM documents WHERE type_id = 'categories' AND ${live} ORDER BY title COLLATE NOCASE`).all<{ id: string; title: string; section: string | null }>(),
