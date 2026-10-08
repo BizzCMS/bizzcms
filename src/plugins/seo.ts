@@ -6,6 +6,7 @@
 //   social tags, structured data graph), seoSitemap (index + one sitemap per type), seoRobots, seoLlms,
 //   IndexNow (seoIndexNowKey serves the key file, seoIndexNowChanged pings after admin saves).
 // Settings live in bizz_settings ('seo.settings'), redirects in bizz_redirects; both in the site's D1.
+import { aiRobotsBlock, contentSignal, AI_BOTS, AI_BOTS_VERSION, type AiPolicy } from './ai-crawlers'
 import { definePlugin, PluginServiceClass as PluginService } from 'bizzcms-core'
 import { SEO_ANALYSE_CORE } from '../seo-editor'
 
@@ -35,8 +36,10 @@ export interface SeoSettings {
   feedEnabled: boolean; feedItems: number; feedFullText: boolean
   /** IndexNow (Bing, Yandex, Seznam, Naver…): tell search engines at once when an address changes. */
   indexNowEnabled: boolean; indexNowKey: string
+  /** AI crawlers by purpose (robots.txt): search answers, assistants a person asked, model training. */
+  aiSearch: boolean; aiAgents: boolean; aiTraining: boolean
 }
-const DEFAULTS: SeoSettings = { siteName: '', tagline: '', defaultDescription: '', defaultImage: '', orgType: 'Organization', orgName: '', orgLogo: '', sameAs: '', xHandle: '', hideFromSearch: false, robotsExtra: '', llmsText: '', sitemapOff: [], feedEnabled: true, feedItems: 20, feedFullText: true, indexNowEnabled: true, indexNowKey: '' }
+const DEFAULTS: SeoSettings = { siteName: '', tagline: '', defaultDescription: '', defaultImage: '', orgType: 'Organization', orgName: '', orgLogo: '', sameAs: '', xHandle: '', hideFromSearch: false, robotsExtra: '', llmsText: '', sitemapOff: [], feedEnabled: true, feedItems: 20, feedFullText: true, indexNowEnabled: true, indexNowKey: '', aiSearch: true, aiAgents: true, aiTraining: false }
 
 async function ensureTables(db: D1Database) {
   await db.batch([
@@ -258,11 +261,14 @@ function seoGraph(input: SeoInput, s: SeoSettings, page: { title: string; descri
 
 // ---------- robots.txt, llms.txt, sitemaps ----------
 
+/** The site's AI crawler policy from the SEO settings. */
+export function aiPolicyOf(s: SeoSettings): AiPolicy { return { search: s.aiSearch !== false, agents: s.aiAgents !== false, training: s.aiTraining === true } }
+
 export async function seoRobots(url: URL, db: D1Database, siteRules: string[] = []): Promise<Response> {
   const s = await seoSettings(db)
   const lines = s.hideFromSearch
     ? ['User-agent: *', 'Disallow: /']
-    : ['User-agent: *', 'Allow: /', 'Disallow: /admin', 'Disallow: /auth', 'Disallow: /api/', ...siteRules, ...s.robotsExtra.split('\n').map(l => l.trim()).filter(Boolean), `Sitemap: ${url.origin}/sitemap.xml`, `# AI assistants: ${url.origin}/llms.txt`]
+    : [...aiRobotsBlock(aiPolicyOf(s)), 'User-agent: *', contentSignal(aiPolicyOf(s)), 'Allow: /', 'Disallow: /admin', 'Disallow: /auth', 'Disallow: /api/', ...siteRules, ...s.robotsExtra.split('\n').map(l => l.trim()).filter(Boolean), `Sitemap: ${url.origin}/sitemap.xml`, `# AI assistants: ${url.origin}/llms.txt`]
   return new Response(lines.join('\n') + '\n', { headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=3600' } })
 }
 
@@ -663,6 +669,7 @@ export async function seoAdminRoute(request: Request, path: string, db: D1Databa
         hideFromSearch: f.get('hideFromSearch') === 'on', robotsExtra: g('robotsExtra'), llmsText: g('llmsText'),
         sitemapOff: g('sitemap_parts').split(',').filter(k => k && f.get(`sitemap_${k}`) !== 'on'),
         feedEnabled: f.get('feedEnabled') === 'on', feedItems: Math.min(Math.max(Number(g('feedItems')) || 20, 5), 100), feedFullText: g('feedFullText') !== 'summary',
+        aiSearch: f.get('aiSearch') === 'on', aiAgents: f.get('aiAgents') === 'on', aiTraining: f.get('aiTraining') === 'on',
         indexNowEnabled: f.get('indexNowEnabled') === 'on', indexNowKey: /^[a-zA-Z0-9-]{8,128}$/.test(g('indexNowKey')) ? g('indexNowKey') : next.indexNowKey
       })
       await saveSettings(db, next)
@@ -741,6 +748,11 @@ async function adminPage(tab: string, s: SeoSettings, db: D1Database, url: URL, 
       ${field('sameAs', 'Social profiles', 'One address per line: Facebook, LinkedIn, X, YouTube, GitHub…', 'textarea')}
       ${field('xHandle', 'X (Twitter) username', 'For example ingeniumwebcom (with or without @). Shown as the site and author when a page is shared on X.')}` : `
       <label class="bizz-seo-check"><input type="checkbox" name="hideFromSearch"${s.hideFromSearch ? ' checked' : ''}${ro}><span><strong>Hide the whole site from search engines</strong><small>For staging or unfinished sites. robots.txt then blocks everything and every page gets noindex.</small></span></label>
+      <fieldset class="bizz-seo-group"><legend>AI crawlers</legend>
+        <label class="bizz-seo-check"><input type="checkbox" name="aiSearch"${s.aiSearch !== false ? ' checked' : ''}${ro}><span><strong>AI search</strong><small>Let AI search engines index the site so answers can cite and link it (${AI_BOTS.filter(b => b.purpose === 'search').map(b => b.ua).join(', ')}). Recommended.</small></span></label>
+        <label class="bizz-seo-check"><input type="checkbox" name="aiAgents"${s.aiAgents !== false ? ' checked' : ''}${ro}><span><strong>AI assistants</strong><small>Let an assistant open a page when a person asks about it (${AI_BOTS.filter(b => b.purpose === 'agents').map(b => b.ua).join(', ')}). Recommended. These fetchers often ignore robots.txt anyway.</small></span></label>
+        <label class="bizz-seo-check"><input type="checkbox" name="aiTraining"${s.aiTraining === true ? ' checked' : ''}${ro}><span><strong>AI training</strong><small>Let crawlers collect the content to train AI models (${AI_BOTS.filter(b => b.purpose === 'training').map(b => b.ua).join(', ')}). Off by default. Blocking Google-Extended does not remove the site from Google's AI Overviews.</small></span></label>
+        <small>Written into <a href="/robots.txt" target="_blank" rel="noopener">robots.txt</a> as a marked block plus a Content-Signal line (list version ${AI_BOTS_VERSION}). robots.txt is a request, not a lock; operators apply changes within about a day. Your Cloudflare AI bot settings can also block crawlers before they reach the site.</small></fieldset>
       ${field('robotsExtra', 'Extra robots.txt lines', 'Added to the default rules, e.g. "Disallow: /private/". Sitemap and llms.txt lines are added automatically.', 'textarea')}
       ${field('llmsText', 'llms.txt (instructions for AI assistants)', 'Plain text or Markdown at /llms.txt. Empty = the site\'s built-in text, if it has one.', 'textarea')}
       ${parts.length ? `<fieldset class="bizz-seo-group"><legend>Include in sitemap</legend><input type="hidden" name="sitemap_parts" value="${e(parts.map(p => p.key).join(','))}">
