@@ -4,6 +4,9 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Security
+- Blocked upstream's unauthenticated `POST /auth/seed-admin`, which creates or resets an admin account with a password published in the SonicJS source. It now returns 404 on every BizzCMS site.
+
 ### Changed
 - Admin footer and README: "Made with ♥ by Ingenium" (links to ingenium.software).
 - Dark mode: the page body and the shell behind the sidebar use the dark teal canvas instead of near-black.

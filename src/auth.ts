@@ -29,3 +29,10 @@ export const REPEAT_PASSWORD_FIELD = `<div class="mt-6 bizz-repeat-password">
   var f=document.getElementById('register-form');if(f)f.addEventListener('submit',function(e){check();if(!r.checkValidity()){e.preventDefault();e.stopImmediatePropagation();r.reportValidity()}},true);
   document.body.addEventListener('htmx:beforeRequest',function(e){if(e.detail.elt&&e.detail.elt.id==='register-form'){check();if(!r.checkValidity()){e.preventDefault();r.reportValidity()}}});
 })();</script>`
+
+// Upstream ships POST /auth/seed-admin without authentication: it creates or resets admin@sonicjs.com
+// with a password that is published in its source. Never reachable on a BizzCMS site.
+export function blockedRoute(path: string): Response | null {
+  if (path.replace(/\/+$/, '') === '/auth/seed-admin') return new Response('Not found', { status: 404 })
+  return null
+}

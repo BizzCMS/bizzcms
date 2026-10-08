@@ -8,7 +8,7 @@ import { ensureBizzWelcome } from './welcome'
 import { brandApiSpec } from './api'
 import { landingPage } from './landing'
 import { blogResponse } from './blog'
-import { checkRegisterPasswords } from './auth'
+import { checkRegisterPasswords, blockedRoute } from './auth'
 import { guardApi, apiSettingsPage, withApiTab } from './api-access'
 
 registerCollections([pages, posts])
@@ -44,6 +44,8 @@ export default {
         headers: { 'content-type': 'text/html; charset=utf-8' }
       })
     }
+    const blocked = blockedRoute(path)
+    if (blocked) return blocked
     // Registration needs a matching "Repeat password" (checked before upstream creates the account).
     const passwordMismatch = await checkRegisterPasswords(request, path)
     if (passwordMismatch) return passwordMismatch
