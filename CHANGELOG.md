@@ -4,6 +4,9 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Security
+- **No technical errors shown to visitors.** Any error, or a 5xx from the CMS engine (some of which included the raw database error), becomes a friendly page (or `{"error":"Something went wrong","reference":"…"}` for the API) with a short reference code. The details go to the console and to **Settings › Error log** (30 days, administrators only, search by reference). `src/errors.ts`; sites can give the page their own design with `setErrorPage()`.
+
 ### Added
 - SEO › Redirects: a **Not found** list (last 90 days) of addresses that ended on "page not found", with hits, last visit and where visitors came from; **Redirect…** pre-fills a redirect, **Dismiss** removes it, and adding a redirect clears it. Sites call `seoNotFound()` where they return their 404 page.
 

@@ -14,6 +14,7 @@ import { checkRegisterPasswords, blockedRoute } from './auth'
 import { guardApi, apiSettingsPage, withApiTab } from './api-access'
 import { googleAnalyticsPlugin, withGoogleAnalytics, gaAdminRoute } from './plugins/google-analytics'
 import { taxonomyRoute } from './taxonomy'
+import { safeHandle, errorLogPage, withErrorsTab } from './errors'
 import { envForSection, withSectionTabs, primeSidebarCounts } from './sections'
 import { withMediaUsage } from './dashboard-media'
 import { contentGuardRoute } from './content-guard'
@@ -42,7 +43,13 @@ const cms = createSonicJSApp({
 })
 
 export default {
+  // Errors never reach a visitor as technical text; they go to Admin › Settings › Error log (src/errors.ts).
   async fetch(request: Request, env: Parameters<typeof cms.fetch>[1], ctx: ExecutionContext) {
+    return safeHandle(request, (env as unknown as { DB: D1Database }).DB, ctx, () => handleRequest(request, env, ctx))
+  }
+}
+
+async function handleRequest(request: Request, env: Parameters<typeof cms.fetch>[1], ctx: ExecutionContext): Promise<Response> {
     const path = new URL(request.url).pathname
     if ((path === '/blog' || path.startsWith('/blog/')) && request.method === 'GET') {
       return blogResponse((env as unknown as { DB: D1Database }).DB, metadata.version, path, new URL(request.url).hostname)
@@ -75,8 +82,11 @@ export default {
     if (seoRoute) return applyBranding(seoRoute, path)
     // Settings › API: our page inside upstream's settings layout.
     if (path === '/admin/settings/api') {
-      return applyBranding(withApiTab(await apiSettingsPage(request, db, upstream), path), path)
+      return applyBranding(withErrorsTab(withApiTab(await apiSettingsPage(request, db, upstream), path), path), path)
     }
+    // Settings › Error log (src/errors.ts).
+    const errorLog = await errorLogPage(request, path, db, upstream)
+    if (errorLog) return applyBranding(withErrorsTab(withApiTab(errorLog, path), path), path)
     // The REST API is closed unless the owner opens it (Settings › API).
     const denied = await guardApi(request, path, db, upstream)
     if (denied) return denied
@@ -88,6 +98,5 @@ export default {
     const response = await withMediaUsage(await withSectionTabs(await finishUpstream(ctx, cms.fetch(request, envForSection(env, request, path), ctx)), request, path, db), path, db)
     // After upstream's startup seeding has run: replace its SonicJS welcome post.
     await ensureBizzWelcome((env as unknown as { DB: D1Database }).DB).catch(e => console.error('welcome post', e))
-    return applyBranding(withApiTab(await brandApiSpec(await withGoogleAnalytics(response, request, db), path), path), path)
-  }
+    return applyBranding(withErrorsTab(withApiTab(await brandApiSpec(await withGoogleAnalytics(response, request, db), path), path), path), path)
 }
