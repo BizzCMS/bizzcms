@@ -13,7 +13,7 @@ Current state as of 0.2.1 plus the unreleased work in [CHANGELOG.md](../CHANGELO
 ## Logo
 
 - Mark: teal blades, a lime ring and a transparent "C" cut-out with a thin dark-teal border inside it. No white or black fill in the middle.
-- Wordmark: "Bizz" in ink, "CMS" in green (teal `#0c8987` on light backgrounds, lime on dark).
+- Wordmark: "Bizz" in ink, "CMS" in the logo's dark green `#086568` on light backgrounds, lime on dark.
 - Source set: `C:\RepositoryAI\sites\_templates\logo\bizzcms-teal`: mark (normal, gradient, dark background, mono teal and white), app icons (deep and light tile), full logos (light and dark), PNG exports 512/192/180/32, `favicon.ico` and `preview.png`.
 - In this repository: `public/brand/bizzcms.svg`, `bizzcms-dark.svg`, `bizzcms-icon.svg`, `bizzcms.png` (256 px favicon fallback) and `apple-touch-icon.png`. These are bundled interface assets, not customer uploads.
 

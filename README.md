@@ -54,4 +54,6 @@ cPanel is an alternative for clients who request it, not automatic failover. Nod
 
 Original BizzCMS material is available under the [MIT license](LICENSE).
 
-**BizzCMS — built on SonicJS.** Its package license is preserved in [licenses/sonicjs-MIT.txt](licenses/sonicjs-MIT.txt). See [third-party notices](THIRD_PARTY_NOTICES.md).
+**BizzCMS is built on SonicJS.** Its package license is preserved in [licenses/sonicjs-MIT.txt](licenses/sonicjs-MIT.txt). See [third-party notices](THIRD_PARTY_NOTICES.md).
+
+Made with ♥ by [Ingenium](https://ingenium.software/).

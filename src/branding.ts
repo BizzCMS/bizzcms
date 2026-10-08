@@ -22,7 +22,7 @@ export function applyBranding(response: Response, path: string): Response {
       element.prepend(`<script>try{if(localStorage.getItem('darkMode')===null)localStorage.setItem('darkMode','false');if(localStorage.getItem('darkMode')==='true')document.documentElement.classList.add('dark')}catch(e){}</script>`, { html: true })
       // BizzCMS admin theme (public/brand/admin.css) and its font.
       element.append('<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"><link rel="stylesheet" href="/brand/admin.css?v=workspace-20261008">', { html: true })
-      element.append(`<style>.bizz-wordmark{color:#172e30}.bizz-wordmark b{font-weight:inherit;color:#0c8987}.dark .bizz-wordmark{color:#f4f4f5}.dark .bizz-wordmark b{color:#c4f56a}${LIGHT_FIXES}${path.startsWith('/auth') ? LIGHT_AUTH : ''}</style>`, { html: true })
+      element.append(`<style>.bizz-wordmark{color:#172e30}.bizz-wordmark b{font-weight:inherit;color:#086568}.dark .bizz-wordmark{color:#f4f4f5}.dark .bizz-wordmark b{color:#c4f56a}${LIGHT_FIXES}${path.startsWith('/auth') ? LIGHT_AUTH : ''}</style>`, { html: true })
     } })
     .on('title', bufferedText(text => text.replace(/SonicJS AI/g, 'BizzCMS')))
     .on('h1, h2, p', bufferedText(text => {
@@ -91,7 +91,7 @@ export function applyBranding(response: Response, path: string): Response {
         if (path === '/admin/dashboard' || path === '/admin') element.setAttribute('data-bizz-dashboard', '')
         if (path.startsWith('/admin/media')) element.setAttribute('data-bizz-media', '')
         if (path === '/admin/collections') element.setAttribute('data-bizz-collections', '')
-        element.append('<div style="padding:12px;text-align:center;font:12px system-ui;opacity:.7"><a href="/about">About BizzCMS</a> · <a href="https://bizzcms.com">bizzcms.com</a> · Made with <span style="color:#e5484d" aria-label="love">♥</span> by <a href="https://ingeniumweb.com" target="_blank" rel="noopener">Ingenium</a></div>', { html: true })
+        element.append('<div style="padding:12px;text-align:center;font:12px system-ui;opacity:.7"><a href="/about">About BizzCMS</a> · <a href="https://bizzcms.com">bizzcms.com</a> · Made with <span style="color:#e5484d" aria-label="love">♥</span> by <a href="https://ingenium.software/" target="_blank" rel="noopener">Ingenium</a></div>', { html: true })
         element.append(path.startsWith('/auth') ? THEME_SWITCH : SWITCH_SCRIPT, { html: true })
         element.append(ENTITY_FIX, { html: true })
         if (path === '/admin/dashboard' || path === '/admin') element.append(DASHBOARD_FIX, { html: true })

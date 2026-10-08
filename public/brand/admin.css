@@ -663,3 +663,7 @@ html:not(.dark) [data-bizz-surface] :is([class^="text-lime-"], [class*=" text-li
 .dark [data-bizz-surface="admin"] main [class*="dark:bg-zinc-900"]:not(button, a, input, select, textarea) { background-color: #142427 !important; }
 .dark [data-bizz-surface="admin"] main :is([class*="dark:bg-zinc-800"], [class*="dark:bg-zinc-800/"]):not(button, a, input, select, textarea) { background-color: #1b2f32 !important; }
 .dark [data-bizz-surface="admin"] main :is([class*="dark:border-zinc-700"], [class*="dark:border-zinc-800"]) { border-color: var(--bz-line) !important; }
+
+/* Dark mode: no near-black left. Upstream paints the body zinc-900 and the shell behind the sidebar
+   zinc-950; both become the theme's dark canvas (Ivan: "again this black is problem"). */
+.dark body[data-bizz-surface="admin"], .dark body[data-bizz-surface="admin"] [class*="dark:lg:bg-zinc-950"], .dark body[data-bizz-surface="admin"] [class*="dark:bg-zinc-950"]:not(button, a, input, select, textarea) { background-color: var(--bz-canvas) !important; }

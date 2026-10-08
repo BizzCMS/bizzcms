@@ -5,9 +5,10 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 ## [Unreleased]
 
 ### Changed
-- Admin footer: "Made with ♥ by Ingenium".
+- Admin footer and README: "Made with ♥ by Ingenium" (links to ingenium.software).
+- Dark mode: the page body and the shell behind the sidebar use the dark teal canvas instead of near-black.
 - Sign-in pages: the logo links to the website's home page on every page (login, register, reset password, invitation, two-step); two-step verification now shows the logo.
-- Dashboard: the requests chart uses the theme (teal on light, lime on dark, follows the switch); storage numbers no longer lime on white; side cards line up with the chart; a plain empty state replaces the "System ·" placeholder; dark cards use the dark teal surfaces on every admin page.
+- Dashboard: the requests chart uses the theme (dark teal #086568 on light, lime on dark, follows the switch); storage numbers no longer lime on white; side cards line up with the chart; a plain empty state replaces the "System ·" placeholder; dark cards use the dark teal surfaces on every admin page.
 
 ## [0.2.2] - 2026-10-08
 
@@ -17,7 +18,7 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 ### Changed
 - Documentation: branding.md rewritten for the current theme; roadmap, decisions, README and agent guide updated.
 - The BizzCMS mark gets a thin dark-teal border inside the C; the centre stays transparent.
-- Wordmark: "CMS" in green (teal on light, lime on dark) in the admin, sign-in pages, site header/footer and the logo files.
+- Wordmark: "CMS" in green (dark teal #086568 on light, lime on dark) in the admin, sign-in pages, site header/footer and the logo files.
 - One button standard across the admin, taken from the Migrations page: 40px high, 10px corners, 12px medium text, 16px icons. Teal primary, outlined secondary, red danger (Truncate All Data, Deactivate).
 - Roles & permissions: the "Compare roles" checkboxes became toggle pills with a check mark.
 - API Reference: method badges are soft tinted pills; stat numbers no longer use lime on white.
