@@ -1,6 +1,6 @@
 {
   "name": "bizzcms",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "private": true,
   "description": "Free, open-source headless CMS for business websites. Serverless on Cloudflare Workers, D1 and R2.",
   "homepage": "https://bizzcms.com",
