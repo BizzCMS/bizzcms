@@ -6,6 +6,8 @@
 //   and to the bizz_error_log table: Admin › Settings › Error log (/admin/settings/errors), 30 days.
 // Sites can give the friendly page their own design with setErrorPage().
 
+import { ensureSiteIndexes } from './db-indexes'
+
 type Ctx = { waitUntil(p: Promise<unknown>): void }
 type Fetcher = (request: Request) => Promise<Response>
 
@@ -46,6 +48,8 @@ function friendly(request: Request, reference: string, status: number): Response
 
 /** Runs a site's request handler so that errors become a friendly page and an entry in the error log. */
 export async function safeHandle(request: Request, db: D1Database, ctx: Ctx | undefined, handler: () => Promise<Response>): Promise<Response> {
+  // The lookup indexes the site's queries need (src/db-indexes.ts), once per isolate, off the request's path.
+  ctx?.waitUntil(ensureSiteIndexes(db))
   let response: Response
   try {
     response = await handler()

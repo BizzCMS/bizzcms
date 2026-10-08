@@ -4,6 +4,9 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Fixed
+- **Lookup indexes** (`src/db-indexes.ts`, created once per isolate from `safeHandle`): published lists, slug and page-path lookups, `updated_at`, error log and not-found log. The engine's indexes start with `tenant_id`, which the sites' queries don't use, so busy sites could read whole tables and hit D1's CPU limit.
+
 ### Added
 - Settings › Cache: **Keep sitemaps and feeds until content changes** (on by default). Sitemaps, feeds, robots.txt and llms.txt stay at the edge until the next admin save instead of 60 minutes; clients still revalidate with the ETag.
 - SEO › Check: **Calculate missing scores** / **Recalculate all**. Imported or old items get their SEO and readability scores (the dots in the Content list) without opening each one: the browser runs the same analysis as the editor in batches of 40, updates go by id and keep `updated_at` (no IndexNow, no cache flush). The analysis now lives in one shared script (`SEO_ANALYSE_CORE`).
