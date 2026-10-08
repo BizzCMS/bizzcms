@@ -22,7 +22,7 @@ export function applyBranding(response: Response, path: string): Response {
       element.prepend(`<script>try{if(localStorage.getItem('darkMode')===null)localStorage.setItem('darkMode','false');if(localStorage.getItem('darkMode')==='true')document.documentElement.classList.add('dark')}catch(e){}</script>`, { html: true })
       // BizzCMS admin theme (public/brand/admin.css) and its font.
       element.append('<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"><link rel="stylesheet" href="/brand/admin.css?v=workspace-20261008">', { html: true })
-      element.append(`<style>.bizz-wordmark{color:#172e30}.dark .bizz-wordmark{color:#f4f4f5}${LIGHT_FIXES}${path.startsWith('/auth') ? LIGHT_AUTH : ''}</style>`, { html: true })
+      element.append(`<style>.bizz-wordmark{color:#172e30}.bizz-wordmark b{font-weight:inherit;color:#0c8987}.dark .bizz-wordmark{color:#f4f4f5}.dark .bizz-wordmark b{color:#c4f56a}${LIGHT_FIXES}${path.startsWith('/auth') ? LIGHT_AUTH : ''}</style>`, { html: true })
     } })
     .on('title', bufferedText(text => text.replace(/SonicJS AI/g, 'BizzCMS')))
     .on('h1, h2, p', bufferedText(text => {
@@ -55,7 +55,7 @@ export function applyBranding(response: Response, path: string): Response {
     } } })())
     .on('svg[viewBox="380 1300 2250 400"]', {
       element(element) {
-        element.replace('<span style="display:inline-flex;align-items:center;gap:10px;white-space:nowrap"><img src="/brand/bizzcms.svg" alt="" width="36" height="40" style="object-fit:contain"><span class="bizz-wordmark" style="font-size:22px;font-weight:600;letter-spacing:-.4px">BizzCMS</span></span>', { html: true })
+        element.replace('<span style="display:inline-flex;align-items:center;gap:10px;white-space:nowrap"><img src="/brand/bizzcms.svg" alt="" width="36" height="40" style="object-fit:contain"><span class="bizz-wordmark" style="font-size:22px;font-weight:600;letter-spacing:-.4px">Bizz<b>CMS</b></span></span>', { html: true })
       }
     })
     .on('link[rel="icon"]', {
@@ -199,7 +199,7 @@ const ENTITY_FIX = `<script>(function(){var map={'&amp;':'&','&mdash;':'—','&n
 var re=/&(amp|mdash|ndash|hellip|rsquo|lsquo|ldquo|rdquo|nbsp);/g;function fix(root){var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:function(n){var p=n.parentNode&&n.parentNode.nodeName;return /^(SCRIPT|STYLE|TEXTAREA|CODE|PRE)$/.test(p)?2:(re.test(n.nodeValue)?1:2)}}),n,list=[];re.lastIndex=0;while(n=w.nextNode())list.push(n);list.forEach(function(t){t.nodeValue=t.nodeValue.replace(re,function(m){return map[m]||m})})}
 fix(document.body)})();</script>`
 
-const AUTH_LOGO = '<a href="/auth/login" class="bizz-auth-logo"><img src="/brand/bizzcms.svg" alt="" width="36" height="40"><span class="bizz-wordmark">BizzCMS</span></a>'
+const AUTH_LOGO = '<a href="/auth/login" class="bizz-auth-logo"><img src="/brand/bizzcms.svg" alt="" width="36" height="40"><span class="bizz-wordmark">Bizz<b>CMS</b></span></a>'
 
 // Light/dark switcher: a "Dark mode / Light mode" item under Settings in the admin sidebar,
 // and a round button on the sign-in pages (no sidebar there). Upstream stores the choice in
