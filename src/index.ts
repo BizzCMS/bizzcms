@@ -15,6 +15,7 @@ import { guardApi, apiSettingsPage, withApiTab } from './api-access'
 import { googleAnalyticsPlugin, withGoogleAnalytics, gaAdminRoute } from './plugins/google-analytics'
 import { socialSharePlugin, shareAdminRoute } from './plugins/social-share'
 import { taxonomyRoute } from './taxonomy'
+import { edgeCached, cacheSettingsPage, withCacheTab } from './edge-cache'
 import { safeHandle, errorLogPage, withErrorsTab } from './errors'
 import { envForSection, withSectionTabs, primeSidebarCounts, clearSidebarCounts } from './sections'
 import { withMediaUsage } from './dashboard-media'
@@ -46,7 +47,9 @@ const cms = createSonicJSApp({
 export default {
   // Errors never reach a visitor as technical text; they go to Admin › Settings › Error log (src/errors.ts).
   async fetch(request: Request, env: Parameters<typeof cms.fetch>[1], ctx: ExecutionContext) {
-    return safeHandle(request, (env as unknown as { DB: D1Database }).DB, ctx, () => handleRequest(request, env, ctx))
+    const db = (env as unknown as { DB: D1Database }).DB
+    // Public pages come from the edge cache when they can (src/edge-cache.ts).
+    return safeHandle(request, db, ctx, () => edgeCached(request, db, (env as unknown as { CACHE_KV?: KVNamespace }).CACHE_KV, ctx, () => handleRequest(request, env, ctx)))
   }
 }
 
@@ -89,11 +92,14 @@ async function handleRequest(request: Request, env: Parameters<typeof cms.fetch>
     if (seoRoute) return applyBranding(seoRoute, path)
     // Settings › API: our page inside upstream's settings layout.
     if (path === '/admin/settings/api') {
-      return applyBranding(withErrorsTab(withApiTab(await apiSettingsPage(request, db, upstream), path), path), path)
+      return applyBranding(withCacheTab(withErrorsTab(withApiTab(await apiSettingsPage(request, db, upstream), path), path), path), path)
     }
     // Settings › Error log (src/errors.ts).
+    // Settings › Cache (src/edge-cache.ts).
+    const cachePage = await cacheSettingsPage(request, path, db, (env as unknown as { CACHE_KV?: KVNamespace }).CACHE_KV, upstream)
+    if (cachePage) return applyBranding(withCacheTab(withErrorsTab(withApiTab(cachePage, path), path), path), path)
     const errorLog = await errorLogPage(request, path, db, upstream)
-    if (errorLog) return applyBranding(withErrorsTab(withApiTab(errorLog, path), path), path)
+    if (errorLog) return applyBranding(withCacheTab(withErrorsTab(withApiTab(errorLog, path), path), path), path)
     // The REST API is closed unless the owner opens it (Settings › API).
     const denied = await guardApi(request, path, db, upstream)
     if (denied) return denied
@@ -107,5 +113,5 @@ async function handleRequest(request: Request, env: Parameters<typeof cms.fetch>
     if (request.method !== 'GET' && path.startsWith('/admin/content')) await clearSidebarCounts((env as unknown as { CACHE_KV?: KVNamespace }).CACHE_KV)
     // After upstream's startup seeding has run: replace its SonicJS welcome post.
     await ensureBizzWelcome((env as unknown as { DB: D1Database }).DB).catch(e => console.error('welcome post', e))
-    return applyBranding(withErrorsTab(withApiTab(await brandApiSpec(await withGoogleAnalytics(response, request, db), path), path), path), path)
+    return applyBranding(withCacheTab(withErrorsTab(withApiTab(await brandApiSpec(await withGoogleAnalytics(response, request, db), path), path), path), path), path)
 }

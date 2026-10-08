@@ -82,7 +82,11 @@ The highlights are below; the full list is in [docs/features.md](docs/features.m
 
 **SEO, like Yoast**
 - SEO panel on every page and post: focus keyphrase, Google and share previews, green/orange/red checks for SEO and readability, and an **Auto-fill SEO** button.
-- Title formats, sitemaps, robots.txt, llms.txt, structured data for Google and a **redirect manager**, all built in. See [docs/seo.md](docs/seo.md).
+- Title formats, sitemaps you choose part by part, robots.txt, llms.txt, an **RSS feed**, structured data for Google, a **redirect manager** and a **not-found log**, all built in. See [docs/seo.md](docs/seo.md).
+
+**Fast and safe by default**
+- Public pages are served from Cloudflare's **edge cache** and replaced the moment you save; the minutes are yours to set. See [docs/caching.md](docs/caching.md).
+- Visitors never see technical errors; you get an **error log** with the details.
 
 **Integrations**
 - OpenAPI description of the REST API.
@@ -126,6 +130,7 @@ BizzCMS runs serverless on Cloudflare: Workers for the app and website, D1 for t
 - [All features](docs/features.md)
 - [Posts, categories, tags, sponsored posts](docs/posts.md)
 - [SEO](docs/seo.md)
+- [Caching and speed](docs/caching.md)
 - [API access (closed by default)](docs/api-access.md)
 - [MCP for AI assistants](docs/mcp.md)
 - [Local development](docs/local-development.md)

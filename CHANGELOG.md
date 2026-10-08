@@ -4,6 +4,9 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Added
+- **Edge cache** for public pages (`src/edge-cache.ts`): pages, lists, sitemaps and feeds are kept on Cloudflare (pages 5 minutes, sitemaps/feeds 60 minutes by default) and replaced at once on every admin save through a content version in KV. ETag and Last-Modified with 304 answers for browsers and crawlers; `x-bizz-cache: HIT/MISS`. Never for the admin, sign-in, API, files or signed-in people. **Settings › Cache**: on/off, both durations, "Clear the cache now". See docs/caching.md.
+
 ### Changed
 - Sitemap choices: posts are split per section (**Blog posts**, **News posts**, each with its own sitemap, e.g. /sitemap-news.xml); "Other pages" is now "Pages built into the site, not in Content". /sitemap-posts.xml keeps working (all posts).
 

@@ -14,7 +14,7 @@ Everything below is in BizzCMS today. See the [changelog](../CHANGELOG.md) for w
 ## Blog and news
 
 - Pages and posts, drafts and publishing.
-- **Blog and News** in one place: each post has a section, the sidebar has **Blog** and **News** entries with counts, and the posts list has **All | Blog | News** tabs. A new post from the News tab starts as news.
+- **Blog and News** in one place: each post has a section, the sidebar has **Blog** and **News** entries with counts, and the posts list has **All | Blog | News** tabs. A new post from the News tab starts as news. Sites can pin other collections (for example a portfolio) as their own sidebar entries.
 - **Categories** per section and **tags**, picked with searchable multiselects (new tags with one key).
 - **Featured image** with description, used on lists, the article and social share cards.
 - **Sponsored posts**: one checkbox adds a "Sponsored" label and "Sponsored by …", marks links to other sites as sponsored (as Google requires) and keeps the post out of "latest posts" teasers.
@@ -29,6 +29,9 @@ Everything below is in BizzCMS today. See the [changelog](../CHANGELOG.md) for w
 - **Scores in the Content list** as two dots per item.
 - **Admin › SEO**: site name and title formats, company or person for Google, social profiles, default description and share image; robots.txt, llms.txt (instructions for AI assistants) and a switch to hide a staging site; **Redirects** with CSV import, wildcards and hit counts; a **Check** list of everything that needs fixing.
 - Automatic **sitemaps** per content type, **robots.txt**, and **structured data** for Google: Organization, WebSite, WebPage, Article and breadcrumbs.
+- **Choose what goes into the sitemap**: pages, blog posts, news posts, categories, tags, extra collections such as a portfolio, and the site's built-in pages, each with its own tick box.
+- **RSS feed** at `/feed/` and per section (`/blog/feed/`, `/news/feed/`), like WordPress: featured image first, author, categories and tags, full text or summary, number of posts adjustable.
+- **No dead ends**: old addresses can be redirected one by one or in bulk, and every address that still ends on "page not found" is listed with its hits, ready to be redirected in one click.
 
 ## Admin
 
@@ -49,6 +52,8 @@ Everything below is in BizzCMS today. See the [changelog](../CHANGELOG.md) for w
 
 - **Serverless on Cloudflare**: Workers for the app, D1 for the database, R2 for media, KV for caching. No server to patch, no PHP.
 - Pages served from Cloudflare's network, close to your visitors.
+- **Edge cache**: public pages are kept on Cloudflare for a few minutes (adjustable in Settings › Cache) and replaced at once whenever you save, so the site stays fast for visitors and search engines while your changes show right away. Crawlers get "not modified" answers for pages they already have.
+- **Friendly error pages**: visitors never see technical errors, only a short reference code; the details are kept for you in Settings › Error log.
 - Your content stays in your own Cloudflare account.
 - One admin layer for every BizzCMS site: improvements reach all sites with one command.
 
