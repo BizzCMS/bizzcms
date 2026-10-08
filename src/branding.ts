@@ -92,6 +92,7 @@ export function applyBranding(response: Response, path: string): Response {
         element.append('<div style="padding:12px;text-align:center;font:12px system-ui;opacity:.7"><a href="/about">About BizzCMS</a> · <a href="https://bizzcms.com">bizzcms.com</a></div>', { html: true })
         element.append(path.startsWith('/auth') ? THEME_SWITCH : SWITCH_SCRIPT, { html: true })
         element.append(ENTITY_FIX, { html: true })
+        if (path === '/admin/dashboard' || path === '/admin') element.append(DASHBOARD_FIX, { html: true })
       }
     })
   // Semantic styling hooks keep the shared theme independent of Tailwind's generated CSS.
@@ -195,6 +196,20 @@ const CONTENT_ACCESSIBILITY = `<script>(function(){
 
 // Some upstream strings are escaped twice and show "&amp;" or "&mdash;" as text. Fix the visible text
 // after load (the HTML rewriter sees these split across chunks, so a server-side fix is unreliable).
+// Dashboard: upstream draws its chart in cyan (set in JS, so CSS can't reach it) and shows a
+// "System ·" placeholder row when there is no activity. Recolour the chart in the theme
+// (teal light, lime dark, following the theme switch) and show a plain empty state.
+const DASHBOARD_FIX = `<script>(function(){
+function paint(){if(!window.Chart||!Chart.instances)return;var d=document.documentElement.classList.contains('dark');
+var line=d?'#c4f56a':'#086568',fill=d?'rgba(196,245,106,.10)':'rgba(8,101,104,.08)',grid=d?'rgba(255,255,255,.06)':'rgba(16,47,49,.07)',tick=d?'#9fb3b0':'#5d7472';
+Object.values(Chart.instances).forEach(function(c){c.data.datasets.forEach(function(s){s.borderColor=line;s.backgroundColor=fill;s.pointBackgroundColor=line;s.pointBorderColor=d?'#19292c':'#fff'});
+['x','y'].forEach(function(k){var a=c.options.scales&&c.options.scales[k];if(!a)return;if(a.grid)a.grid.color=grid;if(a.ticks)a.ticks.color=tick});c.update('none')})}
+function empty(){document.querySelectorAll('main li').forEach(function(li){var t=li.querySelector('p');if(t&&t.textContent.trim()==='No recent activity'&&!li.dataset.bizzEmpty){li.dataset.bizzEmpty='1';li.innerHTML='<p class="bizz-empty">No activity yet. Content and user changes will appear here.</p>'}})}
+function run(){paint();empty()}
+if(document.readyState==='complete')setTimeout(run,0);else window.addEventListener('load',function(){setTimeout(run,0)});
+new MutationObserver(paint).observe(document.documentElement,{attributes:true,attributeFilter:['class']});
+document.addEventListener('htmx:afterSwap',empty)})()</script>`
+
 const ENTITY_FIX = `<script>(function(){var map={'&amp;':'&','&mdash;':'—','&ndash;':'–','&hellip;':'…','&rsquo;':'’','&lsquo;':'‘','&ldquo;':'“','&rdquo;':'”','&nbsp;':' '};
 var re=/&(amp|mdash|ndash|hellip|rsquo|lsquo|ldquo|rdquo|nbsp);/g;function fix(root){var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:function(n){var p=n.parentNode&&n.parentNode.nodeName;return /^(SCRIPT|STYLE|TEXTAREA|CODE|PRE)$/.test(p)?2:(re.test(n.nodeValue)?1:2)}}),n,list=[];re.lastIndex=0;while(n=w.nextNode())list.push(n);list.forEach(function(t){t.nodeValue=t.nodeValue.replace(re,function(m){return map[m]||m})})}
 fix(document.body)})();</script>`

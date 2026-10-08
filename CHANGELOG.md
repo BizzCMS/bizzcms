@@ -4,6 +4,9 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Changed
+- Dashboard: the requests chart uses the theme (teal on light, lime on dark, follows the switch); storage numbers no longer lime on white; side cards line up with the chart; a plain empty state replaces the "System ·" placeholder; dark cards use the dark teal surfaces on every admin page.
+
 ## [0.2.2] - 2026-10-08
 
 ### Added

@@ -521,7 +521,7 @@ html:not(.dark) [data-bizz-surface] :is([class~="bg-cyan-50"], [class~="bg-sky-5
 [data-bizz-surface] :is(nav[data-bizz-tabs] a, .tab-button, button[role="tab"], a[role="tab"]):is([aria-current="page"], [aria-selected="true"], .active, .border-zinc-950, .border-cyan-500, .border-blue-500, .border-indigo-500),
 [data-bizz-surface] :is(nav[data-bizz-tabs] a, .tab-button, button[role="tab"], a[role="tab"]):is([aria-current="page"], [aria-selected="true"], .active, .border-zinc-950, .border-cyan-500, .border-blue-500, .border-indigo-500) * { color: #fff !important; }
 /* Highlighted first stats tile (teal): its number in lime */
-[data-bizz-surface] dl > div:first-child:not(.bg-white, [class*=" bg-white"]) :is(dd, dd *, [class*="text-2xl"], [class*="text-3xl"]) { color: var(--bz-lime) !important; }
+[data-bizz-surface] dl > div:first-child[class*="sm:p-6"]:not(.bg-white, [class*=" bg-white"]) :is(dd, dd *, [class*="text-2xl"], [class*="text-3xl"]) { color: var(--bz-lime) !important; }
 
 /* Legacy "Create New Content" chooser (body.bg-gray-900): light cards */
 html:not(.dark) body.bg-gray-900 :is(.bg-gray-800, .bg-gray-700, .bg-zinc-800) { background: var(--bz-surface) !important; border: 1px solid var(--bz-line) !important; border-radius: 16px; }
@@ -654,3 +654,12 @@ html:not(.dark) [data-bizz-surface] :is([class^="text-lime-"], [class*=" text-li
 .bizz-api-settings a { color: var(--bz-blue); font-weight: 600; }
 .dark .bizz-api-settings a { color: var(--bz-lime); }
 .bizz-api-saved { display: inline-block; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--bz-blue-50); color: var(--bz-blue); }
+
+/* Dashboard (2026-10-08) */
+/* Side cards stretch to the chart height, so the columns line up */
+[data-bizz-surface="admin"] main .grid.xl\:grid-cols-3 > div > .rounded-lg:only-child { height: 100%; }
+.bizz-empty { margin: 8px 0; padding: 18px; border: 1px dashed var(--bz-line); border-radius: 12px; text-align: center; font-size: 13px; color: var(--bz-muted); }
+/* Dark cards use the theme's dark teal surfaces instead of upstream's near-black zinc */
+.dark [data-bizz-surface="admin"] main [class*="dark:bg-zinc-900"]:not(button, a, input, select, textarea) { background-color: #142427 !important; }
+.dark [data-bizz-surface="admin"] main :is([class*="dark:bg-zinc-800"], [class*="dark:bg-zinc-800/"]):not(button, a, input, select, textarea) { background-color: #1b2f32 !important; }
+.dark [data-bizz-surface="admin"] main :is([class*="dark:border-zinc-700"], [class*="dark:border-zinc-800"]) { border-color: var(--bz-line) !important; }
