@@ -55,7 +55,9 @@ export function applyBranding(response: Response, path: string): Response {
     } } })())
     .on('svg[viewBox="380 1300 2250 400"]', {
       element(element) {
-        element.replace('<span style="display:inline-flex;align-items:center;gap:10px;white-space:nowrap"><img src="/brand/bizzcms.svg" alt="" width="36" height="40" style="object-fit:contain"><span class="bizz-wordmark" style="font-size:22px;font-weight:600;letter-spacing:-.4px">Bizz<b>CMS</b></span></span>', { html: true })
+        // On sign-in pages the logo goes back to the website's home page.
+        const tag = path.startsWith('/auth') ? 'a href="/" aria-label="Home"' : 'span'
+        element.replace('<' + tag + ' style="display:inline-flex;align-items:center;gap:10px;white-space:nowrap;text-decoration:none"><img src="/brand/bizzcms.svg" alt="" width="36" height="40" style="object-fit:contain"><span class="bizz-wordmark" style="font-size:22px;font-weight:600;letter-spacing:-.4px">Bizz<b>CMS</b></span></' + tag.split(' ')[0] + '>', { html: true })
       }
     })
     .on('link[rel="icon"]', {
@@ -160,6 +162,10 @@ export function applyBranding(response: Response, path: string): Response {
       if (label) el.setAttribute('aria-label', label)
     } })
   }
+  // Two-step verification has no logo upstream: add it above the title.
+  if (path.startsWith('/auth/two-factor')) {
+    rewriter.on('div.w-full.max-w-sm.space-y-6 > h1', { element(el) { el.before('<div style="text-align:center">' + AUTH_LOGO + '</div>', { html: true }) } })
+  }
   // Register: BizzCMS logo instead of upstream's lightning icon, a clear title, and "Repeat password".
   if (path === '/auth/register' || path === '/auth/register/') {
     rewriter
@@ -214,7 +220,7 @@ const ENTITY_FIX = `<script>(function(){var map={'&amp;':'&','&mdash;':'—','&n
 var re=/&(amp|mdash|ndash|hellip|rsquo|lsquo|ldquo|rdquo|nbsp);/g;function fix(root){var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:function(n){var p=n.parentNode&&n.parentNode.nodeName;return /^(SCRIPT|STYLE|TEXTAREA|CODE|PRE)$/.test(p)?2:(re.test(n.nodeValue)?1:2)}}),n,list=[];re.lastIndex=0;while(n=w.nextNode())list.push(n);list.forEach(function(t){t.nodeValue=t.nodeValue.replace(re,function(m){return map[m]||m})})}
 fix(document.body)})();</script>`
 
-const AUTH_LOGO = '<a href="/auth/login" class="bizz-auth-logo"><img src="/brand/bizzcms.svg" alt="" width="36" height="40"><span class="bizz-wordmark">Bizz<b>CMS</b></span></a>'
+const AUTH_LOGO = '<a href="/" class="bizz-auth-logo" aria-label="Home"><img src="/brand/bizzcms.svg" alt="" width="36" height="40"><span class="bizz-wordmark">Bizz<b>CMS</b></span></a>'
 
 // Light/dark switcher: a "Dark mode / Light mode" item under Settings in the admin sidebar,
 // and a round button on the sign-in pages (no sidebar there). Upstream stores the choice in

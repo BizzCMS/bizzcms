@@ -5,6 +5,7 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 ## [Unreleased]
 
 ### Changed
+- Sign-in pages: the logo links to the website's home page on every page (login, register, reset password, invitation, two-step); two-step verification now shows the logo.
 - Dashboard: the requests chart uses the theme (teal on light, lime on dark, follows the switch); storage numbers no longer lime on white; side cards line up with the chart; a plain empty state replaces the "System ·" placeholder; dark cards use the dark teal surfaces on every admin page.
 
 ## [0.2.2] - 2026-10-08
