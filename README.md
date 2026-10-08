@@ -14,6 +14,7 @@
   <a href="https://github.com/BizzCMS/bizzcms/releases">Releases</a> ·
   <a href="CHANGELOG.md">Changelog</a> ·
   <a href="docs/features.md">Features</a> ·
+  <a href="https://github.com/BizzCMS/bizzcms/wiki">Wiki</a> ·
   MIT licence
 </p>
 
@@ -121,6 +122,7 @@ BizzCMS runs serverless on Cloudflare: Workers for the app and website, D1 for t
 
 ## Documentation
 
+- **[Wiki](https://github.com/BizzCMS/bizzcms/wiki)**: step-by-step guides (getting started, deploying, editing, SEO, …)
 - [All features](docs/features.md)
 - [Posts, categories, tags, sponsored posts](docs/posts.md)
 - [SEO](docs/seo.md)
