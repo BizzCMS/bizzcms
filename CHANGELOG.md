@@ -4,6 +4,9 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Changed
+- The BizzCMS mark gets a thin dark-teal border inside the C; the centre stays transparent.
+
 ## [0.2.1] - 2026-10-08
 
 ### Added
