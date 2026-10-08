@@ -40,6 +40,8 @@ Everything lives in `src/plugins/seo.ts`, `src/seo-editor.ts` and `src/seo-field
 
 **View on site.** `setPublicRoutes(routes)` (call once with the same routes object as `seoSitemap`) tells the admin where each page, post and category lives: the Content list then shows an eye before the edit button for published items, and the editor's View on Website opens the same address (`GET /admin/bizz/seo/urls?ids=…`). Without it: pages by `path`, posts under `/blog/<slug>`, categories none. Drafts get no eye (no preview of unpublished changes yet).
 
+**Not found log.** `seoNotFound(request, db, ctx)` (call it where the site returns its 404 page) records the address, hits, last visit and referrer in `bizz_not_found`; Admin › SEO › Redirects lists the last 90 days with Redirect… and Dismiss.
+
 Imports add redirects with `addRedirects(db, [{ source, target, status }])`.
 
 Storage: settings in `bizz_settings` (`seo.settings`), redirects in `bizz_redirects` (created on first use). No extra services.

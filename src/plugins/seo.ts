@@ -31,7 +31,8 @@ const DEFAULTS: SeoSettings = { siteName: '', tagline: '', defaultDescription: '
 async function ensureTables(db: D1Database) {
   await db.batch([
     db.prepare('CREATE TABLE IF NOT EXISTS bizz_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL)'),
-    db.prepare('CREATE TABLE IF NOT EXISTS bizz_redirects (id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT NOT NULL UNIQUE, target TEXT NOT NULL, status INTEGER NOT NULL DEFAULT 301, hits INTEGER NOT NULL DEFAULT 0, last_hit INTEGER, note TEXT, created_at INTEGER NOT NULL)')
+    db.prepare('CREATE TABLE IF NOT EXISTS bizz_redirects (id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT NOT NULL UNIQUE, target TEXT NOT NULL, status INTEGER NOT NULL DEFAULT 301, hits INTEGER NOT NULL DEFAULT 0, last_hit INTEGER, note TEXT, created_at INTEGER NOT NULL)'),
+    db.prepare('CREATE TABLE IF NOT EXISTS bizz_not_found (path TEXT PRIMARY KEY, hits INTEGER NOT NULL DEFAULT 0, first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL, referrer TEXT)')
   ])
 }
 
@@ -93,8 +94,25 @@ export async function addRedirects(db: D1Database, rows: RedirectRow[]): Promise
     'INSERT INTO bizz_redirects (source, target, status, note, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(source) DO UPDATE SET target = excluded.target, status = excluded.status, note = COALESCE(excluded.note, bizz_redirects.note)'
   ).bind(r.source.endsWith('*') ? normalise(r.source.slice(0, -1)) + '*' : normalise(r.source), r.target.trim(), r.status === 302 || r.status === 307 || r.status === 308 ? r.status : 301, r.note ?? null, now))
   for (let i = 0; i < stmts.length; i += 100) await db.batch(stmts.slice(i, i + 100))
+  // Addresses that now redirect are no longer "not found".
+  const sources = rows.filter(r => r.source && !r.source.endsWith('*')).map(r => normalise(r.source))
+  for (let i = 0; i < sources.length; i += 90) await db.prepare(`DELETE FROM bizz_not_found WHERE path IN (${sources.slice(i, i + 90).map(() => '?').join(',')})`).bind(...sources.slice(i, i + 90)).run().catch(() => null)
   redirectCache = null
   return stmts.length
+}
+
+/** Records an address that ended in "page not found" (Admin › SEO › Redirects lists them). Call it where the
+ *  site returns its 404 page; it never delays the response. Assets, admin and API paths are not recorded. */
+export function seoNotFound(request: Request, db: D1Database, ctx?: { waitUntil(p: Promise<unknown>): void }): void {
+  if (request.method !== 'GET') return
+  const url = new URL(request.url)
+  const path = normalise(url.pathname).slice(0, 300)
+  if (/^\/(admin|auth|api|files|mcp|cdn-cgi)(\/|$)/.test(path) || /\.[a-z0-9]{2,5}$/i.test(path)) return
+  let ref = ''; try { const r = new URL(request.headers.get('referer') ?? ''); ref = r.host === url.host ? r.pathname : r.host } catch { /* none */ }
+  const now = Date.now()
+  const done = ensureTables(db).then(() => db.prepare('INSERT INTO bizz_not_found (path, hits, first_seen, last_seen, referrer) VALUES (?, 1, ?, ?, ?) ON CONFLICT(path) DO UPDATE SET hits = hits + 1, last_seen = excluded.last_seen, referrer = COALESCE(NULLIF(excluded.referrer, \'\'), bizz_not_found.referrer)')
+    .bind(path, now, now, ref.slice(0, 200)).run()).catch(() => null)
+  if (ctx) ctx.waitUntil(done)
 }
 
 /** Answers a GET/HEAD for an old URL with its redirect; null when there is none. Run before rendering pages. */
@@ -403,6 +421,9 @@ export async function seoAdminRoute(request: Request, path: string, db: D1Databa
       const lines = action === 'add-redirect' ? [`${f.get('source')},${f.get('target')},${f.get('status')}`] : String(f.get('csv') ?? '').split(/\r?\n/)
       const rows = lines.map(l => l.split(/[,;\t]/).map(x => x.trim())).filter(([a, b]) => a && b).map(([source, target, status]) => ({ source, target, status: Number(status) || 301 }))
       await addRedirects(db, rows)
+    } else if (action === 'dismiss-404') {
+      tab = 'redirects'
+      await ensureTables(db); await db.prepare('DELETE FROM bizz_not_found WHERE path = ?').bind(String(f.get('path') ?? '')).run()
     } else if (action === 'delete-redirect') {
       tab = 'redirects'
       await ensureTables(db); await db.prepare('DELETE FROM bizz_redirects WHERE id = ?').bind(Number(f.get('id'))).run(); redirectCache = null
@@ -461,8 +482,15 @@ async function adminPage(tab: string, s: SeoSettings, db: D1Database, url: URL, 
     const { results } = await db.prepare(`SELECT id, source, target, status, hits, last_hit FROM bizz_redirects ${q ? 'WHERE source LIKE ? OR target LIKE ?' : ''} ORDER BY created_at DESC LIMIT 200`)
       .bind(...(q ? [`%${q}%`, `%${q}%`] : [])).all<Redirect>()
     const total = (await db.prepare('SELECT COUNT(*) AS n FROM bizz_redirects').first<{ n: number }>())?.n ?? 0
-    content = `${isAdmin ? `<form method="post" class="bizz-seo-inline"><input type="hidden" name="action" value="add-redirect">
-        <input type="text" name="source" placeholder="Old URL, e.g. /blog/post/old-slug/123/" required><input type="text" name="target" placeholder="New URL, e.g. /blog/new-slug/" required>
+    const { results: missing } = await db.prepare('SELECT path, hits, last_seen, referrer FROM bizz_not_found WHERE last_seen > ? ORDER BY hits DESC, last_seen DESC LIMIT 50')
+      .bind(Date.now() - 90 * 86400_000).all<{ path: string; hits: number; last_seen: number; referrer: string | null }>()
+    const notFound = `<h3 class="bizz-seo-subhead">Not found (last 90 days)</h3>
+      <p class="bizz-seo-note">${missing.length ? 'Addresses visitors or search engines asked for that ended on "page not found". Redirect them to the right page, or dismiss them.' : 'No "page not found" visits recorded. 👍'}</p>
+      ${missing.length ? `<table class="bizz-seo-table"><thead><tr><th>Address</th><th>Hits</th><th>Last seen</th><th>Came from</th><th></th></tr></thead><tbody>
+      ${missing.map(m => `<tr><td><code>${e(m.path)}</code></td><td>${m.hits}</td><td>${new Date(m.last_seen).toISOString().slice(0, 10)}</td><td>${e(m.referrer || '')}</td><td class="bizz-seo-actions">${isAdmin ? `<a class="bizz-seo-mini" href="/admin/seo?tab=redirects&amp;source=${encodeURIComponent(m.path)}#add">Redirect…</a><form method="post"><input type="hidden" name="action" value="dismiss-404"><input type="hidden" name="path" value="${e(m.path)}"><button type="submit" class="bizz-seo-danger">Dismiss</button></form>` : ''}</td></tr>`).join('')}
+      </tbody></table>` : ''}`
+    content = `${notFound}<h3 class="bizz-seo-subhead" id="add">Redirects</h3>${isAdmin ? `<form method="post" class="bizz-seo-inline"><input type="hidden" name="action" value="add-redirect">
+        <input type="text" name="source" placeholder="Old URL, e.g. /blog/post/old-slug/123/" value="${e(url.searchParams.get('source') ?? '')}" required><input type="text" name="target" placeholder="New URL, e.g. /blog/new-slug/" required>
         <select name="status"><option value="301">301 permanent</option><option value="302">302 temporary</option></select><button type="submit" class="bg-zinc-950">Add redirect</button></form>` : ''}
       <form method="get" class="bizz-seo-inline"><input type="hidden" name="tab" value="redirects"><input type="search" name="q" value="${e(q)}" placeholder="Search ${total} redirects…"><button type="submit">Search</button></form>
       <table class="bizz-seo-table"><thead><tr><th>Old URL</th><th>New URL</th><th>Type</th><th>Hits</th><th></th></tr></thead><tbody>

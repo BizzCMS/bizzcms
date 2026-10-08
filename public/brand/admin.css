@@ -795,3 +795,6 @@ html.dark .bizz-view-site { color: #c4f56a; background: rgb(196 245 106 / .1); }
 
 .bizz-seo-tabbar-page { margin-bottom: 22px; }
 .bizz-seo-check input[type=checkbox] { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--bz-blue); flex: none; }
+.bizz-seo-subhead { margin: 8px 0 10px; font-size: 15px; font-weight: 600; color: var(--bz-navy); }
+.bizz-seo-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+.bizz-seo-mini { padding: 5px 10px; border: 1px solid var(--bz-line); border-radius: 8px; background: var(--bz-surface); color: var(--bz-blue) !important; font-size: 12px; font-weight: 600; text-decoration: none; white-space: nowrap; }
