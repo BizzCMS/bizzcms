@@ -291,13 +291,27 @@ const PUBLISHED = `tenant_id = 'default' AND is_published = 1 AND (deleted_at IS
 
 /** /sitemap.xml (index) and /sitemap-<type>.xml; null for other paths. Leaves out noindex items and items with a canonical elsewhere. */
 /** The sitemap parts a site offers (for the Indexing tab and the sitemap index). */
-export function sitemapParts(routes: SitemapRoutes | null = publicRoutes): { key: string; label: string }[] {
+/** Sections that have published posts (blog, news, …), cached for a minute per Worker. */
+let sectionCache: { at: number; list: string[] } | null = null
+export async function postSections(db: D1Database): Promise<string[]> {
+  if (sectionCache && Date.now() - sectionCache.at < 60_000) return sectionCache.list
+  const { results } = await db.prepare(`SELECT DISTINCT COALESCE(NULLIF(json_extract(data, '$.section'), ''), 'blog') AS s FROM documents WHERE type_id = 'posts' AND ${PUBLISHED}`).all<{ s: string }>().catch(() => ({ results: [] as { s: string }[] }))
+  const list = results.map(r => r.s).filter(x => /^[a-z0-9-]+$/.test(x)).sort((a, b) => (a === 'blog' ? -1 : b === 'blog' ? 1 : a.localeCompare(b)))
+  sectionCache = { at: Date.now(), list: list.length ? list : ['blog'] }
+  return sectionCache.list
+}
+
+/** The sitemap parts a site offers (for the Indexing tab and the sitemap index). Posts come per section
+ *  (Blog posts, News posts) so each can be switched on or off. */
+export function sitemapParts(routes: SitemapRoutes | null = publicRoutes, sections: string[] = ['blog']): { key: string; label: string; section?: string }[] {
   if (!routes) return []
   const cap = (k: string) => k.charAt(0).toUpperCase() + k.slice(1).replace(/[-_]/g, ' ')
   return [
-    ...(['pages', 'posts', 'categories', 'tags'] as const).filter(t => routes[t]).map(t => ({ key: t as string, label: cap(t) })),
+    ...(routes.pages ? [{ key: 'pages', label: 'Pages' }] : []),
+    ...(routes.posts ? sections.map(sec => ({ key: sec, label: `${cap(sec)} posts`, section: sec })) : []),
+    ...(['categories', 'tags'] as const).filter(t => routes[t]).map(t => ({ key: t as string, label: cap(t) })),
     ...Object.keys(routes.collections ?? {}).map(k => ({ key: k, label: cap(k) })),
-    ...(routes.extra?.length ? [{ key: 'other', label: `Other pages (${routes.extra.slice(0, 3).join(', ')}${routes.extra.length > 3 ? ', …' : ''})` }] : [])
+    ...(routes.extra?.length ? [{ key: 'other', label: `Pages built into the site, not in Content (${routes.extra.slice(0, 4).join(', ')}${routes.extra.length > 4 ? ', …' : ''})` }] : [])
   ]
 }
 
@@ -307,8 +321,13 @@ export async function seoSitemap(url: URL, db: D1Database, routes: SitemapRoutes
   const xml = (body: string) => new Response(XML_HEAD + body, { headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=3600' } })
   const s = await seoSettings(db)
   // Only the parts this site offers and the owner left switched on (SEO › Indexing).
-  const enabled = sitemapParts(routes).map(p => p.key).filter(k => !s.sitemapOff.includes(k))
-  if (m[1] && !enabled.includes(m[1])) return null
+  const parts = sitemapParts(routes, await postSections(db))
+  // "posts" switched off by an older version counts as every post section off.
+  const enabled = parts.filter(p => !s.sitemapOff.includes(p.key) && !(p.section && s.sitemapOff.includes('posts'))).map(p => p.key)
+  const sectionOf = new Map(parts.filter(p => p.section).map(p => [p.key, p.section!]))
+  // /sitemap-posts.xml (older versions listed it): all posts of the enabled sections.
+  const legacyPosts = m[1] === 'posts' && !!routes.posts && parts.some(p => p.section && enabled.includes(p.key))
+  if (m[1] && !enabled.includes(m[1]) && !legacyPosts) return null
   if (!m[1]) {
     const parts = enabled.map(t => `<sitemap><loc>${xesc(`${url.origin}/sitemap-${t}.xml`)}</loc></sitemap>`)
     return xml(`<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${s.hideFromSearch ? '' : parts.join('\n')}\n</sitemapindex>\n`)
@@ -325,9 +344,11 @@ export async function seoSitemap(url: URL, db: D1Database, routes: SitemapRoutes
       for (const r of results) { const p = routes.tags(r.tag, r.section || 'blog'); if (p) urls.push({ loc: abs(url.origin, p), lastmod: r.t ? day(r.t) : undefined }) }
     } else {
       const type = m[1]
-      const route = type === 'pages' || type === 'posts' || type === 'categories' ? routes[type] : routes.collections?.[type]
+      const section = sectionOf.get(type)
+      const route = section || legacyPosts ? routes.posts : type === 'pages' || type === 'categories' ? routes[type] : routes.collections?.[type]
       if (route) {
-        const { results } = await db.prepare(`SELECT slug, data, COALESCE(updated_at, published_at) AS t FROM documents WHERE type_id = ? AND ${PUBLISHED} ORDER BY COALESCE(published_at, updated_at) DESC LIMIT 50000`).bind(type).all<{ slug: string; data: string; t: number }>()
+        const { results } = await db.prepare(`SELECT slug, data, COALESCE(updated_at, published_at) AS t FROM documents WHERE type_id = ? AND ${PUBLISHED}${section ? ` AND COALESCE(NULLIF(json_extract(data, '$.section'), ''), 'blog') = ?` : ''} ORDER BY COALESCE(published_at, updated_at) DESC LIMIT 50000`)
+          .bind(...(section ? ['posts', section] : [legacyPosts ? 'posts' : type])).all<{ slug: string; data: string; t: number }>()
         for (const r of results) {
           let d: Record<string, unknown> = {}; try { d = JSON.parse(r.data) } catch { /* empty */ }
           if (d.noindex === true || d.noindex === 'true' || str(d.canonical)) continue
@@ -542,6 +563,7 @@ export async function seoAdminRoute(request: Request, path: string, db: D1Databa
 }
 
 async function adminPage(tab: string, s: SeoSettings, db: D1Database, url: URL, isAdmin: boolean): Promise<string> {
+  const parts = sitemapParts(publicRoutes, await postSections(db))
   // The admin's standard tab bar (same markup as Settings, styled by admin.css [data-bizz-tabs]).
   const icon = (d: string) => `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`
   const TAB_ICONS: Record<string, string> = {
@@ -571,8 +593,8 @@ async function adminPage(tab: string, s: SeoSettings, db: D1Database, url: URL, 
       <label class="bizz-seo-check"><input type="checkbox" name="hideFromSearch"${s.hideFromSearch ? ' checked' : ''}${ro}><span><strong>Hide the whole site from search engines</strong><small>For staging or unfinished sites. robots.txt then blocks everything and every page gets noindex.</small></span></label>
       ${field('robotsExtra', 'Extra robots.txt lines', 'Added to the default rules, e.g. "Disallow: /private/". Sitemap and llms.txt lines are added automatically.', 'textarea')}
       ${field('llmsText', 'llms.txt (instructions for AI assistants)', 'Plain text or Markdown at /llms.txt. Empty = the site\'s built-in text, if it has one.', 'textarea')}
-      ${sitemapParts().length ? `<fieldset class="bizz-seo-group"><legend>Include in sitemap</legend><input type="hidden" name="sitemap_parts" value="${e(sitemapParts().map(p => p.key).join(','))}">
-        ${sitemapParts().map(p => `<label class="bizz-seo-check"><input type="checkbox" name="sitemap_${e(p.key)}"${s.sitemapOff.includes(p.key) ? '' : ' checked'}${ro}><span>${e(p.label)}</span></label>`).join('')}
+      ${parts.length ? `<fieldset class="bizz-seo-group"><legend>Include in sitemap</legend><input type="hidden" name="sitemap_parts" value="${e(parts.map(p => p.key).join(','))}">
+        ${parts.map(p => `<label class="bizz-seo-check"><input type="checkbox" name="sitemap_${e(p.key)}"${s.sitemapOff.includes(p.key) || (p.section && s.sitemapOff.includes('posts')) ? '' : ' checked'}${ro}><span>${e(p.label)}</span></label>`).join('')}
         <small>Unticked parts are left out of /sitemap.xml. The pages themselves stay online.</small></fieldset>` : ''}
       ${publicRoutes?.posts ? `<fieldset class="bizz-seo-group"><legend>RSS feed</legend>
         <label class="bizz-seo-check"><input type="checkbox" name="feedEnabled"${s.feedEnabled ? ' checked' : ''}${ro}><span><strong>Publish an RSS feed</strong><small>At <a href="/feed/" target="_blank">/feed/</a> (all posts) and per section, e.g. <a href="/blog/feed/" target="_blank">/blog/feed/</a>. News readers, Feedly and aggregators use it.</small></span></label>

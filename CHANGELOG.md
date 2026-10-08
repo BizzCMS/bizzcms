@@ -4,6 +4,9 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Changed
+- Sitemap choices: posts are split per section (**Blog posts**, **News posts**, each with its own sitemap, e.g. /sitemap-news.xml); "Other pages" is now "Pages built into the site, not in Content". /sitemap-posts.xml keeps working (all posts).
+
 ### Added
 - Sidebar: sites can pin collections as their own entries with a count (`setSidebarCollections([{ name: 'portfolio', label: 'Portfolio' }])`), next to Blog and News.
 
