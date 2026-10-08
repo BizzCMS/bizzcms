@@ -33,4 +33,4 @@ The welcome post is "Welcome to BizzCMS" (`src/welcome.ts` keeps a deleted place
 
 ## Sites
 
-Sites built on BizzCMS copy this admin layer with `npm run sync:core` (see BizzCMS/bizzcms-site, `scripts/sync-core.mjs`). Change it here first, then sync.
+Sites built on BizzCMS copy this admin layer with `npm run sync:core` (`scripts/sync-core.mjs` in BizzCMS/bizzcms-site and BizzCMS/ingeniumweb-site; planervjencanja not yet). Change it here first, then sync.
