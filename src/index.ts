@@ -14,6 +14,7 @@ import { checkRegisterPasswords, blockedRoute } from './auth'
 import { guardApi, apiSettingsPage, withApiTab } from './api-access'
 import { googleAnalyticsPlugin, withGoogleAnalytics, gaAdminRoute } from './plugins/google-analytics'
 import { taxonomyRoute } from './taxonomy'
+import { envForSection, withSectionTabs } from './sections'
 import { seoPlugin, seoAdminRoute } from './plugins/seo'
 
 registerCollections([pages, posts, categories])
@@ -75,7 +76,8 @@ export default {
     // The REST API is closed unless the owner opens it (Settings › API).
     const denied = await guardApi(request, path, db, upstream)
     if (denied) return denied
-    const response = await finishUpstream(ctx, cms.fetch(request, env, ctx))
+    // Posts list by section (Blog | News): src/sections.ts.
+    const response = await withSectionTabs(await finishUpstream(ctx, cms.fetch(request, envForSection(env, request, path), ctx)), request, path, db)
     // After upstream's startup seeding has run: replace its SonicJS welcome post.
     await ensureBizzWelcome((env as unknown as { DB: D1Database }).DB).catch(e => console.error('welcome post', e))
     return applyBranding(withApiTab(await brandApiSpec(await withGoogleAnalytics(response, request, db), path), path), path)

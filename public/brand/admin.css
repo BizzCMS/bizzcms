@@ -760,3 +760,11 @@ html:not(.dark) [data-bizz-surface] :is([class^="text-lime-"], [class*=" text-li
 .bizz-seo-issue { display: inline-block; margin: 2px 6px 2px 0; padding: 2px 8px; border-radius: 999px; background: var(--bz-canvas); border: 1px solid var(--bz-line); font-size: 12px; }
 .bizz-seo-key { padding: 1px 7px; border-radius: 999px; background: var(--bz-lime); color: #102f31; font-size: 11px; font-weight: 600; }
 .bizz-seo-note { font-size: 13.5px; color: var(--bz-muted); margin-bottom: 14px; } .bizz-seo-empty { text-align: center; color: var(--bz-muted); }
+
+/* Posts list: All / Blog / News tabs (src/sections.ts) */
+.bizz-section-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 14px; }
+.bizz-section-tab { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--bz-line); background: var(--bz-surface); color: var(--bz-navy); font-size: 14px; font-weight: 500; text-decoration: none; }
+.bizz-section-tab span { padding: 1px 8px; border-radius: 999px; background: var(--bz-canvas); color: var(--bz-muted); font-size: 12px; font-weight: 600; }
+.bizz-section-tab:hover { border-color: var(--bz-blue); }
+.bizz-section-tab.is-on { background: var(--bz-blue); border-color: var(--bz-blue); color: #fff; }
+.bizz-section-tab.is-on span { background: rgb(255 255 255 / .18); color: #fff; }

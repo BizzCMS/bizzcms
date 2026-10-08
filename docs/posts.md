@@ -37,6 +37,10 @@ There is no separate date field: every document already has `published_at` (unix
 
 Flat list, no parents. A post stores the category's root id, which stays the same when the category is edited or renamed.
 
+## Posts list by section (`src/sections.ts`)
+
+Content › Posts shows **All posts | Blog | News** tabs with counts. Upstream's list can only filter by collection, status and title, so for `?model=posts&section=…` the request's database handle adds `section = …` to the list and count queries only (`envForSection`); `withSectionTabs` adds the tabs and keeps `section` in paging, per-page and "New Content" links. A new post opened from the News tab starts with Section = News. Posts without a section count as blog. Sites wire both next to `cms.fetch` in `src/index.ts`.
+
 ## Categories and Tags in the editor (`src/taxonomy.ts`)
 
 Upstream shows array fields as "Add item" rows. On the post form, `TAXONOMY_SCRIPT` (added by `src/branding.ts`) replaces the Categories and Tags fields with a searchable multiselect with chips, and `GET /admin/bizz/taxonomy` (signed-in users only) returns the categories (`id`, `title`, `section`) and the tags already in use. The saved data is the same JSON array upstream would store. Sites wire the route next to the other admin routes in `src/index.ts`.

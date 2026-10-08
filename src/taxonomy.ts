@@ -23,6 +23,8 @@ export const TAXONOMY_SCRIPT = `<script>(function(){
 var form=document.getElementById('content-form');if(!form)return;
 var col=form.querySelector('[name="collection_id"]');if(!col||col.value!=='posts')return;
 function box(name){return form.querySelector('[data-structured-array][data-field-name="'+name+'"]')}
+// New post from the Blog or News tab of the posts list: preselect that section.
+var wanted=new URLSearchParams(location.search).get('section'),secSel=form.querySelector('[name="section"]');if(wanted&&secSel&&location.pathname.indexOf('/admin/content/new')===0&&secSel.querySelector('option[value="'+wanted.replace(/[^a-z]/g,'')+'"]'))secSel.value=wanted;
 var catBox=box('categories'),tagBox=box('tags');if(!catBox&&!tagBox)return;
 function read(el){var h=el&&el.querySelector('input[type=hidden][name]');try{var v=JSON.parse(h&&h.value||'[]');return Array.isArray(v)?v.map(function(x){return typeof x==='string'?x:(x&&(x.value||x.id||x.tag))||''}).filter(Boolean):[]}catch(e){return []}}
 function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
