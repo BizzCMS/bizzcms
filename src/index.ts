@@ -15,6 +15,7 @@ import { guardApi, apiSettingsPage, withApiTab } from './api-access'
 import { googleAnalyticsPlugin, withGoogleAnalytics, gaAdminRoute } from './plugins/google-analytics'
 import { taxonomyRoute } from './taxonomy'
 import { envForSection, withSectionTabs } from './sections'
+import { withMediaUsage } from './dashboard-media'
 import { contentGuardRoute } from './content-guard'
 import { seoPlugin, seoAdminRoute } from './plugins/seo'
 
@@ -81,7 +82,8 @@ export default {
     const guarded = await contentGuardRoute(request, path, db)
     if (guarded) return guarded
     // Posts list by section (Blog | News): src/sections.ts.
-    const response = await withSectionTabs(await finishUpstream(ctx, cms.fetch(request, envForSection(env, request, path), ctx)), request, path, db)
+    // Dashboard Media Files count and size from the media documents (src/dashboard-media.ts).
+    const response = await withMediaUsage(await withSectionTabs(await finishUpstream(ctx, cms.fetch(request, envForSection(env, request, path), ctx)), request, path, db), path, db)
     // After upstream's startup seeding has run: replace its SonicJS welcome post.
     await ensureBizzWelcome((env as unknown as { DB: D1Database }).DB).catch(e => console.error('welcome post', e))
     return applyBranding(withApiTab(await brandApiSpec(await withGoogleAnalytics(response, request, db), path), path), path)

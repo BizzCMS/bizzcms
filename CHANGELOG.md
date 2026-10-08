@@ -9,6 +9,7 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 - **HTML editor**: every rich text field has a **Visual | HTML | Preview** switch. HTML edits the saved HTML directly; Visual is refused for HTML it would damage (images, tables, embeds, code blocks).
 
 ### Fixed
+- **Dashboard showed 0 media files and "0 B".** Upstream still counts its old `media` table, which uploads no longer fill (they are `media_asset` documents). The Media Files card and Storage Usage now count the media documents. `src/dashboard-media.ts` (sites: add it to sync-core and wrap the upstream response with `withMediaUsage`).
 - **Sidebar jumped when switching between Blog and News.** The entries were only added after the counts loaded, so the menu shifted on every page. They now draw at once from the last known counts (kept in the browser) and the numbers refresh afterwards. `src/sections.ts`.
 - **Editor could blank imported posts.** Upstream's visual (Lexical) editor has no images, tables, embeds or code blocks: such HTML was dropped or the box stayed empty, and saving wrote that back. Content with those elements now opens in an HTML editor with a preview (nothing lost); if the visual editor loses text on load it switches too; emptying a box with text asks for confirmation, and the server refuses a save that would blank a post or page unless confirmed. `src/content-guard.ts`.
 
