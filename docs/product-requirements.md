@@ -25,9 +25,9 @@ Candidate functionality to map against SonicJS and validate with the owner:
 | Administration | Users, editing permissions, settings |
 | Email | Configurable delivery and CMS notifications |
 
-Basic contact forms are a candidate website feature, not approval to rebuild Store4's full form/business platform. Exact first-release field types, language behaviour, roles, templates, form features, and editor interactions remain to be defined.
+Basic contact forms are a candidate website feature, not approval to rebuild a full form/business platform. Exact first-release field types, language behaviour, roles, templates, form features, and editor interactions remain to be defined.
 
-Exclude Store4 CRM, campaigns, coupons, commerce, payments, tasks, referrals, and unrelated business modules. AI, full design canvases, analytics, plugin marketplaces, and complex approval flows are not initial requirements. Existing upstream features need not be rewritten simply to remove them; assess their actual cost.
+Exclude CRM, campaigns, coupons, commerce, payments, tasks, referrals, and unrelated business modules. AI, full design canvases, analytics, plugin marketplaces, and complex approval flows are not initial requirements. Existing upstream features need not be rewritten simply to remove them; assess their actual cost.
 
 ## Hosting requirements
 

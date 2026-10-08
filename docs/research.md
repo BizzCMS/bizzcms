@@ -2,31 +2,9 @@
 
 Research date: 2026-09-16. This is a source/documentation review, not a running application assessment, full security audit, or performance benchmark.
 
-## Store4 CMS reference
+## Lessons from earlier in-house systems
 
-Inspected C:\Repository\Store4.MVC and selected referenced models in C:\Repository\Store4.Framework. The application targets .NET Framework 4.8 and references several sibling projects; its existing framework is not a suitable direct implementation for Workers.
-
-Useful observed CMS concepts:
-
-- Content IDs/types, parent relationships, language associations, titles/slugs, descriptions, SEO fields, publication dates.
-- Categories and role associations in content saving.
-- Menus, galleries, forms, roles, and email-template controllers.
-- Profile/form field editing; this should not be represented as proof of a fully generic arbitrary content-schema builder.
-- Website rendering through a content controller and theme infrastructure.
-
-Evidence locations (maintainer-local, not dependencies):
-
-- Store4.MVC/Store4/Store4.csproj: target framework and project references.
-- Store4.MVC/Store4/Areas/Admin/Controllers/ContentsController.cs: content saving, metadata, categories, roles, publishing.
-- Store4.Framework/Store4.Repository/Models/Content.cs and ContentType.cs: content data model.
-- Store4.MVC/Store4/Areas/Admin/Controllers/FieldsController.cs: profile/form fields.
-- Store4.MVC/Store4/Areas/Admin/Controllers/HtmlTemplatesController.cs: email/document templates.
-- Store4.MVC/Store4/Areas/Portal/Controllers/ContentController.cs: public content rendering and language lookup.
-- Store4.MVC/Store4/Areas/Portal/Controllers/FileUploadController.cs: local file saving in the legacy upload path.
-
-One concrete performance observation: the public content controller increments Visits, changes Modified, and saves the content while rendering a page. Avoid carrying this database-write pattern into ordinary public BizzCMS requests. The observed local file upload path also conflicts with the new external-storage requirement.
-
-Legacy code was not copied, executed, migrated, or comprehensively audited. Business modules are outside scope.
+Concepts carried over: content types with parent relationships, languages, titles/slugs, SEO fields and publication dates; menus, galleries, forms, roles and e-mail templates. Two patterns to avoid: writing to the database (visit counters) while rendering public pages, and storing uploads on the local disk instead of external storage. No legacy code was copied.
 
 ## Open-source comparisons
 

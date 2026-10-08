@@ -4,7 +4,7 @@ Date: 2026-09-16. This document separates explicit owner direction from proposed
 
 ## Confirmed direction
 
-1. Create an extremely lightweight CMS informed by the CMS portion of Store4.
+1. Create an extremely lightweight CMS, informed by the content features of the owner's earlier in-house CMS.
 2. Support Cloudflare and cPanel as complete deployment alternatives.
 3. Also support cPanel application hosting with a Cloudflare database.
 4. Cloudflare is the primary offering; cPanel is available when a client wants it. "Backup" in this context means an alternative, not automatic failover.
@@ -12,7 +12,7 @@ Date: 2026-09-16. This document separates explicit owner direction from proposed
 6. Images/files must be external: both R2 and S3 are required storage options.
 7. Configurable email options are required.
 8. Keep installation and directory setup uncomplicated.
-9. Focus solely on CMS features, despite Store4's broader feature set.
+9. Focus solely on CMS features, not the broader business features of earlier systems.
 10. The owner has larger projects and wants minimal implementation and maintenance effort. SonicJS is the preferred foundation to investigate rather than building a new CMS from scratch.
 11. The project will be open source. The owner owns bizzcms.com and selected BizzCMS as the project direction.
 12. Create the local project under C:\RepositoryAI and document the discussion. This does not request a GitHub publication or production deployment.
@@ -41,7 +41,7 @@ Date: 2026-09-16. This document separates explicit owner direction from proposed
 - R2/S3 and email remain external services in the cPanel mode by design.
 - An ambiguous mention of "invoice" was discussed in the context of branding/charging clients; it did not establish an invoicing application requirement. Do not add invoicing functionality.
 - No Cloudflare account access was verified. A GitHub connector was verified in the originating session, but no BizzCMS remote was created.
-- Store4 was inspected read-only. No permission to publish its proprietary source is inferred from permission to inspect it.
+- The earlier in-house system was inspected read-only for concepts. None of its proprietary source is part of this repository.
 
 ## Open decisions
 
