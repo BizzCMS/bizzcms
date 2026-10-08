@@ -2,7 +2,7 @@
 
 ## Start
 
-Prerequisite: Node.js 22+ and npm. Verified with Node.js 24.14.0 on Windows.
+Prerequisite: Node.js 24 (LTS) and npm; `.nvmrc` pins the major version. Verified with Node.js 24.21.0 on Windows.
 
 ```powershell
 cd C:\RepositoryAI\bizzcms

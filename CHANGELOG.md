@@ -4,6 +4,9 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Changed
+- Node.js 24 LTS is now the minimum (`engines` `>=24`, `.nvmrc`); verified with 24.21.0.
+
 ## [0.2.3] - 2026-10-08
 
 ### Added

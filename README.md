@@ -95,7 +95,7 @@ Lucy's access is read-only: BizzCMS exposes no write tools over MCP. The same en
 
 ## Run locally
 
-Node.js 22 or newer (tested with Node 24 on Windows):
+Node.js 24 LTS or newer (`.nvmrc` included; tested with 24.21.0 on Windows):
 
 ```bash
 git clone https://github.com/BizzCMS/bizzcms.git
