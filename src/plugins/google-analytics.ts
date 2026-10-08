@@ -23,6 +23,8 @@ export const googleAnalyticsPlugin = definePlugin({
   description: 'Google Analytics 4 for your public pages, with a cookie consent banner. Analytics loads only after the visitor accepts.',
   author: { name: 'BizzCMS', url: 'https://bizzcms.com' },
   capabilities: [],
+  // Sidebar link under Plugins (shown while the plugin is installed).
+  menu: [{ label: 'Google Analytics', path: `/admin/plugins/${GA_PLUGIN_ID}`, icon: 'chart', order: 90 }],
   configSchema: SCHEMA,
   // Settings tab on the plugin page, in the admin design (the form posts to the schema settings route).
   settingsTabContent: {
