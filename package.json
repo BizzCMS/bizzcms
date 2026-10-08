@@ -2,7 +2,7 @@
   "name": "bizzcms",
   "version": "0.2.3",
   "private": true,
-  "description": "Free, open-source headless CMS for business websites, built on SonicJS",
+  "description": "Free, open-source headless CMS for business websites. Serverless on Cloudflare Workers, D1 and R2.",
   "homepage": "https://bizzcms.com",
   "repository": {
     "type": "git",
