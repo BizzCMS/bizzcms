@@ -5,6 +5,7 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 ## [Unreleased]
 
 ### Added
+- Posts › **Featured image** (picked from the Media library) and **Featured image description** (alt text). Sites show it on blog lists, the post page and as the social share image; posts without one keep the site's default image. Helper: `src/featured-image.ts`.
 - Plugin **Google Analytics** (Admin › Plugins): Measurement ID, consent banner on/off, banner text and policy link in a Settings tab. Public HTML pages get a cookie banner; Google Analytics loads only after Accept (Consent Mode v2, nothing sent before), the choice is remembered, Reject keeps it off. Never on admin, sign-in or API pages, never on localhost (`?bizz-ga-preview` shows it locally). Any element with `data-cookie-settings` reopens the banner. Install works around an upstream slug clash for code-registered plugins.
 
 ### Security
