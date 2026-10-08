@@ -3,7 +3,8 @@
 // - Editor: SEO panel with SEO / Social / Advanced tabs, Google preview, Auto-fill and live checks
 //   (src/seo-editor.ts); fields in src/seo-fields.ts.
 // - Website helpers: seoRedirect (before rendering), seoHead (title, description, canonical, robots,
-//   social tags, structured data graph), seoSitemap (index + one sitemap per type), seoRobots, seoLlms.
+//   social tags, structured data graph), seoSitemap (index + one sitemap per type), seoRobots, seoLlms,
+//   IndexNow (seoIndexNowKey serves the key file, seoIndexNowChanged pings after admin saves).
 // Settings live in bizz_settings ('seo.settings'), redirects in bizz_redirects; both in the site's D1.
 import { definePlugin, PluginServiceClass as PluginService } from 'bizzcms-core'
 
@@ -29,8 +30,10 @@ export interface SeoSettings {
   sitemapOff: string[]
   /** RSS feed: on/off, number of posts, full text (true) or summary only. */
   feedEnabled: boolean; feedItems: number; feedFullText: boolean
+  /** IndexNow (Bing, Yandex, Seznam, Naver…): tell search engines at once when an address changes. */
+  indexNowEnabled: boolean; indexNowKey: string
 }
-const DEFAULTS: SeoSettings = { siteName: '', tagline: '', defaultDescription: '', defaultImage: '', orgType: 'Organization', orgName: '', orgLogo: '', sameAs: '', hideFromSearch: false, robotsExtra: '', llmsText: '', sitemapOff: [], feedEnabled: true, feedItems: 20, feedFullText: true }
+const DEFAULTS: SeoSettings = { siteName: '', tagline: '', defaultDescription: '', defaultImage: '', orgType: 'Organization', orgName: '', orgLogo: '', sameAs: '', hideFromSearch: false, robotsExtra: '', llmsText: '', sitemapOff: [], feedEnabled: true, feedItems: 20, feedFullText: true, indexNowEnabled: true, indexNowKey: '' }
 
 async function ensureTables(db: D1Database) {
   await db.batch([
@@ -364,6 +367,98 @@ export async function seoSitemap(url: URL, db: D1Database, routes: SitemapRoutes
   return xml(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`)
 }
 
+// ---------- IndexNow ----------
+// IndexNow (indexnow.org) tells Bing, Yandex, Seznam, Naver and other engines about a new, changed or
+// removed address right away, instead of waiting for the next crawl. The site proves ownership with a
+// key file at /<key>.txt. After every successful admin save the public addresses of the items changed in
+// the last minute are sent; SEO › Indexing has "Send all addresses now" and the last results.
+
+const INDEXNOW_ENDPOINT = 'https://api.indexnow.org/indexnow'
+const LOCAL_HOST = /^(localhost|127\.0\.0\.1|\[::1\]|.*\.localhost|.*\.test)$/i
+interface IndexNowLog { at: number; count: number; status: number; sample: string; trigger: string }
+
+/** The key (generated and saved on first use). The owner can paste an existing key in SEO › Indexing. */
+async function indexNowKey(db: D1Database): Promise<string> {
+  const s = await seoSettings(db)
+  if (/^[a-zA-Z0-9-]{8,128}$/.test(s.indexNowKey)) return s.indexNowKey
+  const key = [...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, '0')).join('')
+  await saveSettings(db, { ...s, indexNowKey: key })
+  return key
+}
+
+/** /<key>.txt answers with the key (IndexNow ownership check); null for every other path. */
+export async function seoIndexNowKey(url: URL, db: D1Database): Promise<Response | null> {
+  if (!/^\/[a-zA-Z0-9-]{8,128}\.txt$/.test(url.pathname)) return null
+  const s = await seoSettings(db)
+  if (!s.indexNowEnabled || !s.indexNowKey || url.pathname !== `/${s.indexNowKey}.txt`) return null
+  return new Response(s.indexNowKey, { headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=3600' } })
+}
+
+async function indexNowLog(db: D1Database): Promise<IndexNowLog[]> {
+  try { const r = await db.prepare("SELECT value FROM bizz_settings WHERE key = 'seo.indexnow.log'").first<{ value: string }>(); return r ? JSON.parse(r.value) : [] } catch { return [] }
+}
+
+/** Sends addresses of this host (at most 10,000 per request) and keeps the last 30 results. Nothing is
+ *  sent from a local address, while IndexNow is off, or while the site is hidden from search engines. */
+export async function indexNowSubmit(db: D1Database, origin: string, urls: string[], trigger: string): Promise<{ count: number; status: number }> {
+  const s = await seoSettings(db)
+  const host = new URL(origin).hostname
+  const list = [...new Set(urls)].filter(u => { try { return new URL(u).hostname === host } catch { return false } })
+  if (!s.indexNowEnabled || s.hideFromSearch || !list.length || LOCAL_HOST.test(host)) return { count: 0, status: 0 }
+  const key = await indexNowKey(db)
+  let status = 0
+  for (let i = 0; i < list.length; i += 10_000) {
+    const r = await fetch(INDEXNOW_ENDPOINT, { method: 'POST', headers: { 'content-type': 'application/json; charset=utf-8' },
+      body: JSON.stringify({ host, key, keyLocation: `${origin}/${key}.txt`, urlList: list.slice(i, i + 10_000) }) }).catch(() => null)
+    status = r?.status ?? 599
+  }
+  const log = [{ at: Date.now(), count: list.length, status, sample: list[0], trigger }, ...(await indexNowLog(db))].slice(0, 30)
+  await ensureTables(db)
+  await db.prepare("INSERT INTO bizz_settings (key, value, updated_at) VALUES ('seo.indexnow.log', ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at")
+    .bind(JSON.stringify(log), Date.now()).run()
+  return { count: list.length, status }
+}
+
+const indexNowSent = new Map<string, number>()
+
+/** After a successful admin save (any POST/PUT/DELETE under /admin): the public addresses of the items
+ *  changed in the last minute, published or just unpublished/deleted (engines then drop them). Call it
+ *  in ctx.waitUntil so the editor never waits for it. */
+export async function seoIndexNowChanged(request: Request, status: number, db: D1Database): Promise<void> {
+  if (request.method === 'GET' || request.method === 'HEAD' || status >= 400) return
+  const url = new URL(request.url)
+  if (!url.pathname.startsWith('/admin') || LOCAL_HOST.test(url.hostname)) return
+  const s = await seoSettings(db)
+  if (!s.indexNowEnabled || s.hideFromSearch) return
+  const since = Math.floor(Date.now() / 1000) - 60
+  const { results } = await db.prepare(`SELECT type_id, slug, data, updated_at FROM documents
+    WHERE tenant_id = 'default' AND updated_at >= ? AND type_id <> 'media_asset' ORDER BY updated_at DESC LIMIT 200`).bind(since).all<{ type_id: string; slug: string; data: string; updated_at: number }>()
+  const urls: string[] = []
+  for (const r of results) {
+    let d: Record<string, unknown> = {}; try { d = JSON.parse(r.data) } catch { /* empty */ }
+    if (d.noindex === true || d.noindex === 'true') continue
+    const p = publicPath(r.type_id, d, r.slug ?? ''); if (!p) continue
+    const u = abs(url.origin, p)
+    if (!u || indexNowSent.get(u) === r.updated_at) continue
+    indexNowSent.set(u, r.updated_at); urls.push(u)
+  }
+  if (indexNowSent.size > 2000) indexNowSent.clear()
+  if (urls.length) await indexNowSubmit(db, url.origin, urls, 'save')
+}
+
+/** Every address in the sitemap (all enabled parts). */
+async function sitemapUrls(origin: string, db: D1Database): Promise<string[]> {
+  if (!publicRoutes) return []
+  const locs = (xml: string) => [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1].replace(/&amp;/g, '&'))
+  const index = await seoSitemap(new URL('/sitemap.xml', origin), db, publicRoutes)
+  const out: string[] = []
+  for (const part of index ? locs(await index.text()) : []) {
+    const r = await seoSitemap(new URL(part), db, publicRoutes)
+    if (r) out.push(...locs(await r.text()))
+  }
+  return out
+}
+
 // ---------- RSS feed ----------
 
 const rfc822 = (t: number) => new Date(t > 1e11 ? t : t * 1000).toUTCString().replace('GMT', '+0000')
@@ -535,9 +630,13 @@ export async function seoAdminRoute(request: Request, path: string, db: D1Databa
       else Object.assign(next, {
         hideFromSearch: f.get('hideFromSearch') === 'on', robotsExtra: g('robotsExtra'), llmsText: g('llmsText'),
         sitemapOff: g('sitemap_parts').split(',').filter(k => k && f.get(`sitemap_${k}`) !== 'on'),
-        feedEnabled: f.get('feedEnabled') === 'on', feedItems: Math.min(Math.max(Number(g('feedItems')) || 20, 5), 100), feedFullText: g('feedFullText') !== 'summary'
+        feedEnabled: f.get('feedEnabled') === 'on', feedItems: Math.min(Math.max(Number(g('feedItems')) || 20, 5), 100), feedFullText: g('feedFullText') !== 'summary',
+        indexNowEnabled: f.get('indexNowEnabled') === 'on', indexNowKey: /^[a-zA-Z0-9-]{8,128}$/.test(g('indexNowKey')) ? g('indexNowKey') : next.indexNowKey
       })
       await saveSettings(db, next)
+    } else if (action === 'indexnow-all') {
+      const r = await indexNowSubmit(db, url.origin, await sitemapUrls(url.origin, db), 'all')
+      return Response.redirect(new URL(`/admin/seo?tab=indexing&indexnow=${r.count}-${r.status}#indexnow`, url).toString(), 303)
     } else if (action === 'add-redirect' || action === 'import-redirects') {
       tab = 'redirects'
       const lines = action === 'add-redirect' ? [`${f.get('source')},${f.get('target')},${f.get('status')}`] : String(f.get('csv') ?? '').split(/\r?\n/)
@@ -562,6 +661,22 @@ export async function seoAdminRoute(request: Request, path: string, db: D1Databa
     .on('main > div.grow', { element: el => { el.setInnerContent(body, { html: true }) } })
     .on('title', { element: el => { el.setInnerContent('SEO - BizzCMS') } })
     .transform(new Response(base.body, base))
+}
+
+async function indexNowFieldset(db: D1Database, s: SeoSettings, url: URL, ro: string): Promise<string> {
+  const key = s.indexNowEnabled ? await indexNowKey(db) : s.indexNowKey
+  const log = await indexNowLog(db)
+  const sent = url.searchParams.get('indexnow')
+  const [n, st] = (sent ?? '').split('-').map(Number)
+  const ok = (code: number) => code === 200 || code === 202
+  const answer = (code: number) => ok(code) ? 'Accepted' : code === 403 ? 'Key not valid (403)' : code === 422 ? 'Rejected (422: address or key)' : code === 429 ? 'Too many requests (429)' : `Answer ${code}`
+  const result = sent ? `<p class="bizz-api-saved">${n ? `${n} addresses sent: ${answer(st)}.` : 'Nothing sent (IndexNow off, site hidden from search engines, or a local address).'}</p>` : ''
+  const local = LOCAL_HOST.test(url.hostname) ? ' This is a local address: nothing is sent from here, only from the live site.' : ''
+  const rows = log.slice(0, 10).map(l => `<tr><td>${new Date(l.at).toISOString().slice(0, 16).replace('T', ' ')}</td><td>${l.trigger === 'all' ? 'All addresses' : 'Saved'}</td><td>${l.count}</td><td>${answer(l.status)}</td><td><code>${e(l.sample)}</code></td></tr>`).join('')
+  return `<fieldset class="bizz-seo-group" id="indexnow"><legend>IndexNow</legend>${result}
+    <label class="bizz-seo-check"><input type="checkbox" name="indexNowEnabled"${s.indexNowEnabled ? ' checked' : ''}${ro}><span><strong>Tell search engines about changes right away</strong><small>When you publish, change, unpublish or delete something, its address goes to Bing, Yandex, Seznam, Naver and the other IndexNow engines within seconds. Google doesn't use IndexNow; it reads your sitemap.</small></span></label>
+    <label class="bizz-seo-field"><span>IndexNow key</span><input type="text" name="indexNowKey" value="${e(key)}"${ro}><small>Created for you; the key file is at <a href="/${e(key)}.txt" target="_blank">/${e(key)}.txt</a>. Already have a key, for example from Bing Webmaster Tools? Paste it here.${local}</small></label>
+    ${rows ? `<table class="bizz-seo-table"><thead><tr><th>When (UTC)</th><th>What</th><th>Addresses</th><th>Result</th><th>Example</th></tr></thead><tbody>${rows}</tbody></table>` : '<small>Nothing sent yet.</small>'}</fieldset>`
 }
 
 async function adminPage(tab: string, s: SeoSettings, db: D1Database, url: URL, isAdmin: boolean): Promise<string> {
@@ -602,9 +717,11 @@ async function adminPage(tab: string, s: SeoSettings, db: D1Database, url: URL, 
         <label class="bizz-seo-check"><input type="checkbox" name="feedEnabled"${s.feedEnabled ? ' checked' : ''}${ro}><span><strong>Publish an RSS feed</strong><small>At <a href="/feed/" target="_blank">/feed/</a> (all posts) and per section, e.g. <a href="/blog/feed/" target="_blank">/blog/feed/</a>. News readers, Feedly and aggregators use it.</small></span></label>
         <label class="bizz-seo-field"><span>Posts in the feed</span><input type="number" name="feedItems" min="5" max="100" value="${s.feedItems}"${ro}></label>
         <label class="bizz-seo-field"><span>Each post shows</span><select name="feedFullText"${ro}><option value="full"${s.feedFullText ? ' selected' : ''}>Full text (with featured image)</option><option value="summary"${s.feedFullText ? '' : ' selected'}>Summary only (with featured image)</option></select></label></fieldset>` : ''}
+      ${await indexNowFieldset(db, s, url, ro)}
       <p class="bizz-seo-note">Sitemap: <a href="/sitemap.xml" target="_blank">/sitemap.xml</a> · Robots: <a href="/robots.txt" target="_blank">/robots.txt</a> · <a href="/llms.txt" target="_blank">/llms.txt</a>${publicRoutes?.posts && s.feedEnabled ? ' · Feed: <a href="/feed/" target="_blank">/feed/</a>' : ''}</p>`
     content = `<form method="post" class="bizz-seo-form"><input type="hidden" name="action" value="settings"><input type="hidden" name="tab" value="${tab}">
-      ${inner}${isAdmin ? '<div><button type="submit" class="bg-zinc-950">Save changes</button></div>' : '<p class="bizz-seo-note">Only administrators can change these settings.</p>'}</form>`
+      ${inner}${isAdmin ? '<div><button type="submit" class="bg-zinc-950">Save changes</button></div>' : '<p class="bizz-seo-note">Only administrators can change these settings.</p>'}</form>
+      ${tab === 'indexing' && isAdmin && s.indexNowEnabled && !s.hideFromSearch ? `<form method="post" class="bizz-seo-inline"><input type="hidden" name="action" value="indexnow-all"><button type="submit" onclick="return confirm('Send every address in the sitemap to IndexNow now?')">Send all addresses to IndexNow now</button><small class="bizz-seo-note">Once after going live or after big changes. New and changed items are sent automatically when you save.</small></form>` : ''}`
   } else if (tab === 'redirects') {
     await ensureTables(db)
     const q = (url.searchParams.get('q') ?? '').trim()

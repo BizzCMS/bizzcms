@@ -22,11 +22,13 @@ The scores are saved with the item; the **Content** list shows them as two dots 
 | Tab | |
 |---|---|
 | General | Site name (added as "Title \| Site name"), home page tagline ("Site name - tagline"), default meta description, default social image, company or person behind the site, logo, social profiles. |
-| Indexing | Hide the whole site from search engines (staging), extra robots.txt lines, llms.txt text. |
+| Indexing | Hide the whole site from search engines (staging), extra robots.txt lines, llms.txt text, what goes into the sitemap, RSS feed, **IndexNow**. |
 | Redirects | Old URL → new URL (301 or 302), search, delete, CSV import, hit counter. An old URL ending in `*` matches everything that starts with it (`/old/*` → `/new/*` keeps the rest of the path). |
 | Check | Pages, posts and categories that need attention (no keyphrase, no or long description, long or duplicate title, no featured image or category, images without alt text, noindex), Key content first. |
 
 Only administrators change settings and redirects; editors can see them.
+
+**IndexNow** (SEO › Indexing, on by default). When you publish, change, unpublish or delete something, its public address goes to Bing, Yandex, Seznam, Naver and the other [IndexNow](https://www.indexnow.org) engines within seconds, so they don't wait for their next crawl. This is what Bing Webmaster Tools asks for under "Set up IndexNow". The key is created for you and served at `/<key>.txt`; you can paste an existing key instead. **Send all addresses to IndexNow now** sends everything in the sitemap once (after going live or big changes). The last results are listed (Accepted, or the reason). Nothing is sent from a local address, while IndexNow is off, or while the site is hidden from search engines. Google does not use IndexNow; it reads the sitemap.
 
 ## For site code
 
@@ -41,6 +43,8 @@ Everything lives in `src/plugins/seo.ts`, `src/seo-editor.ts` and `src/seo-field
 **View on site.** `setPublicRoutes(routes)` (call once with the same routes object as `seoSitemap`) tells the admin where each page, post and category lives: the Content list then shows an eye before the edit button for published items, and the editor's View on Website opens the same address (`GET /admin/bizz/seo/urls?ids=…`). Without it: pages by `path`, posts under `/blog/<slug>`, categories none. Drafts get no eye (no preview of unpublished changes yet).
 
 **Sitemap choices.** SEO › Indexing lists the parts the site offers (from `setPublicRoutes`): pages, posts, categories, tags, `routes.collections` (e.g. `portfolio: (d, slug) => "/portfolio/" + slug + "/"`) and other pages (`routes.extra`). Unticked parts leave the sitemap index and their sitemap returns 404.
+
+**IndexNow.** Two lines in the site's worker: `seoIndexNowKey(url, db)` with the other public SEO routes (answers `/<key>.txt`, null otherwise), and after the admin request is handled `ctx.waitUntil(seoIndexNowChanged(request, response.status, db))`. It looks up the items changed in the last minute and maps them with `publicPath()` (so `setPublicRoutes()` must be set). `indexNowSubmit(db, origin, urls, trigger)` sends any list (10,000 per request).
 
 **RSS feed.** `seoFeed(url, db)` answers `/feed/`, `/feed`, `/rss.xml` and `/<blog|news>/feed/` (call it before the site's blog routes). Settings: on/off, posts (5–100), full text or summary. `socialTags()` adds the `<link rel="alternate">` to every page.
 
