@@ -69,6 +69,12 @@ Everything you don't set keeps an English default (`src/plugins/directory/config
 | `portal` | The portal's base address and URL words (`new`, `edit`, `claim`), notice codes and wording. |
 | `layout` | Your page shell (header, footer, styles). The plugin sends the title, body, description, canonical and index flag. |
 | `labels` | The collection names in the admin. |
+| `locale` | Language for sorting choices alphabetically (regions, cities, form selects), e.g. `hr`. |
+| `sample` | Marks example entries: `{ slugPrefix: 'demo-', label: 'Example' }` adds the label next to the category. |
+
+Sorting: **Recommended** is Premium first, then most visited (the optional `views` field, e.g. carried over from an
+old site), then name. Visitors can also sort by name, newest, most visited and (venues) capacity. A company without
+a photo shows its category's photo when the site gives one.
 
 Visitor accounts have their own wording and URL words (login, register, photos …):
 `configureAccounts({ text, paths, page })` in `src/site-accounts.ts`.

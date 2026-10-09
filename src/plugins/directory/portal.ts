@@ -13,7 +13,7 @@ import {
   accountPaths, accountRoute, type Audience, type Cms, crossOrigin, currentUser, galleryAction, galleryEditor, loginRedirect,
   portalPage, readForm, type User
 } from '../../site-accounts'
-import { directorySettings, listingUrl, slugify, subcategories } from './config'
+import { alphabetical, directorySettings, listingUrl, slugify, subcategories } from './config'
 import { esc, fold, html, mediaList, str, truthy } from './util'
 
 type Env = { DB: D1Database; MEDIA_BUCKET: R2Bucket }
@@ -272,7 +272,7 @@ function editPage(listing: Owned | null, v: Record<string, unknown>, error?: str
   const { taxonomy: T, portal: P } = directorySettings()
   const s = (k: string) => esc(String(v[k] ?? ''))
   const opt = (value: string, text: string, current: unknown) => `<option value="${esc(value)}"${value === String(current ?? '') ? ' selected' : ''}>${esc(text)}</option>`
-  const subOptions = T.categories.map(c => c.subs ? `<optgroup label="${esc(c.label)}">${c.subs.map(sub => opt(sub.slug, sub.label, v.subcategory)).join('')}</optgroup>` : '').join('')
+  const subOptions = alphabetical(T.categories, c => c.label).map(c => c.subs ? `<optgroup label="${esc(c.label)}">${alphabetical(c.subs, sub => sub.label).map(sub => opt(sub.slug, sub.label, v.subcategory)).join('')}</optgroup>` : '').join('')
   const gallery = listing ? mediaList(listing.data.gallery) : []
   const cover = listing ? str(listing.data.coverImage) : undefined
   const editUrl = listing ? `${P.base}/${P.edit}/${listing.rootId}` : `${P.base}/${P.new}`
@@ -283,15 +283,15 @@ function editPage(listing: Owned | null, v: Record<string, unknown>, error?: str
     ${notice && P.notices[notice] ? `<p class="notice">${esc(P.notices[notice])}</p>` : ''}${error ? `<p class="err">${esc(error)}</p>` : ''}
     <form method="post" action="${editUrl}" class="editform box">
       <label class="full">${esc(P.fieldName)}<input name="title" required maxlength="200" value="${s('title')}"></label>
-      <label>${esc(P.fieldCategory)}<select name="category" required>${T.categories.map(c => opt(c.slug, c.label, v.category)).join('')}</select></label>
+      <label>${esc(P.fieldCategory)}<select name="category" required>${alphabetical(T.categories, c => c.label).map(c => opt(c.slug, c.label, v.category)).join('')}</select></label>
       <label>${esc(P.fieldSubcategory)}<select name="subcategory">${opt('', '—', v.subcategory)}${subOptions}</select></label>
-      ${T.regions.length ? `<label>${esc(P.fieldRegion)}<select name="county">${opt('', '—', v.county)}${T.regions.map(([k, t]) => opt(k, t, v.county)).join('')}</select></label>` : ''}
+      ${T.regions.length ? `<label>${esc(P.fieldRegion)}<select name="county">${opt('', '—', v.county)}${alphabetical(T.regions, c => c[1]).map(([k, t]) => opt(k, t, v.county)).join('')}</select></label>` : ''}
       <label>${esc(P.fieldCity)}<input name="city" maxlength="120" value="${s('city')}"></label>
       <label class="full">${esc(P.fieldSummary)}<textarea name="summary" rows="2" maxlength="300">${s('summary')}</textarea></label>
       <label class="full">${esc(P.fieldDescription)}<textarea name="description" rows="8" maxlength="5000">${s('description')}</textarea><small>${esc(P.fieldDescriptionHint)}</small></label>
       <label>${esc(P.fieldPrice)}<select name="priceLevel">${opt('', '—', v.priceLevel)}${T.priceLevels.map(([k, t]) => opt(k, t, v.priceLevel)).join('')}</select></label>
       <label>${esc(P.fieldCapacity)}<input name="capacity" type="number" min="1" max="10000" value="${s('capacity')}"></label>
-      <label>${esc(P.fieldSetting)}<select name="setting">${opt('', '—', v.setting)}${T.settings.map(([k, t]) => opt(k, t, v.setting)).join('')}</select></label>
+      <label>${esc(P.fieldSetting)}<select name="setting">${opt('', '—', v.setting)}${alphabetical(T.settings, c => c[1]).map(([k, t]) => opt(k, t, v.setting)).join('')}</select></label>
       <fieldset><legend>${esc(P.fieldAmenities)}</legend>${T.amenities.map(([k, t]) => `<label class="check"><input type="checkbox" name="${k}" value="1"${truthy(v[k]) ? ' checked' : ''}>${esc(t)}</label>`).join('')}</fieldset>
       <label>${esc(P.fieldWebsite)}<input name="website" type="url" placeholder="https://" maxlength="300" value="${s('website')}"></label>
       <label>${esc(P.fieldPhone)}<input name="phone" maxlength="60" value="${s('phone')}"></label>

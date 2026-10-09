@@ -8,7 +8,7 @@
 import { DocumentsService } from 'bizzcms-core'
 import { readForm } from '../../site-accounts'
 import {
-  categoryUrl, cityUrl, directorySettings, directoryUrl, label, listingUrl, matchRoute, slugify, subcategories
+  alphabetical, categoryUrl, cityUrl, directorySettings, directoryUrl, label, listingUrl, matchRoute, slugify, subcategories
 } from './config'
 import { esc, fold, html, icon, mediaList, pageWindow, safeDecode, safeUrl, str, truthy } from './util'
 
@@ -125,7 +125,9 @@ function orderBy(sort: string): string {
   if (sort === params.sortName) return 'title COLLATE NOCASE'
   if (sort === params.sortNewest) return 'created_at DESC'
   if (sort === params.sortCapacity) return `CAST(${J('capacity')} AS INTEGER) IS NULL, CAST(${J('capacity')} AS INTEGER) DESC, title COLLATE NOCASE`
-  return 'premium DESC, title COLLATE NOCASE'
+  // Visits: the optional `views` field (e.g. carried over from an old site).
+  if (sort === params.sortPopular) return `CAST(${J('views')} AS INTEGER) DESC, title COLLATE NOCASE`
+  return `premium DESC, CAST(${J('views')} AS INTEGER) DESC, title COLLATE NOCASE`
 }
 
 export interface Card {
@@ -167,7 +169,9 @@ function toCard(r: Row): Card {
   return {
     slug: String(r.slug), title: String(r.title), category: str(r.category), subcategory: str(r.subcategory),
     county: str(r.county), city: str(r.city), summary: str(r.summary),
-    image: mediaList(r.cover)[0] ?? mediaList(r.gallery)[0], capacity: Number(r.capacity) || undefined,
+    // No photo yet: the category's photo, if the site has one.
+    image: mediaList(r.cover)[0] ?? mediaList(r.gallery)[0] ?? directorySettings().taxonomy.categories.find(c => c.slug === str(r.category))?.image,
+    capacity: Number(r.capacity) || undefined,
     priceLevel: r.priceLevel === null || r.priceLevel === undefined || r.priceLevel === '' ? undefined : String(r.priceLevel),
     premium: Number(r.premium) === 1,
     legacyId: Number(r.legacyId) > 0 ? Number(r.legacyId) : undefined, legacySlug: str(r.legacySlug)
@@ -223,15 +227,16 @@ async function saveRequest(form: FormData, company: Listing, env: Env) {
 
 /** Directory card: the directory, and anywhere a site shows companies (home page, articles). */
 export function listingCardHtml(c: Card): string {
-  const { taxonomy, text } = directorySettings()
+  const { taxonomy, text, sample } = directorySettings()
   const where = [c.city, label(taxonomy.regions, c.county)].filter(Boolean).join(', ')
+  const isSample = !!sample && c.slug.startsWith(sample.slugPrefix)
   const catLabel = subcategories().find(s => s.slug === c.subcategory)?.label ?? taxonomy.categories.find(x => x.slug === c.category)?.label ?? text.companyFallback
   const href = esc(listingUrl(c))
   return `<article class="card${c.premium ? ' is-premium' : ''}">
       <a class="media" href="${href}" tabindex="-1" aria-hidden="true">${c.image ? `<img src="${esc(c.image)}" alt="" loading="lazy">` : '<span class="ph"></span>'}
         ${c.premium ? `<span class="pill premium">${esc(text.premium)}</span>` : ''}</a>
       <div class="body">
-        <span class="cat">${esc(catLabel)}</span>
+        <span class="cat">${esc(catLabel)}${isSample ? ` · ${esc(sample!.label)}` : ''}</span>
         <h2><a href="${href}">${esc(c.title)}</a></h2>
         <div class="meta">${where ? `<span>${icon('pin')}${esc(where)}</span>` : ''}${c.capacity ? `<span>${icon('people')}${esc(text.upTo(c.capacity))}</span>` : ''}${c.priceLevel ? `<span class="price">${esc(label(taxonomy.priceLevels, c.priceLevel) ?? '')}</span>` : ''}</div>
         ${c.summary ? `<p>${esc(c.summary)}</p>` : ''}
@@ -253,7 +258,7 @@ export async function featuredListings(db: D1Database, limit: number, category?:
 export async function directoryOverview(db: D1Database) {
   const [cats, cities, total] = await db.batch([
     db.prepare(`SELECT ${J('category')} AS k, COUNT(*) AS n FROM documents WHERE ${PUBLISHED} GROUP BY k`),
-    db.prepare(`SELECT ${J('city')} AS k, COUNT(*) AS n FROM documents WHERE ${PUBLISHED} AND COALESCE(${J('city')}, '') != '' GROUP BY k ORDER BY n DESC, k LIMIT 12`),
+    db.prepare(`SELECT ${J('city')} AS k, COUNT(*) AS n FROM documents WHERE ${PUBLISHED} AND COALESCE(${J('city')}, '') != '' GROUP BY k ORDER BY n DESC, k`),
     db.prepare(`SELECT COUNT(*) AS n FROM documents WHERE ${PUBLISHED}`)
   ])
   return {
@@ -320,8 +325,8 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
 
   const option = (value: string, txt: string, selected: string, n?: number) =>
     `<option value="${esc(value)}"${value === selected ? ' selected' : ''}>${esc(txt)}${n !== undefined ? ` (${n})` : ''}</option>`
-  const regionOptions = taxonomy.regions.map(([k, v]) => option(k, v, f.region, r.regionCounts.get(k) ?? 0)).join('')
-  const cityOptions = r.cities.map(c => option(c.slug, c.name, f.city, c.n)).join('')
+  const regionOptions = alphabetical(taxonomy.regions, c => c[1]).map(([k, v]) => option(k, v, f.region, r.regionCounts.get(k) ?? 0)).join('')
+  const cityOptions = alphabetical(r.cities, c => c.name).map(c => option(c.slug, c.name, f.city, c.n)).join('')
   const radios = (name: string, list: readonly (readonly [string | number, string])[], current: string) =>
     `<div class="opts">${[['', text.all] as const, ...list].map(([k, v]) => `<label class="opt"><input type="radio" name="${name}" value="${k}"${String(k) === current ? ' checked' : ''}>${esc(v)}</label>`).join('')}</div>`
 
@@ -372,7 +377,7 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
       ${Object.entries({ category: f.category, region: f.region, city: f.city, guests: f.guests, price: f.price, setting: f.setting, premium: f.premium, view: f.view }).map(([k, v]) => hidden((P as Record<string, string>)[k], v)).join('')}
       ${f.amenities.map(a => hidden(a, '1')).join('')}
       <label class="search">${icon('search')}<input type="search" name="${P.q}" value="${esc(f.q)}" placeholder="${esc(text.searchPlaceholder)}" aria-label="${esc(text.searchLabel)}"></label>
-      <select name="${P.sort}" aria-label="${esc(text.sortLabel)}" data-auto-submit>${option('', text.sortRecommended, f.sort)}${option(P.sortName, text.sortName, f.sort)}${option(P.sortNewest, text.sortNewest, f.sort)}${isVenue ? option(P.sortCapacity, text.sortCapacity, f.sort) : ''}</select>
+      <select name="${P.sort}" aria-label="${esc(text.sortLabel)}" data-auto-submit>${option('', text.sortRecommended, f.sort)}${alphabetical([[P.sortName, text.sortName], [P.sortNewest, text.sortNewest], [P.sortPopular, text.sortPopular], ...(isVenue ? [[P.sortCapacity, text.sortCapacity]] : [])] as [string, string][], o => o[1]).map(([k, t]) => option(k, t, f.sort)).join('')}</select>
       <span class="views"><a class="${f.view === P.viewList ? '' : 'on'}" href="${params({ view: null })}" title="${esc(text.viewGrid)}" aria-label="${esc(text.viewGridLabel)}">${icon('grid')}</a><a class="${f.view === P.viewList ? 'on' : ''}" href="${params({ view: P.viewList })}" title="${esc(text.viewList)}" aria-label="${esc(text.viewListLabel)}">${icon('list')}</a></span>
     </form></div></div>`
 

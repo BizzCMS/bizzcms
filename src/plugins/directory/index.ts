@@ -7,7 +7,7 @@
 //   handleCompanyPortal(request, env, cms)  the company portal (null for other paths)
 // See docs/directory.md.
 export {
-  setDirectory, directorySettings, directoryUrl, categoryUrl, cityUrl, listingUrl, matchRoute, slugify, label, subcategories,
+  setDirectory, directorySettings, directoryUrl, alphabetical, categoryUrl, cityUrl, listingUrl, matchRoute, slugify, label, subcategories,
   DEFAULT_TEXT, DEFAULT_PORTAL, DEFAULT_PARAMS, DEFAULT_ROUTES, DEFAULT_TAXONOMY,
   type Category, type DirectoryOptions, type DirectoryText, type PortalSettings, type PageOptions
 } from './config'

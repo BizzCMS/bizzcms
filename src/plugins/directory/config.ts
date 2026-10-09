@@ -36,7 +36,7 @@ export const DEFAULT_ROUTES: DirectoryRoutes = {
 export const DEFAULT_PARAMS = {
   q: 'q', category: 'category', region: 'region', city: 'city', guests: 'guests', price: 'price', setting: 'setting',
   premium: 'premium', sort: 'sort', view: 'view', page: 'page', sent: 'sent', requestAnchor: 'request',
-  sortName: 'name', sortNewest: 'newest', sortCapacity: 'capacity', viewList: 'list'
+  sortName: 'name', sortNewest: 'newest', sortCapacity: 'capacity', sortPopular: 'popular', viewList: 'list'
 }
 
 export const DEFAULT_TAXONOMY = {
@@ -98,6 +98,7 @@ export const DEFAULT_TEXT = {
   sortName: 'Name A–Z',
   sortNewest: 'Newest',
   sortCapacity: 'Largest capacity',
+  sortPopular: 'Most visited',
   viewGrid: 'Grid',
   viewGridLabel: 'Show as grid',
   viewList: 'List',
@@ -234,12 +235,17 @@ export interface DirectorySettings {
   layout: (title: string, body: string, opts: PageOptions) => string
   /** Collection labels in the admin. */
   labels: { listings: string; bookingRequests: string; claims: string }
+  /** Language for sorting choices alphabetically (regions, cities, form selects), e.g. 'hr'. */
+  locale: string
+  /** Sample entries (e.g. demo data): companies whose slug starts with `slugPrefix` get `label` next to the category. */
+  sample?: { slugPrefix: string; label: string }
 }
 
 let current: DirectorySettings = {
   routes: DEFAULT_ROUTES, params: DEFAULT_PARAMS, taxonomy: DEFAULT_TAXONOMY, text: DEFAULT_TEXT, portal: DEFAULT_PORTAL,
   layout: (title, body, o) => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title.replace(/</g, '&lt;')}</title>${o.canonical ? `<link rel="canonical" href="${o.canonical}">` : ''}${o.index === false ? '<meta name="robots" content="noindex,follow">' : ''}</head><body><main>${body}</main></body></html>`,
-  labels: { listings: 'Companies', bookingRequests: 'Booking requests', claims: 'Listing claims' }
+  labels: { listings: 'Companies', bookingRequests: 'Booking requests', claims: 'Listing claims' },
+  locale: 'en'
 }
 
 export interface DirectoryOptions {
@@ -250,6 +256,8 @@ export interface DirectoryOptions {
   portal?: Partial<PortalSettings>
   layout?: DirectorySettings['layout']
   labels?: Partial<DirectorySettings['labels']>
+  locale?: string
+  sample?: DirectorySettings['sample']
 }
 
 /** Turn the directory on for this site with its own addresses, categories, wording and layout. */
@@ -261,7 +269,9 @@ export function setDirectory(opts: DirectoryOptions): void {
     text: { ...DEFAULT_TEXT, ...opts.text },
     portal: { ...DEFAULT_PORTAL, ...opts.portal, notices: { ...DEFAULT_PORTAL.notices, ...opts.portal?.notices } },
     layout: opts.layout ?? current.layout,
-    labels: { ...current.labels, ...opts.labels }
+    labels: { ...current.labels, ...opts.labels },
+    locale: opts.locale ?? current.locale,
+    sample: opts.sample ?? current.sample
   }
 }
 export const directorySettings = (): DirectorySettings => current
@@ -269,6 +279,11 @@ export const directorySettings = (): DirectorySettings => current
 // ---------------------------------------------------------------- taxonomy helpers
 
 export const subcategories = () => current.taxonomy.categories.flatMap(c => (c.subs ?? []).map(s => ({ ...s, parent: c.slug })))
+
+/** Choices sorted alphabetically in the site's language (the configured order stays as it is). */
+export function alphabetical<T>(items: readonly T[], text: (item: T) => string): T[] {
+  return [...items].sort((a, b) => text(a).localeCompare(text(b), current.locale, { sensitivity: 'base', numeric: true }))
+}
 
 export const label = (list: readonly (readonly [string | number, string])[], key?: string | number) =>
   list.find(([k]) => String(k) === String(key))?.[1]
