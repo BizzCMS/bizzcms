@@ -37,6 +37,13 @@ Everything below is in BizzCMS today. See the [changelog](../CHANGELOG.md) for w
 - **RSS feed** at `/feed/` and per section (`/blog/feed/`, `/news/feed/`), like WordPress: featured image first, author, categories and tags, full text or summary, number of posts adjustable.
 - **No dead ends**: old addresses can be redirected one by one or in bulk, and every address that still ends on "page not found" is listed with its hits, ready to be redirected in one click.
 
+## Directory (plugin)
+
+- **Company directory** with search, filters (category, region, city, guests, price, indoor/outdoor, amenities, Premium), grid or list view, and category and city pages. See [docs/directory.md](directory.md).
+- **Company profiles** with a gallery, and **date requests** for Premium companies.
+- **Company portal**: companies open an account, add or take over their profile, edit it and their photos, and see their requests.
+- **Your addresses and language**: every address, query word and piece of wording can be set per site, so imported companies keep their old links.
+
 ## Admin
 
 - Clean, calm admin in **light and dark mode**, one design and one button style throughout.
