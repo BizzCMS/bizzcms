@@ -43,7 +43,7 @@ export function aiDiscoveryTab(s: SiteFacts): string {
 <p class="bizz-seo-note">AI crawler rules: <a href="/admin/seo?tab=indexing">SEO › Indexing › AI crawlers</a> (bot list ${AI_BOTS_VERSION}). Cloudflare's own AI bot settings can block crawlers before they reach the site. Visits from ChatGPT, Perplexity, Gemini and Copilot show in Google Analytics as the "AI Assistant" channel; citations inside AI answers cannot be measured from the site.</p>
 </section>
 <section class="bizz-seo-group" data-ai-pages><h2 class="text-base/7 font-semibold text-zinc-950 dark:text-white">Pages as AI crawlers see them</h2>
-<p class="bizz-seo-note">Reads your sitemap and opens each page the way a crawler does: no cookies, no JavaScript. Served from the cache, so it does not slow the site. Checks: reachable, indexable, canonical, title, description, share image, one main heading, valid structured data (articles: headline, date, image, author or publisher) and enough text in the page itself.</p>
+<p class="bizz-seo-note">Reads your sitemap and opens each page the way a crawler does: no cookies, no JavaScript. Served from the cache, so it does not slow the site. Checks: reachable, indexable, canonical, title, description, share image, one main heading, valid structured data (articles: headline, date, image, author or publisher, category and tags) and enough text in the page itself.</p>
 <div class="bizz-ai-bar"><label>Pages <select data-ai-limit><option value="50">50</option><option value="200" selected>200</option><option value="1000">1,000</option><option value="0">All</option></select></label>
 <button type="button" data-ai-run>Check pages</button><button type="button" data-ai-stop hidden>Stop</button><progress data-ai-progress value="0" max="1" hidden></progress><span data-ai-status class="bizz-seo-note"></span></div>
 <div class="bizz-ai-sum" data-ai-sum hidden></div>
@@ -84,7 +84,7 @@ async function check(u){var issues=[],bad=false,types=[];var path=new URL(u).pat
  var all=[];doc.querySelectorAll('script[type="application/ld+json"]').forEach(function(s){try{all=all.concat(nodes(JSON.parse(s.textContent)))}catch(err){issues.push('Structured data does not parse');bad=true}});
  if(!all.length)issues.push('No structured data');
  all.forEach(function(n){var ty=[].concat(n['@type']||[]).join('/');if(ty)types.push(ty);
-  if(/Article|BlogPosting|NewsArticle/.test(ty)){['headline','datePublished','image'].forEach(function(k){if(!n[k])issues.push(ty+' without '+k)});if(!n.author&&!n.publisher)issues.push(ty+' without author or publisher');
+  if(/Article|BlogPosting|NewsArticle/.test(ty)){['headline','datePublished','image'].forEach(function(k){if(!n[k])issues.push(ty+' without '+k)});if(!n.author&&!n.publisher)issues.push(ty+' without author or publisher');if(!n.articleSection)issues.push(ty+' without a category (articleSection)');if(!n.keywords)issues.push(ty+' without tags (keywords)');
    if(n.headline&&t&&t.toLowerCase().indexOf(String(n.headline).toLowerCase().slice(0,30))<0&&(doc.querySelector('h1')||{textContent:''}).textContent.toLowerCase().indexOf(String(n.headline).toLowerCase().slice(0,30))<0)issues.push('Headline differs from the visible title')}});
  var w=words(doc);if(w<150)issues.push('Only '+w+' words in the page itself (thin, or the text needs JavaScript)');
  return{u:u,bad:bad,issues:issues,types:Array.from(new Set(types)).filter(function(x){return !/^(WebSite|Organization|ListItem)$/.test(x)})}}

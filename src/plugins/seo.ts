@@ -169,6 +169,8 @@ export interface SeoInput {
   articleType?: 'Article' | 'BlogPosting' | 'NewsArticle'
   /** The post's categories (articleSection). */
   sections?: string[]
+  /** The post's visible tags (keywords). Only tags shown on the page, never the focus keyphrase. */
+  tags?: string[]
   breadcrumbs?: { name: string; path: string }[]
   extraGraph?: unknown[]
 }
@@ -249,8 +251,9 @@ function seoGraph(input: SeoInput, s: SeoSettings, page: { title: string; descri
       ...(iso(input.publishedAt) ? { datePublished: iso(input.publishedAt) } : {}), ...(iso(input.modifiedAt ?? input.publishedAt) ? { dateModified: iso(input.modifiedAt ?? input.publishedAt) } : {}),
       ...(input.author?.name ? { author: { '@type': 'Person', name: input.author.name, ...(input.author.url ? { url: abs(o, input.author.url) } : {}) } } : orgName ? { author: { '@id': orgId } } : {}),
       ...(input.sections?.filter(Boolean).length ? { articleSection: input.sections.filter(Boolean).length === 1 ? input.sections.filter(Boolean)[0] : input.sections.filter(Boolean) } : {}),
-      // No "keywords": search engines ignore it and it shows competitors the keyphrases you target.
-      // The focus and related keyphrases stay editor-only (SEO analysis).
+      // "keywords" = the post's visible tags only (a topic hint for AI assistants and other engines; Google
+      // ignores it). The focus and related keyphrases stay editor-only, so competitors don't see what you target.
+      ...(input.tags?.filter(Boolean).length ? { keywords: [...new Set(input.tags.map(t => t.trim()).filter(Boolean))].slice(0, 15).join(', ') } : {}),
       ...(orgName ? { publisher: { '@id': orgId } } : {}) })
   }
   if (input.breadcrumbs?.length) {
