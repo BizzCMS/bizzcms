@@ -105,7 +105,7 @@ export const DEFAULT_TEXT = {
   viewListLabel: 'Show as list',
   noResults: 'No results',
   noResultsText: 'No company matches the filters. Try removing a filter.',
-  pageSuffix: (n: number) => ` – page ${n}`,
+  pageSuffix: (n: number) => ` - page ${n}`,
   metaDescription: (heading: string, results: string) => `${heading}: ${results}.`,
   // Profile
   gallery: 'Gallery',
