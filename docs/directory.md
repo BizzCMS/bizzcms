@@ -32,6 +32,11 @@ Three collections:
 - **Booking requests** (`booking-requests`)
 - **Listing claims** (`listing-claims`)
 
+Also on each company:
+- **Keywords**: search phrases, comma separated. The directory search matches them too.
+- **Online check**, **Checked on** and **Online check notes**: the result of checking the business online, e.g. after
+  an import (active, closed or unknown, with evidence). Staff only, never shown publicly.
+
 Fields admins set, which companies can't:
 - **Paid member** and **Paid until**: Premium status.
 - **Owner account email**: who may edit the profile. Set it to approve a claim.

@@ -39,12 +39,17 @@ export function directoryCollections(): CollectionConfig[] {
         ownerEmail: { type: 'email', title: 'Owner account email', helpText: 'The company account that may edit this listing (set it to approve a claim).' },
         legacyId: { type: 'number', title: 'Old site ID', helpText: 'From the old site\'s profile address. Keeps old links working.' },
         legacySlug: { type: 'string', title: 'Old URL name', helpText: 'The name part of the old site\'s profile address, spelled exactly as there (accents included). Empty = the URL slug.', maxLength: 200 },
+        keywords: { type: 'string', title: 'Keywords', helpText: 'Search phrases people use, separated by commas. The directory search finds the company by them too.', maxLength: 500 },
         seoTitle: { type: 'string', title: 'SEO title', maxLength: 200 },
-        seoDescription: { type: 'textarea', title: 'SEO description', maxLength: 500 }
+        seoDescription: { type: 'textarea', title: 'SEO description', maxLength: 500 },
+        // Online check (e.g. after an import): is the business still there? For staff only; never shown publicly.
+        checkStatus: { type: 'select', title: 'Online check', enum: ['', 'active', 'closed', 'unknown'], enumLabels: ['Not checked', 'Active', 'Closed', 'Unknown'], default: '' },
+        checkedAt: { type: 'date', title: 'Checked on' },
+        checkNote: { type: 'textarea', title: 'Online check notes', helpText: 'Evidence and sources from the check.', maxLength: 3000 }
       },
       required: ['title', 'slug']
     },
-    listFields: ['title', 'category', 'city', 'paidMember', 'status'],
+    listFields: ['title', 'category', 'city', 'paidMember', 'checkStatus', 'status'],
     searchFields: ['title', 'city'],
     managed: true,
     isActive: true

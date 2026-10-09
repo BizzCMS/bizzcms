@@ -96,8 +96,8 @@ function where(f: Filters, cityNames: string[], today: string, skip: Facet[] = [
   const sql = [PUBLISHED]
   const binds: unknown[] = []
   if (f.q) {
-    // Every word must match somewhere (name, city or summary), e.g. "band osijek".
-    const haystack = fold(`title || ' ' || COALESCE(${J('city')}, '') || ' ' || COALESCE(${J('summary')}, '')`)
+    // Every word must match somewhere (name, city, summary or keywords), e.g. "band osijek".
+    const haystack = fold(`title || ' ' || COALESCE(${J('city')}, '') || ' ' || COALESCE(${J('summary')}, '') || ' ' || COALESCE(${J('keywords')}, '')`)
     for (const word of slugify(f.q).split('-').filter(Boolean).slice(0, 6)) {
       sql.push(`${haystack} LIKE ?`)
       binds.push(`%${word}%`)

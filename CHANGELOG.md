@@ -5,6 +5,7 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 ## [Unreleased]
 
 ### Added
+- Directory plugin: **Keywords** field per company (search matches it) and **Online check** fields (result, date, notes) for staff.
 - **Directory plugin** (`src/plugins/directory/`, docs/directory.md): a company directory with filters, category and city pages, company profiles with a gallery, date requests for Premium companies, and a company portal (sign up, add, edit and claim a profile, photos, requests). Addresses, query words, categories, regions, wording and layout are set per site with `setDirectory()`; English by default. Visitor accounts for public areas (sign in, register, photo galleries) are shared in `src/site-accounts.ts`.
 
 ### Fixed
