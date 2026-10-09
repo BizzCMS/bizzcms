@@ -1,3 +1,4 @@
+import { envKeepPublishDate } from './publish-date'
 import { envForContentSort, contentDatesRoute } from './content-dates'
 import { imageUploadRoute } from './image-upload'
 import { createSonicJSApp, registerCollections, mcpPlugin } from 'bizzcms-core'
@@ -71,7 +72,7 @@ async function handleRequest(request: Request, env: Parameters<typeof cms.fetch>
     const passwordMismatch = await checkRegisterPasswords(request, path)
     if (passwordMismatch) return passwordMismatch
     const db = (env as unknown as { DB: D1Database }).DB
-    const upstream = (r: Request) => finishUpstream(ctx, cms.fetch(r, env, ctx))
+    const upstream = (r: Request) => finishUpstream(ctx, cms.fetch(r, envKeepPublishDate(env), ctx))
     // Blog / News counts for the sidebar, drawn by the server (src/sections.ts).
     if (path.startsWith('/admin')) await primeSidebarCounts(db, (env as unknown as { CACHE_KV?: KVNamespace }).CACHE_KV)
     // Google Analytics plugin: install + after-save redirect (see src/plugins/google-analytics.ts).
@@ -116,7 +117,7 @@ async function handleRequest(request: Request, env: Parameters<typeof cms.fetch>
     if (guarded) return guarded
     // Posts list by section (Blog | News): src/sections.ts.
     // Dashboard Media Files count and size from the media documents (src/dashboard-media.ts).
-    const response = await withMediaUsage(await withSectionTabs(await finishUpstream(ctx, cms.fetch(request, envForContentSort(envForSection(env, request, path), request, path), ctx)), request, path, db), path, db)
+    const response = await withMediaUsage(await withSectionTabs(await finishUpstream(ctx, cms.fetch(request, envKeepPublishDate(envForContentSort(envForSection(env, request, path), request, path)), ctx)), request, path, db), path, db)
     // Content created, saved or deleted: the sidebar counts are counted again on the next page.
     if (request.method !== 'GET' && path.startsWith('/admin/content')) await clearSidebarCounts((env as unknown as { CACHE_KV?: KVNamespace }).CACHE_KV)
     // After upstream's startup seeding has run: replace its SonicJS welcome post.

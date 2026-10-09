@@ -4,6 +4,9 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Fixed
+- **Saving a published post no longer changes its dates.** The engine wrote each save as a new version with created_at = now and then set published_at = now, so edited posts jumped to the top of the blog, the RSS feed and the Content list, and got a new datePublished. The new version now keeps created_at and published_at; only the first publish sets the date (`src/publish-date.ts`).
+
 ### Changed
 - **Content lists sort by Created** (newest first) instead of last update, so saving an item no longer moves it to the top. New **Created** column next to Updated; both headers sort the whole list (`?sort=created|updated&dir=desc|asc`). Created is the earlier of created and published date, so imported posts show their original date (`src/content-dates.ts`).
 
