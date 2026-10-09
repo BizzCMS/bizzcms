@@ -4,6 +4,9 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Changed
+- **Content lists sort by Created** (newest first) instead of last update, so saving an item no longer moves it to the top. New **Created** column next to Updated; both headers sort the whole list (`?sort=created|updated&dir=desc|asc`). Created is the earlier of created and published date, so imported posts show their original date (`src/content-dates.ts`).
+
 ### Fixed
 - **Lookup indexes** (`src/db-indexes.ts`, created once per isolate from `safeHandle`): published lists, slug and page-path lookups, `updated_at`, error log and not-found log. The engine's indexes start with `tenant_id`, which the sites' queries don't use, so busy sites could read whole tables and hit D1's CPU limit.
 

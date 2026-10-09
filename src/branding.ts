@@ -12,6 +12,7 @@ import { sidebarSectionsHtml } from './sections'
 import { CONTENT_GUARD_SCRIPT } from './content-guard'
 import { LEXICAL_BLOCKS_SCRIPT } from './lexical-blocks'
 import { addImageUpload } from './image-upload'
+import { CONTENT_DATES_SCRIPT } from './content-dates'
 
 export function applyBranding(response: Response, path: string): Response {
   if (!response.headers.get('content-type')?.includes('text/html')) return response
@@ -101,7 +102,7 @@ export function applyBranding(response: Response, path: string): Response {
         element.append(path.startsWith('/auth') ? THEME_SWITCH : SWITCH_SCRIPT, { html: true })
         element.append(ENTITY_FIX, { html: true })
         if (/^\/admin\/content\/[^/]+\/edit$|^\/admin\/content\/new/.test(path)) { element.append(VIEW_ON_SITE, { html: true }); element.append(TAXONOMY_SCRIPT, { html: true }); element.append(SEO_EDITOR_SCRIPT, { html: true }); element.append(LEXICAL_BLOCKS_SCRIPT, { html: true }); element.append(CONTENT_GUARD_SCRIPT, { html: true }) }
-        if (path === '/admin/content') element.append(SEO_LIST_SCRIPT, { html: true })
+        if (path === '/admin/content') { element.append(SEO_LIST_SCRIPT, { html: true }); element.append(CONTENT_DATES_SCRIPT, { html: true }) }
         if (path === '/admin/dashboard' || path === '/admin') element.append(DASHBOARD_FIX, { html: true })
       }
     })

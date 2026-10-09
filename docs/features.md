@@ -30,6 +30,7 @@ Everything below is in BizzCMS today. See the [changelog](../CHANGELOG.md) for w
 - **Admin › SEO**: site name and title formats, company or person for Google, social profiles, default description and share image; robots.txt, llms.txt (instructions for AI assistants) and a switch to hide a staging site; **Redirects** with CSV import, wildcards and hit counts; a **Check** list of everything that needs fixing.
 - Automatic **sitemaps** per content type, **robots.txt**, and **structured data** for Google: Organization, WebSite, WebPage, Article and breadcrumbs.
 - **Choose what goes into the sitemap**: pages, blog posts, news posts, categories, tags, extra collections such as a portfolio, and the site's built-in pages, each with its own tick box.
+- **Content lists sorted by date created**, with Created and Updated columns you can sort by: editing an item doesn't move it to the top.
 - **Fast images**: every Media library image gets its width and height automatically (no jumping while the page loads), the top image loads first, the rest lazily.
 - **Uploads made web-sized**: big photos are scaled down (2000 px by default) and saved as WebP before they are uploaded; on/off, width and quality under Settings › Images.
 - **IndexNow**, like WordPress plugins: new, changed and removed addresses go to Bing, Yandex and the other IndexNow engines the moment you save; key file created for you; "Send all addresses now"; a log of the last results.

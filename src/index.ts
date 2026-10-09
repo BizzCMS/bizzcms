@@ -1,3 +1,4 @@
+import { envForContentSort, contentDatesRoute } from './content-dates'
 import { imageUploadRoute } from './image-upload'
 import { createSonicJSApp, registerCollections, mcpPlugin } from 'bizzcms-core'
 import type { SonicJSConfig } from 'bizzcms-core'
@@ -88,6 +89,9 @@ async function handleRequest(request: Request, env: Parameters<typeof cms.fetch>
     // Post editor: categories and tags for the multiselects (src/taxonomy.ts).
     const taxonomy = await taxonomyRoute(request, path, db, async () => (await upstream(new Request(new URL('/auth/me', request.url), { headers: { cookie: request.headers.get('cookie') ?? '' } }))).ok)
     if (taxonomy) return taxonomy
+    // Content list: Created column dates (src/content-dates.ts).
+    const dates = await contentDatesRoute(request, path, db, async () => (await upstream(new Request(new URL('/auth/me', request.url), { headers: { cookie: request.headers.get('cookie') ?? '' } }))).ok)
+    if (dates) return dates
     // SEO plugin: Admin › SEO, editor data, plugin install (src/plugins/seo.ts).
     const seoRoute = await seoAdminRoute(request, path, db, upstream)
     if (seoRoute) return applyBranding(seoRoute, path)
@@ -112,7 +116,7 @@ async function handleRequest(request: Request, env: Parameters<typeof cms.fetch>
     if (guarded) return guarded
     // Posts list by section (Blog | News): src/sections.ts.
     // Dashboard Media Files count and size from the media documents (src/dashboard-media.ts).
-    const response = await withMediaUsage(await withSectionTabs(await finishUpstream(ctx, cms.fetch(request, envForSection(env, request, path), ctx)), request, path, db), path, db)
+    const response = await withMediaUsage(await withSectionTabs(await finishUpstream(ctx, cms.fetch(request, envForContentSort(envForSection(env, request, path), request, path), ctx)), request, path, db), path, db)
     // Content created, saved or deleted: the sidebar counts are counted again on the next page.
     if (request.method !== 'GET' && path.startsWith('/admin/content')) await clearSidebarCounts((env as unknown as { CACHE_KV?: KVNamespace }).CACHE_KV)
     // After upstream's startup seeding has run: replace its SonicJS welcome post.
