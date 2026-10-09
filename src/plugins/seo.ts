@@ -342,6 +342,8 @@ export function sitemapParts(routes: SitemapRoutes | null = publicRoutes, sectio
 }
 
 export async function seoSitemap(url: URL, db: D1Database, routes: SitemapRoutes): Promise<Response | null> {
+  // Names other systems use (Yoast/WordPress), which crawlers and sitemap checkers try: the real index.
+  if (/^\/(sitemap_index|sitemap-index|wp-sitemap|sitemap\.xml\.gz|sitemap1)\.xml$|^\/sitemap\.xml\.gz$/.test(url.pathname)) return Response.redirect(new URL('/sitemap.xml', url).href, 301)
   const m = url.pathname.match(/^\/sitemap(?:-([a-z0-9_-]+))?\.xml$/)
   if (!m) return null
   const xml = (body: string) => new Response(XML_HEAD + body, { headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=3600' } })
