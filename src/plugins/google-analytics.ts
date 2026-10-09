@@ -55,10 +55,13 @@ function snippet(s: GaSettings): string {
   const policyLink = /^(https?:\/\/|\/)/.test(policy) ? ` <a href="${esc(policy)}">Cookie policy</a>` : ''
   const css = `#bz-consent{position:fixed;left:16px;right:16px;bottom:16px;z-index:9999;max-width:560px;margin:0 auto;padding:16px 18px;border-radius:14px;background:#fff;color:#172e30;box-shadow:0 18px 50px rgba(16,47,49,.18),0 0 0 1px rgba(16,47,49,.08);font:14px/1.5 system-ui,-apple-system,'Segoe UI',sans-serif;display:flex;flex-wrap:wrap;align-items:center;gap:12px}#bz-consent[hidden]{display:none}#bz-consent p{margin:0;flex:1 1 260px}#bz-consent a{color:#086568;text-decoration:underline}#bz-consent .bz-c-actions{display:flex;gap:8px;margin-left:auto}#bz-consent button{border:0;border-radius:9px;padding:8px 14px;font:600 13px system-ui,sans-serif;cursor:pointer}#bz-consent .bz-c-no{background:#eef2f1;color:#172e30}#bz-consent .bz-c-yes{background:#086568;color:#fff}`
   const banner = consent ? `<div id="bz-consent" role="dialog" aria-live="polite" aria-label="Cookie consent" hidden><p>${esc(s.bannerText || 'We use Google Analytics cookies to see how this website is used, only if you agree.')}${policyLink}</p><div class="bz-c-actions"><button type="button" class="bz-c-no" data-consent="denied">Reject</button><button type="button" class="bz-c-yes" data-consent="granted">Accept</button></div></div>` : ''
-  // Consent Mode v2: everything denied until the visitor accepts; gtag.js is only fetched after "granted".
-  const js = `(function(){var ID=${JSON.stringify(id)},K='bizz_consent',ask=${consent};window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}window.gtag=gtag;
+  // The one GA4 integration of the site (nothing else may print gtag.js). Consent Mode v2: everything denied
+  // until the visitor accepts; gtag.js is fetched and GA4 configured ONCE, on the first "granted" (stored or
+  // clicked), which sends the page_view for the current page. Later Reject/Accept clicks only update consent,
+  // so no second initialisation and no duplicate page_view. A second copy of this snippet on a page does nothing.
+  const js = `(function(){if(window.__bizzGa)return;window.__bizzGa=1;var ID=${JSON.stringify(id)},K='bizz_consent',ask=${consent};window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}window.gtag=gtag;
 gtag('consent','default',{ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied',analytics_storage:ask?'denied':'granted'});
-var loaded=false;function load(){if(loaded)return;loaded=true;gtag('consent','update',{analytics_storage:'granted'});var s=document.createElement('script');s.async=true;s.src='https://www.googletagmanager.com/gtag/js?id='+ID;document.head.appendChild(s);gtag('js',new Date());gtag('config',ID)}
+var loaded=false;function load(){gtag('consent','update',{analytics_storage:'granted'});if(loaded)return;loaded=true;var s=document.createElement('script');s.async=true;s.src='https://www.googletagmanager.com/gtag/js?id='+ID;document.head.appendChild(s);gtag('js',new Date());gtag('config',ID)}
 function get(){try{return localStorage.getItem(K)}catch(e){return null}}function set(v){try{localStorage.setItem(K,v)}catch(e){}}
 if(!ask){load();return}
 function banner(show){var b=document.getElementById('bz-consent');if(b)b.hidden=!show}
@@ -98,5 +101,10 @@ export async function withGoogleAnalytics(response: Response, request: Request, 
   const settings = await activeSettings(db)
   if (!settings) return response
   const add = snippet(settings)
-  return new HTMLRewriter().on('body', { element(el) { el.append(add, { html: true }) } }).transform(response)
+  // One integration only: a gtag.js tag printed by a template or pasted into content would load GA a second
+  // time, outside consent. It is removed here; the snippet below is the only place GA4 starts.
+  return new HTMLRewriter()
+    .on('script[src*="googletagmanager.com/gtag/js"]', { element(el) { el.remove() } })
+    .on('body', { element(el) { el.append(add, { html: true }) } })
+    .transform(response)
 }

@@ -5,6 +5,9 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 ## [Unreleased]
 
 ### Fixed
+- **Google Analytics (consent)**: Accept after Reject on the same page now grants analytics again (it was ignored once gtag.js had loaded). The snippet guards against running twice, so GA4 is configured once per page and sends one page_view. Any other `gtag.js` tag on a public page (a template or pasted HTML) is removed while the plugin is active, so the plugin is the only GA4 integration and nothing loads before consent.
+
+### Fixed
 - `/sitemap_index.xml`, `/sitemap-index.xml`, `/wp-sitemap.xml`, `/sitemap1.xml` and `/sitemap.xml.gz` (names from WordPress/Yoast that crawlers and checkers try) 301 to `/sitemap.xml` instead of 404.
 
 ### Added
