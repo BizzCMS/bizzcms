@@ -69,13 +69,20 @@ export async function handleDirectory(request: Request, env: Env): Promise<Respo
     if (!company.premium) return html(page(company.title, `<div class="wrap profile"><h1>${esc(text.requestsUnavailable)}</h1></div>`), 403)
     const result = await saveRequest(await readForm(request), company, env)
     if (result.ok) return Response.redirect(new URL(`${canonical}?${params.sent}=1#${params.requestAnchor}`, url.origin).href, 303)
-    return html(profilePage(company, { error: result.error, values: result.values }), 400)
+    return html(profilePage(company, { error: result.error, values: result.values }, url.origin), 400)
   }
   if (!get) return null
-  return html(profilePage(company, { sent: url.searchParams.get(params.sent) === '1' }))
+  return html(profilePage(company, { sent: url.searchParams.get(params.sent) === '1' }, url.origin))
 }
 
-const page = (title: string, body: string, opts: { description?: string; canonical?: string; index?: boolean } = {}) =>
+// Structured data (schema.org JSON-LD) for search engines and AI assistants.
+const jsonLd = (data: unknown) => `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`
+const abs = (origin: string, path: string) => (/^https?:\/\//.test(path) ? path : `${origin}${encodeURI(path)}`)
+function breadcrumbs(origin: string, items: [string, string][]) {
+  return { '@type': 'BreadcrumbList', itemListElement: items.map(([name, path], i) => ({ '@type': 'ListItem', position: i + 1, name, item: abs(origin, path) })) }
+}
+
+const page = (title: string, body: string, opts: { description?: string; canonical?: string; index?: boolean; head?: string; image?: string } = {}) =>
   directorySettings().layout(title, body, opts)
 
 // ---------------------------------------------------------------- queries
@@ -402,12 +409,18 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
     ${pager}</section></div>`
   // Unknown category/city landing pages are 404s (but still render the directory).
   const found = (!f.category || !!(cat || sub)) && (!f.city || !!r.cityLabel)
+  const ld = jsonLd({ '@context': 'https://schema.org', '@graph': [
+    { '@type': 'CollectionPage', name: heading, url: `${url.origin}${encodeURI(canonicalPath ?? DIR)}`, mainEntity: { '@type': 'ItemList', numberOfItems: r.total,
+      itemListElement: r.cards.map((c, i) => ({ '@type': 'ListItem', position: (f.page - 1) * PAGE_SIZE + i + 1, url: abs(url.origin, listingUrl(c)), name: c.title })) } },
+    breadcrumbs(url.origin, [[text.directoryTitle, DIR], ...(parent && sub ? [[parent.label, categoryUrl(parent.slug)] as [string, string]] : []), ...(cat || sub ? [[(sub ?? cat)!.label, categoryUrl((sub ?? cat)!.slug)] as [string, string]] : [])])
+  ] })
   return { found, html: page(heading, body, { // no page numbers in titles (owner's rule, all BizzCMS sites)
+    head: ld,
     description: text.metaDescription(heading, text.results(r.total)),
     canonical: canonicalPath && found ? `${url.origin}${encodeURI(canonicalPath)}` : undefined, index: !!canonicalPath && found }) }
 }
 
-function profilePage(p: Listing, state: { sent?: boolean; error?: string; values?: Record<string, string> }): string {
+function profilePage(p: Listing, state: { sent?: boolean; error?: string; values?: Record<string, string> }, origin: string): string {
   const { taxonomy, text, params: P } = directorySettings()
   const v = state.values ?? {}
   const parent = taxonomy.categories.find(c => c.slug === p.category)
@@ -450,5 +463,17 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
     <aside class="box facts">${facts.map(([k, val]) => `<div><span>${esc(k)}</span>${esc(val)}</div>`).join('')}
       ${contact.length ? `<div><span>${esc(text.contact)}</span>${contact.join('<br>')}</div>` : ''}
       ${p.premium && !state.sent ? `<a class="btn" href="#${esc(P.requestAnchor)}">${esc(text.requestDate)}</a>` : ''}</aside></div></div>${mediaViewer(media, p.title, mt)}`,
-    { description: p.seoDescription || p.summary })
+    { description: p.seoDescription || p.summary, canonical: abs(origin, listingUrl(p)), image: p.cover ?? p.image ? abs(origin, (p.cover ?? p.image)!) : undefined, head: jsonLd({ '@context': 'https://schema.org', '@graph': [
+      {
+        '@type': 'LocalBusiness', '@id': `${abs(origin, listingUrl(p))}#business`, name: p.title, url: abs(origin, listingUrl(p)),
+        description: p.seoDescription || p.summary || undefined,
+        image: media.filter(m => m.kind === 'photo').slice(0, 6).map(m => abs(origin, m.src)),
+        telephone: p.phone || undefined,
+        address: { '@type': 'PostalAddress', addressLocality: p.city || undefined, addressRegion: label(taxonomy.regions, p.county) || undefined, addressCountry: 'HR' },
+        sameAs: p.website ? [p.website] : undefined,
+        subjectOf: p.videos.length ? p.videos.map(id => ({ '@type': 'VideoObject', name: `${p.title} - ${text.video}`, embedUrl: `https://www.youtube-nocookie.com/embed/${id}`, thumbnailUrl: `https://i.ytimg.com/vi/${id}/hqdefault.jpg` })) : undefined,
+        additionalType: sub?.label ?? parent?.label
+      },
+      breadcrumbs(origin, [[text.directoryTitle, directoryUrl()], ...(parent ? [[parent.label, categoryUrl(parent.slug)] as [string, string]] : []), ...(sub ? [[sub.label, categoryUrl(sub.slug)] as [string, string]] : []), [p.title, listingUrl(p)]])
+    ] }) })
 }

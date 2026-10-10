@@ -230,7 +230,8 @@ export type DirectoryParams = typeof DEFAULT_PARAMS
 export type DirectoryTaxonomy = typeof DEFAULT_TAXONOMY
 export type PortalSettings = Omit<typeof DEFAULT_PORTAL, 'notices'> & { notices: Record<string, string> }
 
-export interface PageOptions { description?: string; canonical?: string; index?: boolean }
+/** head: extra tags for <head> (the plugin sends structured data, JSON-LD, for search engines and AI assistants). */
+export interface PageOptions { description?: string; canonical?: string; index?: boolean; head?: string; image?: string }
 export interface DirectorySettings {
   routes: DirectoryRoutes
   params: DirectoryParams
