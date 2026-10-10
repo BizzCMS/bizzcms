@@ -14,6 +14,11 @@ import { LEXICAL_BLOCKS_SCRIPT } from './lexical-blocks'
 import { addImageUpload } from './image-upload'
 import { CONTENT_DATES_SCRIPT } from './content-dates'
 
+// Upstream's renderAlert error icon, so a sign-in error looks exactly like the page's own alert.
+const ALERT_ERROR_ICON = '<svg class="h-5 w-5 text-red-600 dark:text-red-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>'
+// Runs when htmx swaps the error in: removes the page's alert above the response area (one message at a time).
+const DROP_PAGE_ALERT = "<script>(function(){var r=document.getElementById('form-response');var p=r&&r.previousElementSibling;while(p&&p.querySelector('.rounded-lg')){var q=p.previousElementSibling;p.remove();p=q}})()</script>"
+
 export function applyBranding(response: Response, path: string): Response {
   if (!response.headers.get('content-type')?.includes('text/html')) return response
   if (!path.startsWith('/admin') && !path.startsWith('/auth')) return response
@@ -173,6 +178,22 @@ export function applyBranding(response: Response, path: string): Response {
     rewriter.on('#settings-content input[name], #settings-content select[name], #settings-content textarea[name]', { element(el) {
       const label = labels[el.getAttribute('name') ?? '']
       if (label) el.setAttribute('aria-label', label)
+    } })
+  }
+  // Sign-in messages in one style (Ivan, 2026-10-10). Upstream answers a failed sign-in with an old red box
+  // ("Invalid email or password") under its own alert ("Please login to access the admin area"): the box
+  // gets the alert's markup (icon, colours) and replaces the alert, so only one message shows. Registration
+  // is closed, so the "Create one here" line goes.
+  if (path === '/auth/login' || path === '/auth/login/') {
+    rewriter.on('div.mt-6.text-center > p.text-sm', { element(el) { el.remove() } })
+  }
+  if (path.startsWith('/auth/login/form') || path.startsWith('/auth/register/form')) {
+    rewriter.on('div.bg-red-100.border-red-400', { element(el) {
+      el.setAttribute('class', 'rounded-lg p-4 bg-error/10 border border-red-600/20 dark:border-red-500/20')
+      el.setAttribute('role', 'alert')
+      el.prepend(`<div class="flex"><div class="flex-shrink-0">${ALERT_ERROR_ICON}</div><div class="ml-3"><div class="text-sm text-red-700 dark:text-red-400"><p>`, { html: true })
+      el.append('</p></div></div></div>', { html: true })
+      el.after(DROP_PAGE_ALERT, { html: true })
     } })
   }
   // Two-step verification has no logo upstream: add it above the title.

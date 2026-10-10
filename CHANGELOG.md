@@ -11,6 +11,7 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 - Cookie bar: a link with `data-cookie-policy` on the page (e.g. the footer link in the page language) is used as the policy link. Cookie bar texts in German. Share buttons in English, Croatian and German (`shareBar(…, lang)`). `setSponsoredLabels()` for the "Sponsored" labels.
 
 ### Fixed
+- Sign-in: one message at a time in one style. A failed sign-in showed upstream's old red box under the page alert; it now looks like the alert (icon, colours) and replaces it. The "Create one here" link is gone (registration is closed).
 - RSS feeds always said `<language>en</language>` and "The post … appeared first on …", also on Croatian sites.
 
 ### Changed
