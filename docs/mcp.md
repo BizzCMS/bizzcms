@@ -27,7 +27,11 @@ Access settings are stored in the database (`bizz_settings` key `mcp.access`) an
 1. In the admin, open **MCP Server** (`/admin/mcp`) and click **Mint API Key**. Keep the key out of Git.
 2. Copy the ready-made config for Claude Code or Cursor from the dashboard.
 3. Add it to your client config (`~/.claude/claude_desktop_config.json` for Claude Code, or the Cursor MCP settings).
-4. For [Lucy](https://justlucy.ai): Connectors › Add custom, enter the URL and the key (just `sk_…`).
+4. For **Claude.ai Connectors** (claude.ai › Settings › Connectors › Add › Custom):
+   - URL: `https://your-site.com/mcp`
+   - Authentication: **No sign-in**
+   - Request headers → **+ Add header**: name `Authorization`, value `Bearer sk_…`
+5. For [Lucy](https://justlucy.ai): Connectors › Add custom, enter the URL and the key (just `sk_…`).
 
 A client running in the cloud cannot reach a site on `127.0.0.1`; use a deployed site.
 
