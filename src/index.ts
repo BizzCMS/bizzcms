@@ -1,5 +1,5 @@
 import { envKeepPublishDate } from './publish-date'
-import { mcpWithPublishDate } from './mcp-publish-date'
+import { mcpWithExtras } from './mcp-extras'
 import { envForContentSort, contentDatesRoute } from './content-dates'
 import { imageUploadRoute } from './image-upload'
 import { createSonicJSApp, registerCollections, mcpPlugin } from 'bizzcms-core'
@@ -32,13 +32,15 @@ registerCollections([pages, posts, categories])
 const MCP_COLLECTIONS: McpCollection[] = [
   { name: 'pages', label: 'Pages' },
   { name: 'posts', label: 'Posts' },
+  { name: 'categories', label: 'Categories' },
 ]
 // write defaults to false; applyMcpAccess() updates these from DB before each /mcp request
 const mcpOptions: McpOptions = {
-  expose: ['pages', 'posts'],
+  expose: ['pages', 'posts', 'categories'],
   types: {
     pages: { read: true, write: false },
     posts: { read: true, write: false },
+    categories: { read: true, write: false },
   },
   listLimit: 25,
 }
@@ -86,8 +88,8 @@ async function handleRequest(request: Request, env: Parameters<typeof cms.fetch>
     // MCP admin: POST /admin/mcp/access (save) and GET /admin/mcp (inject write-access section).
     const mcpAccess = await mcpAccessRoute(request, path, db, upstream, MCP_COLLECTIONS)
     if (mcpAccess) return mcpAccess.headers.get('content-type')?.includes('text/html') ? applyBranding(mcpAccess, path) : mcpAccess
-    // MCP calls: optional publish date on create/publish, cache renewal after writes (src/mcp-publish-date.ts).
-    if (path === '/mcp' && request.method === 'POST') return mcpWithPublishDate(request, db, upstream)
+    // MCP calls: publish dates, unique slugs, upload_media, cache renewal after writes (src/mcp-extras.ts).
+    if (path === '/mcp' && request.method === 'POST') return mcpWithExtras(request, db, upstream)
     // Blog / News counts for the sidebar, drawn by the server (src/sections.ts).
     if (path.startsWith('/admin')) await primeSidebarCounts(db, (env as unknown as { CACHE_KV?: KVNamespace }).CACHE_KV)
     // Google Analytics plugin: install + after-save redirect (see src/plugins/google-analytics.ts).

@@ -37,7 +37,7 @@ A client running in the cloud cannot reach a site on `127.0.0.1`; use a deployed
 
 ## Tools reference
 
-One set of tools per exposed collection (`pages`, `posts`, …):
+One set of tools per exposed collection (`pages`, `posts`, `categories`, …):
 
 | Tool | Read | Write |
 |---|---|---|
@@ -48,6 +48,10 @@ One set of tools per exposed collection (`pages`, `posts`, …):
 | `update_<collection>` (saves a new draft) | — | when write is on |
 | `publish_<collection>` | — | when write is on |
 | `delete_<collection>` | — | when write is on |
+| `upload_media` | — | when any collection has write on |
+
+`create_<collection>` refuses a slug that an existing item of that collection already uses (deleted items do not count).
+Categories need `title`, an ASCII `slug` and `section` (`news` or `blog`), e.g. `{ "data": { "title": "Zanimljive građevine", "slug": "zanimljive-gradevine", "section": "news" }, "publish": true }`.
 
 ## Publish dates
 
@@ -69,6 +73,25 @@ blog or the feeds.
 ```json
 { "name": "create_posts", "arguments": { "data": { "title": "…", "slug": "…", "section": "news" }, "publish": true, "publishedAt": "2016-03-15" } }
 ```
+
+## Media upload
+
+`upload_media` puts an image into the media library and returns its path for `featuredImage`:
+
+| Argument | |
+|---|---|
+| `url` | https link to the image (or use `base64` + `mimeType`) |
+| `filename` | name in the library, e.g. `gradnja-kuce.jpg` |
+| `alt` | alt text in the site language |
+| `caption`, `tags` | optional |
+| `source` | origin and licence, e.g. `"Unsplash, Ana Horvat, Unsplash License"` or `"AI (Flux)"` |
+
+Answer: `{ "id", "path": "/files/<site folder>/<id>.jpg", "mimeType", "size", "alt", "source" }`.
+
+Rules: https only; no IP addresses or internal host names; at most 3 redirects, each checked; JPEG, PNG,
+WebP, GIF or AVIF only (no SVG); 10 MB at most. The link is never stored or returned, so a link with a
+key in its query string is safe to pass; query strings are also cut from `source`. The file goes into the
+site's own folder (`mcpWithExtras(..., { mediaFolder })`, default `uploads`).
 
 ## Cache
 

@@ -5,7 +5,11 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 ## [Unreleased]
 
 ### Added
-- **MCP publish date**: `create_<collection>` and `publish_<collection>` take an optional `publishedAt` (ISO 8601 date or date-time, or unix seconds; not in the future), so imported or historical articles go live with their own date and sort correctly (`src/mcp-publish-date.ts`, docs/mcp.md › Publish dates). Sites route `POST /mcp` through `mcpWithPublishDate(request, db, upstream)`.
+- **MCP publish date**: `create_<collection>` and `publish_<collection>` take an optional `publishedAt` (ISO 8601 date or date-time, or unix seconds; not in the future), so imported or historical articles go live with their own date and sort correctly (docs/mcp.md › Publish dates).
+- **MCP `upload_media`**: adds an image from an https link or base64 to the media library in the site's own folder and returns the `/files/...` path for `featuredImage`; alt text, caption, tags and a source/licence note are stored. Safe fetch: https only, no IP addresses or internal host names, redirects checked, JPEG/PNG/WebP/GIF/AVIF only, 10 MB at most; the link (which may carry a key) is never stored or echoed. Listed only for callers with write access (docs/mcp.md › Media upload).
+- **MCP categories**: `list_/get_/create_/update_/publish_/delete_categories`, with read and write following the per-collection MCP access settings.
+- **MCP unique slugs**: `create_<collection>` refuses a slug that an existing item of that collection already uses.
+- All MCP additions live in `src/mcp-extras.ts`; sites route `POST /mcp` through `mcpWithExtras(request, db, upstream, { mediaFolder })`.
 
 ### Fixed
 - MCP writes did not renew the edge cache: pages caught up after a few minutes, but sitemaps and feeds stayed old until the next save in the admin. A successful MCP create, update, publish or delete now renews it like an admin save.
