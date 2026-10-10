@@ -4,6 +4,9 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Changed
+- **Cookie bar in the Cookiebot style** (Google Analytics plugin): full-width bar with Necessary / Preferences / Statistics / Marketing switches, details, and Allow all · Allow selection · Use necessary cookies only; English and Croatian built in (page language). **Google Consent Mode advanced**: gtag.js is on every page, cookies and identifiers only after Statistics is allowed (the current page is counted then, once). New settings: Banner title, Button colour, Button text colour.
+
 ### Fixed
 - Page titles no longer end in the host name ("… | localhost") when SEO › General › Site name is empty: the company name is used, else no suffix.
 
