@@ -49,7 +49,7 @@ Most business websites need the same things: pages, a blog, images, a few people
   </tr>
   <tr>
     <td><img src="docs/images/admin-plugins.png" alt="Plugins"><br><sub><b>Plugins.</b> Switch features on and off, for example Google Analytics with a cookie banner.</sub></td>
-    <td><img src="docs/images/admin-mcp.png" alt="MCP server"><br><sub><b>MCP server.</b> AI assistants read your pages and posts, read-only, with an API key.</sub></td>
+    <td><img src="docs/images/admin-mcp.png" alt="MCP server"><br><sub><b>MCP server.</b> AI assistants read your content with an API key; writing is off until you switch it on per collection.</sub></td>
   </tr>
   <tr>
     <td><img src="docs/images/admin-api-settings.png" alt="API access settings"><br><sub><b>API access.</b> Closed (recommended) or open, one switch under Settings.</sub></td>
@@ -90,7 +90,7 @@ The highlights are below; the full list is in [docs/features.md](docs/features.m
 
 **Integrations**
 - OpenAPI description of the REST API.
-- Read-only **MCP server** for AI assistants: list and read pages and posts ([docs/mcp.md](docs/mcp.md)).
+- **MCP server** for AI assistants ([docs/mcp.md](docs/mcp.md)): list and read pages, posts and categories; with write access switched on per collection (MCP › Collection write access) they can also create, update, publish and delete items, set the original publish date, and upload images to the media library (`upload_media`). Read-only by default.
 - **Google Analytics plugin** with a consent banner: nothing loads until the visitor accepts (Consent Mode v2).
 
 ## Works with Lucy
@@ -102,7 +102,7 @@ The highlights are below; the full list is in [docs/features.md](docs/features.m
 3. Enter a name, the remote MCP URL `https://your-site.com/mcp` and the API key (just `sk_…`, Lucy adds the Bearer prefix).
 4. Choose a model that supports tools and ask Lucy about your content.
 
-Lucy's access is read-only: BizzCMS exposes no write tools over MCP. The same endpoint works with other MCP clients such as Claude Code and Cursor; the admin MCP page has ready-to-copy configs.
+Lucy can only read until you allow writing for a collection under **MCP › Collection write access**; then she can also create and update content and upload images. The same endpoint works with other MCP clients such as Claude Code, Cursor and Claude.ai connectors; the admin MCP page has ready-to-copy configs.
 
 ## Run locally
 

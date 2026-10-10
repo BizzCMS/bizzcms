@@ -56,7 +56,7 @@ Everything below is in BizzCMS today. See the [changelog](../CHANGELOG.md) for w
 ## Integrations
 
 - **REST API, closed by default**: one switch under Settings › API, API keys for apps, an OpenAPI description.
-- **MCP server** for AI assistants (Claude Code, Cursor, [Lucy](https://justlucy.ai) and others): read-only access to pages and posts with an API key.
+- **MCP server** for AI assistants (Claude Code, Cursor, Claude.ai, [Lucy](https://justlucy.ai) and others) with an API key: read pages, posts and categories; per collection, optional write access (create, update, publish, delete, original publish dates) and image upload to the media library. Read-only by default.
 - **Google Analytics plugin** with a cookie consent banner: nothing loads until the visitor accepts (Consent Mode v2).
 
 ## Hosting and speed
