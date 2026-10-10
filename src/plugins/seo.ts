@@ -196,11 +196,13 @@ const abs = (origin: string, u: string) => { try { return u ? new URL(u, origin)
 /** Everything a page's <head> needs, from the item's SEO fields, its content and the SEO settings. */
 export function seoHead(input: SeoInput, settings: SeoSettings): SeoHead {
   const d = input.data ?? {}
-  const site = settings.siteName || new URL(input.origin).hostname
+  // Site name for "Title | Site name": the SEO setting, else the company name. Never the host name (titles
+  // read "… | localhost" on a fresh site); with no name at all the title stays as it is.
+  const site = settings.siteName || settings.orgName || ''
   const seoTitle = str(d.seoTitle) || input.title
   const title = input.kind === 'home'
-    ? (str(d.seoTitle) || (settings.tagline ? `${site} - ${settings.tagline}` : site))
-    : (seoTitle.toLowerCase().endsWith(site.toLowerCase()) ? seoTitle : `${seoTitle} | ${site}`)
+    ? (str(d.seoTitle) || (site ? (settings.tagline ? `${site} - ${settings.tagline}` : site) : input.title))
+    : (!site || seoTitle.toLowerCase().endsWith(site.toLowerCase()) ? seoTitle : `${seoTitle} | ${site}`)
   const description = str(d.seoDescription) || input.excerpt?.trim() || settings.defaultDescription || undefined
   const canonical = abs(input.origin, str(d.canonical)) || abs(input.origin, input.path)
   const image = abs(input.origin, str(d.seoImage) || input.image || settings.defaultImage) || undefined
