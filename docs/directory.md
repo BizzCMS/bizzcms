@@ -78,6 +78,8 @@ Everything you don't set keeps an English default (`src/plugins/directory/config
 | `sample` | Marks example entries: `{ slugPrefix: 'demo-', label: 'Example' }` adds the label next to the category. |
 | `share` | Share buttons under company profiles, in a `.dir-share` wrapper: `(db, url, title, image) => shareBar(db, url, title, image, 'hr')` with the Social Share plugin. Left out = no buttons. |
 
+Admin menu: register `directoryPlugin()` (after `setDirectory`) in `createSonicJSApp({ plugins: { register: [...] } })`. It adds Directory, booking requests and listing claims to the plugin menu once a plugin row `directory` is active (Admin › Plugins, or the same insert as for Social Share).
+
 Sorting: **Recommended** is Premium first, then most visited (the optional `views` field, e.g. carried over from an
 old site), then name. Visitors can also sort by name, newest, most visited and (venues) capacity. A company without
 a photo shows its category's photo when the site gives one.

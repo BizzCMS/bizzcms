@@ -5,6 +5,7 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 ## [Unreleased]
 
 ### Added
+- **Directory plugin in the admin menu**: `directoryPlugin()` adds Directory (companies), booking requests and listing claims to the plugin menu.
 - **Directory plugin: share buttons** on company profiles through the new `share` setting (e.g. the Social Share plugin in the page language); wrapper `.dir-share`.
 - **Languages plugin** (`src/plugins/languages.ts`, docs/languages.md): a site in several languages, each on its own addresses (`/`, `/en/`, `/de/…`). Translations are pages with a **Translation of** field. Every public page gets `<html lang>`, `hreflang` + `x-default`, `og:locale` and a language switcher in `[data-bizz-languages]`.
 - **SEO › General › Site language**: RSS `<language>` and feed texts in the site language (English, Croatian, German), `inLanguage` on WebSite and WebPage; `seoHead` takes an optional page `language`.
