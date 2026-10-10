@@ -52,6 +52,14 @@ export async function handleDirectory(request: Request, env: Env): Promise<Respo
   const slug = own ? safeDecode(own.slug) : ''
   const company = legacy ? await findListing(env.DB, { legacyId: Number(legacy.id) })
     : /^[a-z0-9-]+$/.test(slug) ? await findListing(env.DB, { slug }) : null
+  // A company taken off the directory (unpublished, e.g. closed) keeps its old address alive: 301 to its category.
+  if (!company && get) {
+    const gone = await env.DB.prepare(`SELECT ${J('category')} AS category, ${J('subcategory')} AS subcategory FROM documents
+      WHERE type_id = 'partners' AND is_current_draft = 1 AND (deleted_at IS NULL OR deleted_at = '') AND ${legacy ? `CAST(${J('legacyId')} AS INTEGER) = ?` : 'slug = ?'} LIMIT 1`)
+      .bind(legacy ? Number(legacy.id) : slug).first<{ category: string | null; subcategory: string | null }>()
+    const cat = gone?.subcategory || gone?.category
+    if (gone) return moved(cat ? categoryUrl(cat) : directoryUrl())
+  }
   if (!company) return html(page(text.notFound, `<div class="wrap profile"><h1>${esc(text.notFound)}</h1><p><a href="${esc(directoryUrl())}">${esc(text.backToDirectory)}</a></p></div>`), 404)
   // One address per company: another name or a missing slash goes to the canonical one.
   const canonical = listingUrl(company)
