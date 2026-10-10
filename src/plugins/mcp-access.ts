@@ -116,7 +116,17 @@ function accessForm(collections: McpCollection[], settings: AccessSettings, save
   </div>`
 }
 
-/** Handle POST /admin/mcp/access; inject the write-access section into GET /admin/mcp. */
+const PLUGIN_SETTINGS_BANNER = `<div style="padding:1rem 1.5rem 0">
+  <a href="/admin/mcp"
+    style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.5rem 1rem;background:#09090b;color:#fff;border-radius:0.375rem;font-size:0.875rem;font-weight:600;text-decoration:none;"
+    onmouseover="this.style.background='#27272a'" onmouseout="this.style.background='#09090b'">
+    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg>
+    Open MCP Server dashboard
+  </a>
+  <p style="margin:0.5rem 0 0;font-size:0.8125rem;color:#71717a">Connection guide, API key creation and collection write access are on the MCP Server dashboard.</p>
+</div>`
+
+/** Handle POST /admin/mcp/access; inject sections into GET /admin/mcp and GET /admin/plugins/mcp. */
 export async function mcpAccessRoute(
   request: Request,
   path: string,
@@ -124,7 +134,7 @@ export async function mcpAccessRoute(
   fetcher: Fetcher,
   collections: McpCollection[]
 ): Promise<Response | null> {
-  if (path !== '/admin/mcp' && path !== '/admin/mcp/access') return null
+  if (path !== '/admin/mcp' && path !== '/admin/mcp/access' && path !== '/admin/plugins/mcp') return null
   const url = new URL(request.url)
 
   if (request.method === 'POST' && path === '/admin/mcp/access') {
@@ -138,6 +148,15 @@ export async function mcpAccessRoute(
     }
     await setMcpAccessSettings(db, settings)
     return Response.redirect(new URL('/admin/mcp?saved=1', url).toString(), 303)
+  }
+
+  // Plugin Settings page: inject an "Open MCP Server dashboard" button so users can find the connect guide.
+  if (request.method === 'GET' && path === '/admin/plugins/mcp') {
+    const base = await fetcher(request)
+    if (!base.ok || !base.headers.get('content-type')?.includes('text/html')) return base
+    return new HTMLRewriter()
+      .on('main', { element: el => { el.prepend(PLUGIN_SETTINGS_BANNER, { html: true }) } })
+      .transform(new Response(base.body, base))
   }
 
   if (request.method === 'GET' && path === '/admin/mcp') {

@@ -80,8 +80,8 @@ async function handleRequest(request: Request, env: Parameters<typeof cms.fetch>
     if (passwordMismatch) return passwordMismatch
     const db = (env as unknown as { DB: D1Database }).DB
     const upstream = (r: Request) => finishUpstream(ctx, cms.fetch(r, envKeepPublishDate(env), ctx))
-    // MCP write access: apply DB-backed per-collection settings before each /mcp call.
-    if (path === '/mcp' && request.method === 'POST') await applyMcpAccess(mcpOptions, db, MCP_COLLECTIONS)
+    // MCP write access: apply DB-backed per-collection settings before /mcp calls and the admin dashboard.
+    if ((path === '/mcp' && request.method === 'POST') || path === '/admin/mcp') await applyMcpAccess(mcpOptions, db, MCP_COLLECTIONS)
     // MCP admin: POST /admin/mcp/access (save) and GET /admin/mcp (inject write-access section).
     const mcpAccess = await mcpAccessRoute(request, path, db, upstream, MCP_COLLECTIONS)
     if (mcpAccess) return mcpAccess.headers.get('content-type')?.includes('text/html') ? applyBranding(mcpAccess, path) : mcpAccess
