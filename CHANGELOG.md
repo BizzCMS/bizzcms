@@ -4,6 +4,8 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+## [0.2.8] - 2026-10-10
+
 ### Added
 - **Directory plugin in the admin menu**: `directoryPlugin()` adds Directory (companies), booking requests and listing claims to the plugin menu.
 - **Directory plugin: share buttons** on company profiles through the new `share` setting (e.g. the Social Share plugin in the page language); wrapper `.dir-share`.
