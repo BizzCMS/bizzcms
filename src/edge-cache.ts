@@ -18,6 +18,8 @@ export interface CacheSettings { enabled: boolean; pageMinutes: number; feedMinu
 const DEFAULTS: CacheSettings = { enabled: true, pageMinutes: 5, feedMinutes: 60, feedsUntilChange: true }
 const UNTIL_CHANGE_MINUTES = 30 * 24 * 60
 const VERSION_KEY = 'bizz:content-version'
+/** Header a handler sets on a successful write outside the admin (MCP); edgeCached() then renews the cache and strips it. */
+export const CONTENT_CHANGED = 'x-bizz-content-changed'
 const SKIP = /^\/(admin|auth|api|files|mcp|cdn-cgi)(\/|$)/
 const SESSION_COOKIE = /(^|;\s*)(better-auth\.session_token|__Secure-better-auth\.session_token|auth_token|session)=/i
 const FEEDLIKE = /^\/(sitemap[^/]*\.xml|robots\.txt|llms\.txt|feed\/?|rss(\.xml|\/)?|(blog|news)\/feed\/?)$/
@@ -85,6 +87,13 @@ export async function edgeCached(request: Request, db: D1Database, kv: KVNamespa
     const res = await handler()
     // Score batches (SEO › Check) change nothing public: no cache flush for them.
     if (url.pathname.startsWith('/admin') && url.pathname !== '/admin/bizz/seo/score-batch' && res.status < 400) ctx.waitUntil(bumpContentVersion(kv))
+    // MCP writes (create/update/publish/delete) mark their answer (src/mcp-publish-date.ts).
+    if (res.headers.has(CONTENT_CHANGED)) {
+      ctx.waitUntil(bumpContentVersion(kv))
+      const headers = new Headers(res.headers)
+      headers.delete(CONTENT_CHANGED)
+      return new Response(res.body, { status: res.status, headers })
+    }
     return res
   }
   const local = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname.endsWith('.localhost')

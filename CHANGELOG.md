@@ -4,6 +4,13 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Added
+- **MCP publish date**: `create_<collection>` and `publish_<collection>` take an optional `publishedAt` (ISO 8601 date or date-time, or unix seconds; not in the future), so imported or historical articles go live with their own date and sort correctly (`src/mcp-publish-date.ts`, docs/mcp.md › Publish dates). Sites route `POST /mcp` through `mcpWithPublishDate(request, db, upstream)`.
+
+### Fixed
+- MCP writes did not renew the edge cache: pages caught up after a few minutes, but sitemaps and feeds stayed old until the next save in the admin. A successful MCP create, update, publish or delete now renews it like an admin save.
+- docs/mcp.md listed tool names that do not exist (`create_page`, `create_post`); the tools are `create_<collection>`, `update_…`, `publish_…`, `delete_…`.
+
 ### Changed
 - MCP: "MCP Settings" is a black button right after the Settings / Information / Activity Log tabs on the MCP plugin page (was a banner above the page). The "Collection write access" card sits in the MCP dashboard's column in the same card style, and the example configs name the server `bizzcms`.
 

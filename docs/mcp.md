@@ -37,14 +37,40 @@ A client running in the cloud cannot reach a site on `127.0.0.1`; use a deployed
 
 ## Tools reference
 
+One set of tools per exposed collection (`pages`, `posts`, …):
+
 | Tool | Read | Write |
 |---|---|---|
 | `list_collections` | ✓ | — |
-| `list_pages` | ✓ | — |
-| `get_pages` | ✓ | — |
-| `create_page` | — | when pages write is on |
-| `update_page` | — | when pages write is on |
-| `list_posts` | ✓ | — |
-| `get_posts` | ✓ | — |
-| `create_post` | — | when posts write is on |
-| `update_post` | — | when posts write is on |
+| `list_<collection>` (e.g. `list_posts`) | ✓ | — |
+| `get_<collection>` | ✓ | — |
+| `create_<collection>` | — | when write is on for that collection |
+| `update_<collection>` (saves a new draft) | — | when write is on |
+| `publish_<collection>` | — | when write is on |
+| `delete_<collection>` | — | when write is on |
+
+## Publish dates
+
+`create_<collection>` and `publish_<collection>` take an optional **`publishedAt`** argument:
+
+- ISO 8601 date: `"2016-03-15"` (taken as 12:00 UTC, so it shows the same day in every time zone)
+- ISO 8601 date-time with time zone: `"2016-03-15T09:30:00Z"` or `"2016-03-15T10:30:00+01:00"`
+- unix seconds: `1458043200` (number or string)
+
+It cannot be in the future; an invalid or future value is refused with error `-32602` and nothing is
+saved. With `create_<collection>` and `publish: true` the item goes live with that date; without
+`publish` the date is kept on the draft and its first publish uses it. `publish_<collection>` with
+`publishedAt` sets the date of an item that is already live.
+
+Without `publishedAt`, a first publish gets the current time and **publishing again keeps the
+original date** (also in the admin), so rewriting an old article does not move it to the top of the
+blog or the feeds.
+
+```json
+{ "name": "create_posts", "arguments": { "data": { "title": "…", "slug": "…", "section": "news" }, "publish": true, "publishedAt": "2016-03-15" } }
+```
+
+## Cache
+
+A successful MCP create, update, publish or delete renews the edge cache, as a save in the admin
+does, so pages, sitemaps and feeds show the change right away.

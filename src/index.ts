@@ -1,4 +1,5 @@
 import { envKeepPublishDate } from './publish-date'
+import { mcpWithPublishDate } from './mcp-publish-date'
 import { envForContentSort, contentDatesRoute } from './content-dates'
 import { imageUploadRoute } from './image-upload'
 import { createSonicJSApp, registerCollections, mcpPlugin } from 'bizzcms-core'
@@ -85,6 +86,8 @@ async function handleRequest(request: Request, env: Parameters<typeof cms.fetch>
     // MCP admin: POST /admin/mcp/access (save) and GET /admin/mcp (inject write-access section).
     const mcpAccess = await mcpAccessRoute(request, path, db, upstream, MCP_COLLECTIONS)
     if (mcpAccess) return mcpAccess.headers.get('content-type')?.includes('text/html') ? applyBranding(mcpAccess, path) : mcpAccess
+    // MCP calls: optional publish date on create/publish, cache renewal after writes (src/mcp-publish-date.ts).
+    if (path === '/mcp' && request.method === 'POST') return mcpWithPublishDate(request, db, upstream)
     // Blog / News counts for the sidebar, drawn by the server (src/sections.ts).
     if (path.startsWith('/admin')) await primeSidebarCounts(db, (env as unknown as { CACHE_KV?: KVNamespace }).CACHE_KV)
     // Google Analytics plugin: install + after-save redirect (see src/plugins/google-analytics.ts).
