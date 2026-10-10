@@ -4,6 +4,14 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Added
+- **Languages plugin** (`src/plugins/languages.ts`, docs/languages.md): a site in several languages, each on its own addresses (`/`, `/en/`, `/de/…`). Translations are pages with a **Translation of** field. Every public page gets `<html lang>`, `hreflang` + `x-default`, `og:locale` and a language switcher in `[data-bizz-languages]`.
+- **SEO › General › Site language**: RSS `<language>` and feed texts in the site language (English, Croatian, German), `inLanguage` on WebSite and WebPage; `seoHead` takes an optional page `language`.
+- Cookie bar texts in German. Share buttons in English, Croatian and German (`shareBar(…, lang)`). `setSponsoredLabels()` for the "Sponsored" labels.
+
+### Fixed
+- RSS feeds always said `<language>en</language>` and "The post … appeared first on …", also on Croatian sites.
+
 ### Changed
 - **Cookie bar in the Cookiebot style** (Google Analytics plugin): full-width bar with Necessary / Preferences / Statistics / Marketing switches, details, and Allow all · Allow selection · Use necessary cookies only; English and Croatian built in (page language). **Google Consent Mode advanced**: gtag.js is on every page, cookies and identifiers only after Statistics is allowed (the current page is counted then, once). New settings: Banner title, Button colour, Button text colour.
 

@@ -27,6 +27,8 @@ export const seoPlugin = definePlugin({
 
 export interface SeoSettings {
   siteName: string; tagline: string; defaultDescription: string; defaultImage: string
+  /** Main language of the site (ISO code: en, hr, de …): RSS <language>, the feed's own texts, WebSite inLanguage. */
+  language: string
   orgType: 'Organization' | 'Person'; orgName: string; orgLogo: string; sameAs: string
   /** X (Twitter) username without @, for twitter:site and twitter:creator. */
   xHandle: string
@@ -40,7 +42,7 @@ export interface SeoSettings {
   /** AI crawlers by purpose (robots.txt): search answers, assistants a person asked, model training. */
   aiSearch: boolean; aiAgents: boolean; aiTraining: boolean
 }
-const DEFAULTS: SeoSettings = { siteName: '', tagline: '', defaultDescription: '', defaultImage: '', orgType: 'Organization', orgName: '', orgLogo: '', sameAs: '', xHandle: '', hideFromSearch: false, robotsExtra: '', llmsText: '', sitemapOff: [], feedEnabled: true, feedItems: 20, feedFullText: true, indexNowEnabled: true, indexNowKey: '', aiSearch: true, aiAgents: true, aiTraining: false }
+const DEFAULTS: SeoSettings = { siteName: '', tagline: '', language: 'en', defaultDescription: '', defaultImage: '', orgType: 'Organization', orgName: '', orgLogo: '', sameAs: '', xHandle: '', hideFromSearch: false, robotsExtra: '', llmsText: '', sitemapOff: [], feedEnabled: true, feedItems: 20, feedFullText: true, indexNowEnabled: true, indexNowKey: '', aiSearch: true, aiAgents: true, aiTraining: false }
 
 async function ensureTables(db: D1Database) {
   await db.batch([
@@ -51,6 +53,14 @@ async function ensureTables(db: D1Database) {
 }
 
 let settingsCache: { at: number; value: SeoSettings } | null = null
+// The feed's own texts in the site language.
+const FEED_TEXT: Record<string, { news: string; footer: (post: string, site: string) => string }> = {
+  en: { news: 'News', footer: (post, site) => `<p>The post ${post} appeared first on ${site}.</p>` },
+  hr: { news: 'Vijesti', footer: (post, site) => `<p>Objava ${post} prvi put je objavljena na ${site}.</p>` },
+  de: { news: 'Neuigkeiten', footer: (post, site) => `<p>Der Beitrag ${post} erschien zuerst auf ${site}.</p>` }
+}
+const siteLanguage = (s: SeoSettings) => (/^[a-z]{2,3}(-[a-z]{2,4})?$/i.test(String(s.language ?? '')) ? String(s.language).toLowerCase() : 'en')
+
 export async function seoSettings(db: D1Database): Promise<SeoSettings> {
   if (settingsCache && Date.now() - settingsCache.at < 30_000) return settingsCache.value
   let value = { ...DEFAULTS }
@@ -165,6 +175,8 @@ export interface SeoInput {
   modifiedAt?: number | null
   /** A person's name and profile page. Leave it out when the organisation wrote the post: the schema then names the organisation. Never invent one. */
   author?: { name: string; url?: string }
+  /** Language of this page when it differs from the site language (e.g. an /en/ page; Languages plugin). */
+  language?: string
   /** Schema type for posts: Article (default), BlogPosting or NewsArticle. */
   articleType?: 'Article' | 'BlogPosting' | 'NewsArticle'
   /** The post's categories (articleSection). */
@@ -240,9 +252,9 @@ function seoGraph(input: SeoInput, s: SeoSettings, page: { title: string; descri
       ...(s.orgLogo ? { [s.orgType === 'Person' ? 'image' : 'logo']: abs(o, s.orgLogo) } : {}),
       ...(s.sameAs.trim() ? { sameAs: s.sameAs.split(/\s+/).filter(u => /^https?:\/\//.test(u)) } : {}) })
   }
-  graph.push({ '@type': 'WebSite', '@id': `${o}/#website`, url: `${o}/`, name: s.siteName || orgName || new URL(o).hostname, ...(orgName ? { publisher: { '@id': orgId } } : {}) })
+  graph.push({ '@type': 'WebSite', '@id': `${o}/#website`, url: `${o}/`, name: s.siteName || orgName || new URL(o).hostname, inLanguage: siteLanguage(s), ...(orgName ? { publisher: { '@id': orgId } } : {}) })
   const pageId = `${page.canonical}#webpage`
-  graph.push({ '@type': input.kind === 'category' || input.kind === 'list' ? 'CollectionPage' : 'WebPage', '@id': pageId, url: page.canonical, name: page.title,
+  graph.push({ '@type': input.kind === 'category' || input.kind === 'list' ? 'CollectionPage' : 'WebPage', '@id': pageId, url: page.canonical, name: page.title, inLanguage: input.language || siteLanguage(s),
     ...(page.description ? { description: page.description } : {}), isPartOf: { '@id': `${o}/#website` },
     ...(page.image ? { primaryImageOfPage: { '@type': 'ImageObject', url: page.image } } : {}),
     ...(input.breadcrumbs?.length ? { breadcrumb: { '@id': `${page.canonical}#breadcrumb` } } : {}) })
@@ -512,7 +524,8 @@ export async function seoFeed(url: URL, db: D1Database, routes: SitemapRoutes | 
   const catName = new Map(cats.results.map(c => [c.root_id, c.title]))
   const selfUrl = `${url.origin}${url.pathname}`
   const listUrl = `${url.origin}/${section ? section + '/' : ''}`
-  const title = section ? `${site} ${section === 'news' ? 'News' : 'Blog'}` : site
+  const L = FEED_TEXT[siteLanguage(s).slice(0, 2)] ?? FEED_TEXT.en
+  const title = section ? `${site} ${section === 'news' ? L.news : 'Blog'}` : site
   const logo = s.orgLogo || s.defaultImage
   const items = results.map(r => {
     let d: Record<string, unknown> = {}; try { d = JSON.parse(r.data) } catch { /* empty */ }
@@ -523,7 +536,7 @@ export async function seoFeed(url: URL, db: D1Database, routes: SitemapRoutes | 
     const imgHtml = img ? `<img src="${xesc(img)}" alt="${xesc(alt)}" class="webfeedsFeaturedVisual" style="display:block;margin-bottom:5px;clear:both;max-width:100%;" />` : ''
     const content = absolutise(str(d.content) || str(d.body), url.origin)
     const summary = str(d.excerpt) || content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300)
-    const footer = `<p>The post <a href="${xesc(link)}">${xesc(r.title)}</a> appeared first on <a href="${xesc(url.origin)}">${xesc(site)}</a>.</p>`
+    const footer = L.footer(`<a href="${xesc(link)}">${xesc(r.title)}</a>`, `<a href="${xesc(url.origin)}">${xesc(site)}</a>`)
     const terms = [...(Array.isArray(d.categories) ? d.categories.map(id => catName.get(String(id))).filter(Boolean) : []), ...(Array.isArray(d.tags) ? d.tags.map(String) : [])] as string[]
     return `<item>
 <title>${cdata(r.title)}</title>
@@ -546,7 +559,7 @@ ${img ? `<media:content url="${xesc(img)}" medium="image"><media:description typ
 <link>${xesc(listUrl)}</link>
 <description>${xesc(s.tagline || s.defaultDescription || site)}</description>
 <lastBuildDate>${newest}</lastBuildDate>
-<language>en</language>
+<language>${xesc(siteLanguage(s))}</language>
 <sy:updatePeriod>hourly</sy:updatePeriod>
 <sy:updateFrequency>1</sy:updateFrequency>
 ${logo ? `<image><url>${xesc(abs(url.origin, logo))}</url><title>${xesc(title)}</title><link>${xesc(listUrl)}</link></image>` : ''}
@@ -672,7 +685,7 @@ export async function seoAdminRoute(request: Request, path: string, db: D1Databa
       const g = (k: string) => String(f.get(k) ?? '').trim()
       tab = String(f.get('tab') ?? 'general') === 'indexing' ? 'indexing' : 'general'
       const next = { ...(await seoSettings(db)) }
-      if (tab === 'general') Object.assign(next, { siteName: g('siteName'), tagline: g('tagline'), defaultDescription: g('defaultDescription'), defaultImage: g('defaultImage'), orgType: g('orgType') === 'Person' ? 'Person' : 'Organization', orgName: g('orgName'), orgLogo: g('orgLogo'), sameAs: g('sameAs'), xHandle: g('xHandle').replace(/^https?:\/\/(www\.)?(x|twitter)\.com\//i, '').replace(/^@/, '').replace(/[^A-Za-z0-9_]/g, '').slice(0, 15) })
+      if (tab === 'general') Object.assign(next, { siteName: g('siteName'), tagline: g('tagline'), language: /^[a-z]{2,3}(-[a-z]{2,4})?$/i.test(g('language')) ? g('language').toLowerCase() : 'en', defaultDescription: g('defaultDescription'), defaultImage: g('defaultImage'), orgType: g('orgType') === 'Person' ? 'Person' : 'Organization', orgName: g('orgName'), orgLogo: g('orgLogo'), sameAs: g('sameAs'), xHandle: g('xHandle').replace(/^https?:\/\/(www\.)?(x|twitter)\.com\//i, '').replace(/^@/, '').replace(/[^A-Za-z0-9_]/g, '').slice(0, 15) })
       else Object.assign(next, {
         hideFromSearch: f.get('hideFromSearch') === 'on', robotsExtra: g('robotsExtra'), llmsText: g('llmsText'),
         sitemapOff: g('sitemap_parts').split(',').filter(k => k && f.get(`sitemap_${k}`) !== 'on'),
@@ -749,6 +762,7 @@ async function adminPage(tab: string, s: SeoSettings, db: D1Database, url: URL, 
     const inner = tab === 'general' ? `
       ${field('siteName', 'Site name', 'Added to every title: "Title | Site name".')}
       ${field('tagline', 'Home page tagline', 'Home page title becomes "Site name - tagline".')}
+      ${field('language', 'Site language', 'Main language code, e.g. en, hr or de. Used for the RSS feed and structured data.')}
       ${field('defaultDescription', 'Default meta description', 'Used when a page has no description of its own.', 'textarea')}
       ${field('defaultImage', 'Default social image', 'Address of an image (1200 × 630) for pages without their own, e.g. /img/share.png.')}
       <label class="bizz-seo-field"><span>This website represents</span><select name="orgType"${ro}><option value="Organization"${s.orgType === 'Organization' ? ' selected' : ''}>A company or organisation</option><option value="Person"${s.orgType === 'Person' ? ' selected' : ''}>A person</option></select><small>Tells Google who is behind the site.</small></label>

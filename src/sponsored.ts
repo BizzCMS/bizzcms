@@ -18,16 +18,20 @@ export function sponsorOf(data: Record<string, unknown>): Sponsor | null {
   return { name, url: /^https?:\/\/[^\s"'<>]+$/i.test(url) ? url : '' }
 }
 
+// Label texts; a site in another language sets its own once, e.g. setSponsoredLabels({ tag: 'Sponzorirano', by: 'Sponzor:' }).
+const LABELS = { tag: 'Sponsored', by: 'Sponsored by' }
+export function setSponsoredLabels(labels: Partial<typeof LABELS>): void { Object.assign(LABELS, labels) }
+
 /** Small "Sponsored" label for lists and post headers. */
 export function sponsoredTag(className = 'bizz-sponsored-tag'): string {
-  return `<span class="${escape(className)}">Sponsored</span>`
+  return `<span class="${escape(className)}">${escape(LABELS.tag)}</span>`
 }
 
 /** "Sponsored by <name>" (linked when the post has a sponsor link); just "Sponsored" without a name. */
 export function sponsoredLine(sponsor: Sponsor, className = 'bizz-sponsored'): string {
-  if (!sponsor.name) return `<p class="${escape(className)}">Sponsored</p>`
+  if (!sponsor.name) return `<p class="${escape(className)}">${escape(LABELS.tag)}</p>`
   const name = sponsor.url ? `<a href="${escape(sponsor.url)}" rel="sponsored noopener" target="_blank">${escape(sponsor.name)}</a>` : escape(sponsor.name)
-  return `<p class="${escape(className)}">Sponsored by ${name}</p>`
+  return `<p class="${escape(className)}">${escape(LABELS.by)} ${name}</p>`
 }
 
 /** Adds rel="sponsored noopener" to every link that leaves the site (keeps any other rel values). */

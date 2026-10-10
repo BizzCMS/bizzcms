@@ -73,22 +73,31 @@ const NETWORKS: { key: 'linkedin' | 'x' | 'facebook' | 'whatsapp' | 'pinterest' 
 const CSS = `<style>.bz-share{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.bz-share-label{font-weight:700;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;opacity:.7;margin-right:6px}.bz-share-btn{--bz-share-c:#334;width:40px;height:40px;display:inline-grid;place-items:center;border-radius:999px;border:1px solid rgba(0,0,0,.12);background:#fff;color:var(--bz-share-c);cursor:pointer;padding:0;transition:background .2s,color .2s,border-color .2s,transform .2s}.bz-share-btn:hover{background:var(--bz-share-c);border-color:var(--bz-share-c);color:#fff;transform:translateY(-2px)}.bz-share-btn[hidden]{display:none}.bz-share-done{font-size:13px;font-weight:700;margin-left:4px}</style>`
 const SCRIPT = `<script>(function(){document.querySelectorAll('.bz-share:not([data-ready])').forEach(function(bar){bar.setAttribute('data-ready','');var url=bar.getAttribute('data-url'),title=bar.getAttribute('data-title'),done=bar.querySelector('.bz-share-done'),nat=bar.querySelector('[data-share="native"]');
 if(navigator.share&&nat){nat.hidden=false;nat.addEventListener('click',function(){navigator.share({title:title,url:url}).catch(function(){})})}
-var copy=bar.querySelector('[data-share="copy"]');if(copy)copy.addEventListener('click',function(){var ok=function(){done.textContent='Link copied';setTimeout(function(){done.textContent=''},2000)};if(navigator.clipboard)navigator.clipboard.writeText(url).then(ok,function(){prompt('Copy this link',url)});else prompt('Copy this link',url)})})})();</script>`
+var copy=bar.querySelector('[data-share="copy"]');if(copy)copy.addEventListener('click',function(){var ok=function(){done.textContent=bar.getAttribute('data-copied')||'Link copied';setTimeout(function(){done.textContent=''},2000)};if(navigator.clipboard)navigator.clipboard.writeText(url).then(ok,function(){prompt(bar.getAttribute('data-prompt')||'Copy this link',url)});else prompt(bar.getAttribute('data-prompt')||'Copy this link',url)})})})();</script>`
 
-/** The share bar for a page, or '' while the plugin is not active. `url` must be absolute. */
-export async function shareBar(db: D1Database, url: string, title: string, image?: string): Promise<string> {
+// Button texts per page language (English, Croatian, German built in); the Label setting stays as entered
+// unless it is the default "Share".
+const TEXTS: Record<string, { share: string; copy: string; email: string; on: string; copied: string; prompt: string }> = {
+  en: { share: 'Share', copy: 'Copy link', email: 'Share by e-mail', on: 'Share on', copied: 'Link copied', prompt: 'Copy this link' },
+  hr: { share: 'Podijeli', copy: 'Kopiraj poveznicu', email: 'Pošalji e-poštom', on: 'Podijeli na', copied: 'Poveznica je kopirana', prompt: 'Kopirajte ovu poveznicu' },
+  de: { share: 'Teilen', copy: 'Link kopieren', email: 'Per E-Mail teilen', on: 'Teilen auf', copied: 'Link kopiert', prompt: 'Diesen Link kopieren' }
+}
+
+/** The share bar for a page, or '' while the plugin is not active. `url` must be absolute; `lang` is the page language. */
+export async function shareBar(db: D1Database, url: string, title: string, image?: string, lang = 'en'): Promise<string> {
+  const T = TEXTS[lang.slice(0, 2).toLowerCase()] ?? TEXTS.en
   const s = await activeSettings(db)
   if (!s) return ''
   const u = encodeURIComponent(url), t = encodeURIComponent(title), img = image ? encodeURIComponent(new URL(image, url).href) : ''
   const btn = (attrs: string, label: string, color: string, icon: string) => `<${attrs.startsWith('href') ? 'a' : 'button type="button"'} class="bz-share-btn bz-share-${label.toLowerCase().replace(/[^a-z]/g, '')}" style="--bz-share-c:${color}" ${attrs} aria-label="${esc(label)}" title="${esc(label)}">${icon}</${attrs.startsWith('href') ? 'a' : 'button'}>`
   const items = [
-    s.nativeShare !== false ? btn('data-share="native" hidden', 'Share', '#334', ICON.share) : '',
-    s.copyLink !== false ? btn('data-share="copy"', 'Copy link', '#334', ICON.link) : '',
-    ...NETWORKS.filter(n => s[n.key] === true && (n.key !== 'pinterest' || img)).map(n => btn(`href="${esc(n.url(u, t, img))}"${n.key === 'email' ? '' : ' target="_blank" rel="noopener nofollow"'}`, n.key === 'email' ? 'Share by e-mail' : `Share on ${n.label}`, n.color, ICON[n.key]))
+    s.nativeShare !== false ? btn('data-share="native" hidden', T.share, '#334', ICON.share) : '',
+    s.copyLink !== false ? btn('data-share="copy"', T.copy, '#334', ICON.link) : '',
+    ...NETWORKS.filter(n => s[n.key] === true && (n.key !== 'pinterest' || img)).map(n => btn(`href="${esc(n.url(u, t, img))}"${n.key === 'email' ? '' : ' target="_blank" rel="noopener nofollow"'}`, n.key === 'email' ? T.email : `${T.on} ${n.label}`, n.color, ICON[n.key]))
   ].filter(Boolean)
   if (!items.length) return ''
-  const label = String(s.label ?? '').trim()
-  return `${CSS}<div class="bz-share" data-url="${esc(url)}" data-title="${esc(title)}">${label ? `<span class="bz-share-label">${esc(label)}</span>` : ''}${items.join('')}<span class="bz-share-done" role="status" aria-live="polite"></span></div>${SCRIPT}`
+  const set = String(s.label ?? '').trim(), label = set === 'Share' ? T.share : set
+  return `${CSS}<div class="bz-share" data-url="${esc(url)}" data-title="${esc(title)}" data-copied="${esc(T.copied)}" data-prompt="${esc(T.prompt)}">${label ? `<span class="bz-share-label">${esc(label)}</span>` : ''}${items.join('')}<span class="bz-share-done" role="status" aria-live="polite"></span></div>${SCRIPT}`
 }
 
 /** Admin routes, answered before upstream (same as the Google Analytics plugin): back to the plugin

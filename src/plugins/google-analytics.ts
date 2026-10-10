@@ -14,7 +14,7 @@ const SCHEMA = {
   measurementId: { type: 'string', label: 'Measurement ID', description: 'From Google Analytics › Admin › Data streams, for example G-Q8K9JDCJ5G.', placeholder: 'G-XXXXXXXXXX', maxLength: 20 },
   requireConsent: { type: 'boolean', label: 'Ask for consent', description: 'Show the cookie bar. Google Analytics is on every page, but uses cookies only after the visitor allows Statistics (Google Consent Mode). Keep this on for visitors in the EU and the UK.', default: true },
   bannerTitle: { type: 'string', label: 'Banner title', description: 'Leave empty for "This website uses cookies" in the language of the page.', default: '', maxLength: 120 },
-  bannerText: { type: 'string', label: 'Banner text', description: 'Leave empty for the standard text in the language of the page (English and Croatian built in).', default: '', maxLength: 400 },
+  bannerText: { type: 'string', label: 'Banner text', description: 'Leave empty for the standard text in the language of the page (English, Croatian and German built in).', default: '', maxLength: 400 },
   accentColor: { type: 'string', label: 'Button colour', description: 'Colour of "Allow all", the button borders and the switches, e.g. #4168b1. Empty = BizzCMS teal.', default: '', maxLength: 9 },
   accentTextColor: { type: 'string', label: 'Button text colour', description: 'Text colour on "Allow all", e.g. #ffffff. Empty = white.', default: '', maxLength: 9 },
   policyUrl: { type: 'string', label: 'Cookie policy link', description: 'Address of your cookie policy page. Leave empty to hide the link.', default: '/cookies', maxLength: 300 }
@@ -75,6 +75,17 @@ const TEXTS = {
     dPreferences: 'Pamte vaše postavke na stranici, npr. jezik.',
     dStatistics: 'Google Analytics (_ga, _ga_*; do 2 godine): koje se stranice posjećuju i kako posjetitelji pronalaze stranicu.',
     dMarketing: 'Mjerenje našeg oglašavanja putem Googlea. Ništa se ne koristi za oglašavanje bez vašeg dopuštenja.'
+  },
+  de: {
+    title: 'Diese Website verwendet Cookies',
+    body: 'Wir verwenden Cookies, damit die Website funktioniert, um Ihre Auswahl zu speichern und, mit Ihrer Zustimmung, um die Nutzung der Website zu analysieren (Google Analytics) und unsere Werbung zu messen.',
+    necessary: 'Notwendig', preferences: 'Präferenzen', statistics: 'Statistiken', marketing: 'Marketing',
+    show: 'Details zeigen', hide: 'Details ausblenden',
+    all: 'Alle zulassen', selection: 'Auswahl erlauben', only: 'Nur notwendige Cookies verwenden', policy: 'Cookie-Richtlinie',
+    dNecessary: 'Halten die Website funktionsfähig und speichern diese Auswahl (bizz_consent, in Ihrem Browser). Immer aktiv.',
+    dPreferences: 'Speichern Ihre Einstellungen auf dieser Website, z. B. die Sprache.',
+    dStatistics: 'Google Analytics (_ga, _ga_*; bis zu 2 Jahre): welche Seiten besucht werden und wie Besucher die Website finden.',
+    dMarketing: 'Messung unserer Werbung mit Google. Ohne Ihre Zustimmung wird nichts für Werbung verwendet.'
   }
 }
 const OLD_DEFAULT_TEXT = 'We use Google Analytics cookies to see how this website is used, only if you agree.'
