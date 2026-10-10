@@ -218,6 +218,13 @@ async function search(db: D1Database, f: Filters) {
     const all = await db.prepare(`SELECT DISTINCT ${J('city')} AS city FROM documents WHERE ${PUBLISHED} AND COALESCE(${J('city')}, '') != ''`).all<{ city: string }>()
     cityNames = all.results.map(r => r.city).filter(c => slugify(c) === f.city)
   }
+  // A chosen city also shows its region in the region list (display only, so data errors never hide a company).
+  let cityRegion: string | undefined
+  if (f.city && !f.region && cityNames.length) {
+    const row = await db.prepare(`SELECT ${J('county')} AS k, COUNT(*) AS n FROM documents WHERE ${PUBLISHED} AND ${J('city')} IN (${cityNames.map(() => '?').join(',')})
+      AND COALESCE(${J('county')}, '') != '' GROUP BY 1 ORDER BY n DESC LIMIT 1`).bind(...cityNames).first<{ k: string }>()
+    cityRegion = row?.k
+  }
   const main = where(f, cityNames, today)
   const offset = (f.page - 1) * PAGE_SIZE
   const byCategory = where(f, cityNames, today, ['category'])
@@ -236,7 +243,8 @@ async function search(db: D1Database, f: Filters) {
     categoryCounts: catFacets.results as { k: string; s: string | null; n: number }[],
     regionCounts: new Map((regionFacets.results as { k: string; n: number }[]).map(r => [r.k, r.n])),
     cities: (cityFacets.results as { k: string; n: number }[]).map(r => ({ name: r.k, slug: slugify(r.k), n: r.n })),
-    cityLabel: cityNames[0]
+    cityLabel: cityNames[0],
+    cityRegion
   }
 }
 
@@ -400,7 +408,7 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
 
   const option = (value: string, txt: string, selected: string, n?: number) =>
     `<option value="${esc(value)}"${value === selected ? ' selected' : ''}>${esc(txt)}${n !== undefined ? ` (${n})` : ''}</option>`
-  const regionOptions = alphabetical(taxonomy.regions, c => c[1]).map(([k, v]) => option(k, v, f.region, r.regionCounts.get(k) ?? 0)).join('')
+  const regionOptions = alphabetical(taxonomy.regions, c => c[1]).map(([k, v]) => option(k, v, f.region || r.cityRegion || '', r.regionCounts.get(k) ?? 0)).join('')
   const cityOptions = alphabetical(r.cities, c => c.name).map(c => option(c.slug, c.name, f.city, c.n)).join('')
   const radios = (name: string, list: readonly (readonly [string | number, string])[], current: string) =>
     `<div class="opts">${[['', text.all] as const, ...list].map(([k, v]) => `<label class="opt"><input type="radio" name="${name}" value="${k}"${String(k) === current ? ' checked' : ''}>${esc(v)}</label>`).join('')}</div>`
@@ -432,7 +440,7 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
     ${hidden(P.q, f.q)}${hidden(P.category, f.category)}${hidden(P.sort, f.sort)}${hidden(P.view, f.view)}
     <details open><summary><span class="ftitle">${esc(text.filters)}</span><span class="count">${esc(text.results(r.total))}</span></summary>
     <div class="fsec"><p class="flabel">${esc(text.category)}</p><ul class="cats"><li><a class="${f.category ? '' : 'on'}" href="${params({ category: null, page: null })}">${esc(text.allCategories)}</a></li>${categoryList}</ul></div>
-    <div class="fsec">${taxonomy.regions.length ? `<label class="flabel" for="f-zup">${esc(text.region)}</label><select id="f-zup" name="${P.region}">${option('', text.allRegions, f.region)}${regionOptions}</select>` : ''}
+    <div class="fsec">${taxonomy.regions.length ? `<label class="flabel" for="f-zup">${esc(text.region)}</label><select id="f-zup" name="${P.region}">${option('', text.allRegions, f.region || r.cityRegion || '')}${regionOptions}</select>` : ''}
       <label class="flabel" for="f-grad">${esc(text.city)}</label><select id="f-grad" name="${P.city}">${option('', text.allCities, f.city)}${cityOptions}</select></div>
     ${isVenue || f.guests || f.setting ? `<div class="fsec"><p class="flabel">${esc(text.guests)}</p>${radios(P.guests, taxonomy.guestBuckets.map(([n, t]) => [String(n), t] as const), f.guests)}
       <label class="flabel" for="f-pro">${esc(text.setting)}</label><select id="f-pro" name="${P.setting}">${option('', text.any, f.setting)}${option('indoor', settingLabel('indoor'), f.setting)}${option('outdoor', settingLabel('outdoor'), f.setting)}</select></div>` : ''}
