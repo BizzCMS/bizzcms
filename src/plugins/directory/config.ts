@@ -246,6 +246,9 @@ export interface DirectorySettings {
   locale: string
   /** Sample entries (e.g. demo data): companies whose slug starts with `slugPrefix` get `label` next to the category. */
   sample?: { slugPrefix: string; label: string }
+  /** Share buttons on profiles and directory lists, e.g. the Social Share plugin:
+   *  (db, url, title, image) => shareBar(db, url, title, image, 'hr'). None or '' = no buttons. */
+  share?: (db: D1Database, url: string, title: string, image?: string) => Promise<string>
 }
 
 let current: DirectorySettings = {
@@ -265,6 +268,7 @@ export interface DirectoryOptions {
   labels?: Partial<DirectorySettings['labels']>
   locale?: string
   sample?: DirectorySettings['sample']
+  share?: DirectorySettings['share']
 }
 
 /** Turn the directory on for this site with its own addresses, categories, wording and layout. */
@@ -278,7 +282,8 @@ export function setDirectory(opts: DirectoryOptions): void {
     layout: opts.layout ?? current.layout,
     labels: { ...current.labels, ...opts.labels },
     locale: opts.locale ?? current.locale,
-    sample: opts.sample ?? current.sample
+    sample: opts.sample ?? current.sample,
+    share: opts.share ?? current.share
   }
 }
 export const directorySettings = (): DirectorySettings => current

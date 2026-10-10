@@ -76,6 +76,7 @@ Everything you don't set keeps an English default (`src/plugins/directory/config
 | `labels` | The collection names in the admin. |
 | `locale` | Language for sorting choices alphabetically (regions, cities, form selects), e.g. `hr`. |
 | `sample` | Marks example entries: `{ slugPrefix: 'demo-', label: 'Example' }` adds the label next to the category. |
+| `share` | Share buttons under company profiles and directory lists, in a `.dir-share` wrapper: `(db, url, title, image) => shareBar(db, url, title, image, 'hr')` with the Social Share plugin. Left out = no buttons. |
 
 Sorting: **Recommended** is Premium first, then most visited (the optional `views` field, e.g. carried over from an
 old site), then name. Visitors can also sort by name, newest, most visited and (venues) capacity. A company without

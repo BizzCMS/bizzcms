@@ -88,10 +88,10 @@ export async function handleDirectory(request: Request, env: Env): Promise<Respo
     if (!company.premium) return html(page(company.title, `<div class="wrap profile"><h1>${esc(text.requestsUnavailable)}</h1></div>`), 403)
     const result = await saveRequest(await readForm(request), company, env)
     if (result.ok) return Response.redirect(new URL(`${canonical}?${params.sent}=1#${params.requestAnchor}`, url.origin).href, 303)
-    return html(profilePage(company, { error: result.error, values: result.values }, url.origin), 400)
+    return html(profilePage(company, { error: result.error, values: result.values }, url.origin, await shareFor(env.DB, url.origin + canonical, company)), 400)
   }
   if (!get) return null
-  return html(profilePage(company, { sent: url.searchParams.get(params.sent) === '1' }, url.origin))
+  return html(profilePage(company, { sent: url.searchParams.get(params.sent) === '1' }, url.origin, await shareFor(env.DB, url.origin + canonical, company)))
 }
 
 // Structured data (schema.org JSON-LD) for search engines and AI assistants.
@@ -99,6 +99,18 @@ const jsonLd = (data: unknown) => `<script type="application/ld+json">${JSON.str
 const abs = (origin: string, path: string) => (/^https?:\/\//.test(path) ? path : `${origin}${encodeURI(path)}`)
 function breadcrumbs(origin: string, items: [string, string][]) {
   return { '@type': 'BreadcrumbList', itemListElement: items.map(([name, path], i) => ({ '@type': 'ListItem', position: i + 1, name, item: abs(origin, path) })) }
+}
+
+// Share buttons (setDirectory({ share })), in a wrapper the site can style; never breaks the page.
+async function shareBlock(db: D1Database, url: string, title: string, image?: string): Promise<string> {
+  const share = directorySettings().share
+  if (!share) return ''
+  const bar = await share(db, url, title, image).catch(() => '')
+  return bar ? `<div class="dir-share">${bar}</div>` : ''
+}
+const shareFor = (db: D1Database, url: string, p: Listing) => {
+  const img = p.cover ?? p.image
+  return shareBlock(db, encodeURI(url), p.title, img ? abs(new URL(url).origin, img) : undefined)
 }
 
 const page = (title: string, body: string, opts: { description?: string; canonical?: string; index?: boolean; head?: string; image?: string } = {}) =>
@@ -473,7 +485,7 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
   const body = `${header}<div class="wrap layout"><aside>${sidebar}</aside><section>
     ${pillBar}
     <div class="results ${f.view === P.viewList ? 'list' : 'grid'}">${cards || `<div class="empty"><h2>${esc(text.noResults)}</h2><p>${esc(text.noResultsText)}</p><p><a class="btn ghost" href="${esc(DIR)}">${esc(text.clearFilters)}</a></p></div>`}</div>
-    ${pager}</section></div>`
+    ${pager}${await shareBlock(db, `${url.origin}${encodeURI(canonicalPath ?? url.pathname)}${canonicalPath ? '' : url.search}`, heading)}</section></div>`
   // Unknown category/city landing pages are 404s (but still render the directory).
   const found = (!f.category || !!(cat || sub)) && (!f.city || !!r.cityLabel)
   const ld = jsonLd({ '@context': 'https://schema.org', '@graph': [
@@ -487,7 +499,7 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
     canonical: canonicalPath && found ? `${url.origin}${encodeURI(canonicalPath)}` : undefined, index: !!canonicalPath && found }) }
 }
 
-function profilePage(p: Listing, state: { sent?: boolean; error?: string; values?: Record<string, string> }, origin: string): string {
+function profilePage(p: Listing, state: { sent?: boolean; error?: string; values?: Record<string, string> }, origin: string, share = ''): string {
   const { taxonomy, text, params: P } = directorySettings()
   const v = state.values ?? {}
   const parent = taxonomy.categories.find(c => c.slug === p.category)
@@ -526,7 +538,7 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
     <p class="crumbs"><a href="${esc(directoryUrl())}">${esc(text.directoryTitle)}</a>${parent ? ` › <a href="${esc(categoryUrl(parent.slug))}">${esc(parent.label)}</a>` : ''}${sub ? ` › <a href="${esc(categoryUrl(sub.slug))}">${esc(sub.label)}</a>` : ''}</p>
     <div class="phead"><h1>${esc(p.title)}</h1>${p.premium ? `<span class="pill premium">${esc(text.premium)}</span>` : ''}</div>
     ${mediaHero(media, p.title, mt)}
-    <div class="pcols"><div>${paragraphs}${gallery}${form}</div>
+    <div class="pcols"><div>${paragraphs}${gallery}${share}${form}</div>
     <aside class="box facts">${facts.map(([k, val]) => `<div><span>${esc(k)}</span>${esc(val)}</div>`).join('')}
       ${contact.length ? `<div><span>${esc(text.contact)}</span>${contact.join('<br>')}</div>` : ''}
       ${p.premium && !state.sent ? `<a class="btn" href="#${esc(P.requestAnchor)}">${esc(text.requestDate)}</a>` : ''}</aside></div></div>${mediaViewer(media, p.title, mt)}`,
