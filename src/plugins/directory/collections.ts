@@ -27,6 +27,7 @@ export function directoryCollections(): CollectionConfig[] {
         coverImage: { type: 'media', title: 'Cover image' },
         // `multiple` is read by the admin media picker but missing from the typings.
         gallery: { type: 'media', title: 'Gallery', multiple: true } as { type: 'media'; title: string },
+        videos: { type: 'textarea', title: 'YouTube videos', helpText: 'One YouTube link per line (up to 12). They play on the profile.' },
         capacity: { type: 'number', title: 'Max guests (venues)', min: 0 },
         priceLevel: { type: 'select', title: 'Price level', ...pairs([['', '—'], ...T.priceLevels]) },
         setting: { type: 'select', title: 'Indoor / outdoor (venues)', ...pairs([['', '—'], ...T.settings]) },

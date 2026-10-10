@@ -11,6 +11,7 @@ import {
   alphabetical, categoryUrl, cityUrl, directorySettings, directoryUrl, label, listingUrl, matchRoute, slugify, subcategories
 } from './config'
 import { esc, fold, html, icon, mediaList, pageWindow, safeDecode, safeUrl, str, truthy } from './util'
+import { mediaGallery, mediaHero, mediaItems, mediaViewer, videoIds } from './media'
 
 type Env = { DB: D1Database }
 type Row = Record<string, unknown>
@@ -52,13 +53,13 @@ export async function handleDirectory(request: Request, env: Env): Promise<Respo
   const slug = own ? safeDecode(own.slug) : ''
   const company = legacy ? await findListing(env.DB, { legacyId: Number(legacy.id) })
     : /^[a-z0-9-]+$/.test(slug) ? await findListing(env.DB, { slug }) : null
-  // A company taken off the directory (unpublished, e.g. closed) keeps its old address alive: 301 to its category.
+  // A company taken off the directory (unpublished, e.g. closed) keeps its old address alive: 301 to its main
+  // category page (a company has exactly one), or to the directory when it has none. Never a 404.
   if (!company && get) {
-    const gone = await env.DB.prepare(`SELECT ${J('category')} AS category, ${J('subcategory')} AS subcategory FROM documents
-      WHERE type_id = 'partners' AND is_current_draft = 1 AND (deleted_at IS NULL OR deleted_at = '') AND ${legacy ? `CAST(${J('legacyId')} AS INTEGER) = ?` : 'slug = ?'} LIMIT 1`)
-      .bind(legacy ? Number(legacy.id) : slug).first<{ category: string | null; subcategory: string | null }>()
-    const cat = gone?.subcategory || gone?.category
-    if (gone) return moved(cat ? categoryUrl(cat) : directoryUrl())
+    const gone = await env.DB.prepare(`SELECT ${J('category')} AS category FROM documents WHERE type_id = 'partners' AND is_current_draft = 1
+      AND (deleted_at IS NULL OR deleted_at = '') AND ${legacy ? `CAST(${J('legacyId')} AS INTEGER) = ?` : 'slug = ?'} LIMIT 1`)
+      .bind(legacy ? Number(legacy.id) : slug).first<{ category: string | null }>()
+    if (gone) return moved(gone.category && directorySettings().taxonomy.categories.some(c => c.slug === gone.category) ? categoryUrl(gone.category) : directoryUrl())
   }
   if (!company) return html(page(text.notFound, `<div class="wrap profile"><h1>${esc(text.notFound)}</h1><p><a href="${esc(directoryUrl())}">${esc(text.backToDirectory)}</a></p></div>`), 404)
   // One address per company: another name or a missing slash goes to the canonical one.
@@ -188,7 +189,7 @@ function toCard(r: Row): Card {
 
 export interface Listing extends Card {
   description?: string; gallery: string[]; website?: string; phone?: string; email?: string; setting?: string
-  amenities: string[]; seoTitle?: string; seoDescription?: string
+  amenities: string[]; seoTitle?: string; seoDescription?: string; cover?: string; videos: string[]
 }
 
 /** A published company by URL slug or by its old site ID. */
@@ -202,7 +203,7 @@ export async function findListing(db: D1Database, by: { slug: string } | { legac
   try { d = JSON.parse(String(row.data ?? '{}')) } catch { /* keep empty */ }
   return {
     ...toCard({ ...d, slug: row.slug, title: str(d.title) ?? row.title, cover: d.coverImage, premium: row.premium }),
-    description: str(d.description), gallery: mediaList(d.gallery), website: safeUrl(str(d.website)),
+    description: str(d.description), gallery: mediaList(d.gallery), cover: mediaList(d.coverImage)[0], videos: videoIds(d.videos), website: safeUrl(str(d.website)),
     phone: str(d.phone), email: str(d.email), setting: str(d.setting),
     amenities: directorySettings().taxonomy.amenities.filter(([k]) => truthy(d[k])).map(([, v]) => v),
     seoTitle: str(d.seoTitle), seoDescription: str(d.seoDescription)
@@ -412,8 +413,10 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
   const parent = taxonomy.categories.find(c => c.slug === p.category)
   const sub = subcategories().find(s => s.slug === p.subcategory)
   const paragraphs = (p.description ?? '').split(/\n\s*\n/).filter(Boolean).map(t => `<p>${esc(t).replace(/\n/g, '<br>')}</p>`).join('')
-  const gallery = p.gallery.length ? `<h2>${esc(text.gallery)}</h2><div class="gallery">${p.gallery.map((src, i) =>
-    `<a href="${esc(src)}" target="_blank" rel="noopener"><img src="${esc(src)}" alt="${esc(text.photoAlt(p.title, i + 1))}" loading="lazy"></a>`).join('')}</div>` : ''
+  // Photos and YouTube videos: mosaic on top, gallery section, full-screen viewer (media.ts).
+  const media = mediaItems(p.cover ?? p.image, p.gallery, p.videos)
+  const mt = { showAll: text.showAllMedia, photos: text.gallery, videos: text.videos, video: text.video, close: text.close, previous: text.previous, next: text.next, photoAlt: text.photoAlt }
+  const gallery = mediaGallery(media, p.title, mt, p.videos.length && !p.gallery.length ? text.videos : text.gallery)
   const facts = [
     [text.location, [p.city, label(taxonomy.regions, p.county)].filter(Boolean).join(', ')],
     [text.capacity, p.capacity ? text.capacityValue(p.capacity) : ''],
@@ -442,10 +445,10 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
   return page(p.seoTitle || p.title, `<div class="wrap profile">
     <p class="crumbs"><a href="${esc(directoryUrl())}">${esc(text.directoryTitle)}</a>${parent ? ` › <a href="${esc(categoryUrl(parent.slug))}">${esc(parent.label)}</a>` : ''}${sub ? ` › <a href="${esc(categoryUrl(sub.slug))}">${esc(sub.label)}</a>` : ''}</p>
     <div class="phead"><h1>${esc(p.title)}</h1>${p.premium ? `<span class="pill premium">${esc(text.premium)}</span>` : ''}</div>
-    ${p.image ? `<img class="cover" src="${esc(p.image)}" alt="${esc(p.title)}">` : ''}
+    ${mediaHero(media, p.title, mt)}
     <div class="pcols"><div>${paragraphs}${gallery}${form}</div>
     <aside class="box facts">${facts.map(([k, val]) => `<div><span>${esc(k)}</span>${esc(val)}</div>`).join('')}
       ${contact.length ? `<div><span>${esc(text.contact)}</span>${contact.join('<br>')}</div>` : ''}
-      ${p.premium && !state.sent ? `<a class="btn" href="#${esc(P.requestAnchor)}">${esc(text.requestDate)}</a>` : ''}</aside></div></div>`,
+      ${p.premium && !state.sent ? `<a class="btn" href="#${esc(P.requestAnchor)}">${esc(text.requestDate)}</a>` : ''}</aside></div></div>${mediaViewer(media, p.title, mt)}`,
     { description: p.seoDescription || p.summary })
 }

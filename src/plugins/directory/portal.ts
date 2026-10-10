@@ -15,6 +15,7 @@ import {
 } from '../../site-accounts'
 import { alphabetical, directorySettings, listingUrl, slugify, subcategories } from './config'
 import { esc, fold, html, mediaList, str, truthy } from './util'
+import { videoIds } from './media'
 
 type Env = { DB: D1Database; MEDIA_BUCKET: R2Bucket }
 interface Owned { rootId: string; id: string; slug: string; title: string; live: boolean; data: Record<string, unknown> }
@@ -154,7 +155,9 @@ function readListing(form: FormData): { title: string; data: Record<string, unkn
       capacity: capacity ?? null, priceLevel: T.priceLevels.some(([k]) => k === priceLevel) ? priceLevel : '',
       setting: T.settings.some(([k]) => k === setting) ? setting : '',
       ...Object.fromEntries(T.amenities.map(([k]) => [k, form.get(k) === '1'])),
-      website, phone: get('phone', 60), email
+      website, phone: get('phone', 60), email,
+      // YouTube links only (one per line); anything else is dropped.
+      videos: videoIds(String(form.get('videos') ?? '').slice(0, 3000)).map(id => `https://www.youtube.com/watch?v=${id}`).join('\n')
     }
   }
 }
@@ -296,6 +299,7 @@ function editPage(listing: Owned | null, v: Record<string, unknown>, error?: str
       <label>${esc(P.fieldWebsite)}<input name="website" type="url" placeholder="https://" maxlength="300" value="${s('website')}"></label>
       <label>${esc(P.fieldPhone)}<input name="phone" maxlength="60" value="${s('phone')}"></label>
       <label>${esc(P.fieldEmail)}<input name="email" type="email" maxlength="200" value="${s('email')}"></label>
+      <label class="full">${esc(P.fieldVideos)}<textarea name="videos" rows="3" placeholder="https://www.youtube.com/watch?v=…">${s('videos')}</textarea><small>${esc(P.fieldVideosHint)}</small></label>
       <div class="full"><button type="submit">${esc(listing ? P.save : P.submitNew)}</button></div>
     </form>
     <section id="photos"><h2>${esc(P.photos)}</h2>${photosSection}</section>`)
