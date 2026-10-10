@@ -485,7 +485,7 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
   const body = `${header}<div class="wrap layout"><aside>${sidebar}</aside><section>
     ${pillBar}
     <div class="results ${f.view === P.viewList ? 'list' : 'grid'}">${cards || `<div class="empty"><h2>${esc(text.noResults)}</h2><p>${esc(text.noResultsText)}</p><p><a class="btn ghost" href="${esc(DIR)}">${esc(text.clearFilters)}</a></p></div>`}</div>
-    ${pager}${await shareBlock(db, `${url.origin}${encodeURI(canonicalPath ?? url.pathname)}${canonicalPath ? '' : url.search}`, heading)}</section></div>`
+    ${pager}</section></div>`
   // Unknown category/city landing pages are 404s (but still render the directory).
   const found = (!f.category || !!(cat || sub)) && (!f.city || !!r.cityLabel)
   const ld = jsonLd({ '@context': 'https://schema.org', '@graph': [

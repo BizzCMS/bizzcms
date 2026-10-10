@@ -246,7 +246,7 @@ export interface DirectorySettings {
   locale: string
   /** Sample entries (e.g. demo data): companies whose slug starts with `slugPrefix` get `label` next to the category. */
   sample?: { slugPrefix: string; label: string }
-  /** Share buttons on profiles and directory lists, e.g. the Social Share plugin:
+  /** Share buttons on profiles, e.g. the Social Share plugin:
    *  (db, url, title, image) => shareBar(db, url, title, image, 'hr'). None or '' = no buttons. */
   share?: (db: D1Database, url: string, title: string, image?: string) => Promise<string>
 }
