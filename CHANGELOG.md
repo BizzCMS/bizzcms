@@ -8,7 +8,7 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 - **Directory plugin: share buttons** on company profiles through the new `share` setting (e.g. the Social Share plugin in the page language); wrapper `.dir-share`.
 - **Languages plugin** (`src/plugins/languages.ts`, docs/languages.md): a site in several languages, each on its own addresses (`/`, `/en/`, `/de/…`). Translations are pages with a **Translation of** field. Every public page gets `<html lang>`, `hreflang` + `x-default`, `og:locale` and a language switcher in `[data-bizz-languages]`.
 - **SEO › General › Site language**: RSS `<language>` and feed texts in the site language (English, Croatian, German), `inLanguage` on WebSite and WebPage; `seoHead` takes an optional page `language`.
-- Cookie bar texts in German. Share buttons in English, Croatian and German (`shareBar(…, lang)`). `setSponsoredLabels()` for the "Sponsored" labels.
+- Cookie bar: a link with `data-cookie-policy` on the page (e.g. the footer link in the page language) is used as the policy link. Cookie bar texts in German. Share buttons in English, Croatian and German (`shareBar(…, lang)`). `setSponsoredLabels()` for the "Sponsored" labels.
 
 ### Fixed
 - RSS feeds always said `<language>en</language>` and "The post … appeared first on …", also on Croatian sites.

@@ -17,7 +17,7 @@ const SCHEMA = {
   bannerText: { type: 'string', label: 'Banner text', description: 'Leave empty for the standard text in the language of the page (English, Croatian and German built in).', default: '', maxLength: 400 },
   accentColor: { type: 'string', label: 'Button colour', description: 'Colour of "Allow all", the button borders and the switches, e.g. #4168b1. Empty = BizzCMS teal.', default: '', maxLength: 9 },
   accentTextColor: { type: 'string', label: 'Button text colour', description: 'Text colour on "Allow all", e.g. #ffffff. Empty = white.', default: '', maxLength: 9 },
-  policyUrl: { type: 'string', label: 'Cookie policy link', description: 'Address of your cookie policy page. Leave empty to hide the link.', default: '/cookies', maxLength: 300 }
+  policyUrl: { type: 'string', label: 'Cookie policy link', description: 'Address of your cookie policy page. Leave empty to hide the link. A link with data-cookie-policy on the page (e.g. the footer link in another language) is used instead.', default: '/cookies', maxLength: 300 }
   } satisfies ConfigSchema
 
 export const googleAnalyticsPlugin = definePlugin({
@@ -128,6 +128,8 @@ function apply(c){var m=c.m?'granted':'denied';gtag('consent','update',{analytic
   if(c.s&&!counted){counted=true;gtag('event','page_view')}}
 if(!C.ask)return
 var lang=(document.documentElement.getAttribute('lang')||'en').slice(0,2).toLowerCase(),T=C.texts[lang]||C.texts.en;
+// A page link marked data-cookie-policy (e.g. in the footer) wins over the setting: the policy in the page's language.
+var PL=document.querySelector('a[data-cookie-policy]');if(PL&&PL.getAttribute('href'))C.policy=PL.getAttribute('href');
 function esc(v){return String(v).replace(/[&<>"]/g,function(ch){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]})}
 function cat(k,label,on,fixed){return '<label class="bz-cat"><input type="checkbox" data-cat="'+k+'"'+(on?' checked':'')+(fixed?' disabled':'')+'><span class="bz-sw" aria-hidden="true"></span>'+esc(label)+'</label>'}
 function render(c){var b=document.getElementById('bz-consent');if(!b)return null;c=c||{p:false,s:false,m:false};
