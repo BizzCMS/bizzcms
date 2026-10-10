@@ -87,8 +87,9 @@ function accessForm(collections: McpCollection[], settings: AccessSettings, save
     })
     .join('')
 
-  return `<div class="px-6 pb-10">
-    <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 space-y-5 max-w-2xl">
+  // Same card as the MCP page's own sections (inside its column), not a separate box under it.
+  return `<div>
+    <div class="rounded-xl bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl p-6 ring-1 ring-zinc-950/5 dark:ring-white/10 shadow-sm space-y-5">
       <div>
         <h3 class="text-base/7 font-semibold text-zinc-950 dark:text-white">Collection write access</h3>
         <p class="mt-1 text-sm/6 text-zinc-500 dark:text-zinc-400">Control which collections AI agents can write to via MCP. Read is always on. Write defaults to off — enable only for collections where you want agents to create or update content.</p>
@@ -116,15 +117,12 @@ function accessForm(collections: McpCollection[], settings: AccessSettings, save
   </div>`
 }
 
-const PLUGIN_SETTINGS_BANNER = `<div style="padding:1rem 1.5rem 0">
-  <a href="/admin/mcp"
-    style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.5rem 1rem;background:#09090b;color:#fff;border-radius:0.375rem;font-size:0.875rem;font-weight:600;text-decoration:none;"
-    onmouseover="this.style.background='#27272a'" onmouseout="this.style.background='#09090b'">
-    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg>
-    Open MCP Server dashboard
-  </a>
-  <p style="margin:0.5rem 0 0;font-size:0.8125rem;color:#71717a">Connection guide, API key creation and collection write access are on the MCP Server dashboard.</p>
-</div>`
+// Plugin page: "MCP Settings" (the MCP Server dashboard: connection guide, API keys, write access) as a black
+// button right after the Settings / Information / Activity Log tabs, where people look (Ivan, 2026-10-10).
+const MCP_SETTINGS_TAB = `<a href="/admin/mcp" class="bizz-mcp-settings-tab" style="display:inline-flex;align-items:center;gap:6px;margin-left:6px;padding:7px 14px;border-radius:9px;background:#09090b;color:#fff;font-size:0.8125rem;font-weight:600;text-decoration:none;line-height:1.2">
+  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+  MCP Settings
+</a>`
 
 /** Handle POST /admin/mcp/access; inject sections into GET /admin/mcp and GET /admin/plugins/mcp. */
 export async function mcpAccessRoute(
@@ -150,12 +148,12 @@ export async function mcpAccessRoute(
     return Response.redirect(new URL('/admin/mcp?saved=1', url).toString(), 303)
   }
 
-  // Plugin Settings page: inject an "Open MCP Server dashboard" button so users can find the connect guide.
+  // Plugin Settings page: the "MCP Settings" button after the tabs, so users find the connection guide.
   if (request.method === 'GET' && path === '/admin/plugins/mcp') {
     const base = await fetcher(request)
     if (!base.ok || !base.headers.get('content-type')?.includes('text/html')) return base
     return new HTMLRewriter()
-      .on('main', { element: el => { el.prepend(PLUGIN_SETTINGS_BANNER, { html: true }) } })
+      .on('a#activity-tab', { element: el => { el.after(MCP_SETTINGS_TAB, { html: true }) } })
       .transform(new Response(base.body, base))
   }
 
@@ -164,8 +162,13 @@ export async function mcpAccessRoute(
     if (!base.ok || !base.headers.get('content-type')?.includes('text/html')) return base
     const settings = await getMcpAccessSettings(db)
     const form = accessForm(collections, settings, url.searchParams.has('saved'))
+    // Into the page's column of cards (the first div.space-y-8 in main); at the end of main if the markup changes.
+    let placed = false
     return new HTMLRewriter()
-      .on('main', { element: el => { el.append(form, { html: true }) } })
+      .on('main div.space-y-8', { element: el => { if (placed) return; placed = true; el.append(form, { html: true }) } })
+      .on('main', { element: el => { el.onEndTag(end => { if (!placed) end.before(form, { html: true }) }) } })
+      // The example configs name the server after the engine; call it bizzcms.
+      .on('pre, code', { text: t => { if (t.text.includes('"sonicjs"')) t.replace(t.text.replaceAll('"sonicjs"', '"bizzcms"'), { html: false }) } })
       .transform(new Response(base.body, base))
   }
 

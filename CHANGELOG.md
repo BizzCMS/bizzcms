@@ -4,6 +4,9 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Changed
+- MCP: "MCP Settings" is a black button right after the Settings / Information / Activity Log tabs on the MCP plugin page (was a banner above the page). The "Collection write access" card sits in the MCP dashboard's column in the same card style, and the example configs name the server `bizzcms`.
+
 ## [0.2.8] - 2026-10-10
 
 ### Added
