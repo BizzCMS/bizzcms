@@ -15,6 +15,7 @@ import { landingPage } from './landing'
 import { blogResponse } from './blog'
 import { checkRegisterPasswords, blockedRoute } from './auth'
 import { guardApi, apiSettingsPage, withApiTab } from './api-access'
+import { applyMcpAccess, mcpAccessRoute, type McpCollection, type McpOptions } from './plugins/mcp-access'
 import { googleAnalyticsPlugin, withGoogleAnalytics, gaAdminRoute } from './plugins/google-analytics'
 import { socialSharePlugin, shareAdminRoute } from './plugins/social-share'
 import { taxonomyRoute } from './taxonomy'
@@ -27,14 +28,20 @@ import { seoPlugin, seoAdminRoute } from './plugins/seo'
 
 registerCollections([pages, posts, categories])
 
-const readOnlyMcp = mcpPlugin({
+const MCP_COLLECTIONS: McpCollection[] = [
+  { name: 'pages', label: 'Pages' },
+  { name: 'posts', label: 'Posts' },
+]
+// write defaults to false; applyMcpAccess() updates these from DB before each /mcp request
+const mcpOptions: McpOptions = {
   expose: ['pages', 'posts'],
   types: {
     pages: { read: true, write: false },
-    posts: { read: true, write: false }
+    posts: { read: true, write: false },
   },
-  listLimit: 25
-})
+  listLimit: 25,
+}
+const readOnlyMcp = mcpPlugin(mcpOptions)
 // Upstream's built-in v3 plugin is runtime-supported, but its beta declarations
 // still expect legacy Plugin routes/lifecycle signatures in SonicJSConfig.
 type RegisteredPlugin = NonNullable<NonNullable<SonicJSConfig['plugins']>['register']>[number]
@@ -73,6 +80,11 @@ async function handleRequest(request: Request, env: Parameters<typeof cms.fetch>
     if (passwordMismatch) return passwordMismatch
     const db = (env as unknown as { DB: D1Database }).DB
     const upstream = (r: Request) => finishUpstream(ctx, cms.fetch(r, envKeepPublishDate(env), ctx))
+    // MCP write access: apply DB-backed per-collection settings before each /mcp call.
+    if (path === '/mcp' && request.method === 'POST') await applyMcpAccess(mcpOptions, db, MCP_COLLECTIONS)
+    // MCP admin: POST /admin/mcp/access (save) and GET /admin/mcp (inject write-access section).
+    const mcpAccess = await mcpAccessRoute(request, path, db, upstream, MCP_COLLECTIONS)
+    if (mcpAccess) return mcpAccess.headers.get('content-type')?.includes('text/html') ? applyBranding(mcpAccess, path) : mcpAccess
     // Blog / News counts for the sidebar, drawn by the server (src/sections.ts).
     if (path.startsWith('/admin')) await primeSidebarCounts(db, (env as unknown as { CACHE_KV?: KVNamespace }).CACHE_KV)
     // Google Analytics plugin: install + after-save redirect (see src/plugins/google-analytics.ts).
