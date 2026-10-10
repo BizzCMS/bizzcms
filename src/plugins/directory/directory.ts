@@ -402,7 +402,7 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
     ${pager}</section></div>`
   // Unknown category/city landing pages are 404s (but still render the directory).
   const found = (!f.category || !!(cat || sub)) && (!f.city || !!r.cityLabel)
-  return { found, html: page(`${heading}${f.page > 1 ? text.pageSuffix(f.page) : ''}`, body, {
+  return { found, html: page(heading, body, { // no page numbers in titles (owner's rule, all BizzCMS sites)
     description: text.metaDescription(heading, text.results(r.total)),
     canonical: canonicalPath && found ? `${url.origin}${encodeURI(canonicalPath)}` : undefined, index: !!canonicalPath && found }) }
 }
