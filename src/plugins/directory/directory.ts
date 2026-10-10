@@ -40,9 +40,25 @@ export async function handleDirectory(request: Request, env: Env): Promise<Respo
     if (!get) return null
     const pattern = landing.kind === 'directory' ? routes.directory : landing.kind === 'category' ? routes.category : routes.city
     if (slashed(pattern)) return moved(url.pathname + '/' + url.search)
+    // Type-ahead suggestions for the search box: ?suggest=<text> → JSON (cities first, then companies).
+    const suggest = url.searchParams.get('suggest')
+    if (suggest !== null) return Response.json(await suggestions(env.DB, suggest), { headers: { 'cache-control': 'public, max-age=300' } })
     const filters = readFilters(url.searchParams)
     if (landing.kind === 'category') filters.category = safeDecode(landing.slug!)
     if (landing.kind === 'city') filters.city = safeDecode(landing.slug!)
+    // A typed city is an exact filter: "osijek" → the Osijek page; "bend osijek" → "bend" among Osijek companies.
+    if (filters.q && !filters.city) {
+      const hit = await cityInQuery(env.DB, filters.q)
+      if (hit) {
+        filters.city = hit.slug
+        filters.q = hit.rest
+        if (!hit.rest) {
+          const p = new URLSearchParams(url.search); p.delete(params.q)
+          if (filters.category) { p.set(params.city, hit.slug); return moved(`${url.pathname}?${p}`) }
+          return moved(cityUrl(hit.slug) + (p.toString() ? `?${p}` : ''))
+        }
+      }
+    }
     const page = await directoryPage(env.DB, filters, url)
     return html(page.html, page.found || landing.kind === 'directory' ? 200 : 404)
   }
@@ -56,8 +72,11 @@ export async function handleDirectory(request: Request, env: Env): Promise<Respo
   // A company taken off the directory (unpublished, e.g. closed) keeps its old address alive: 301 to its main
   // category page (a company has exactly one), or to the directory when it has none. Never a 404.
   if (!company && get) {
+    // Only companies that were public before (imported from an old site, or taken down after the online check);
+    // a new profile waiting for approval simply does not exist yet.
     const gone = await env.DB.prepare(`SELECT ${J('category')} AS category FROM documents WHERE type_id = 'partners' AND is_current_draft = 1
-      AND (deleted_at IS NULL OR deleted_at = '') AND ${legacy ? `CAST(${J('legacyId')} AS INTEGER) = ?` : 'slug = ?'} LIMIT 1`)
+      AND (deleted_at IS NULL OR deleted_at = '') AND (${J('legacyId')} IS NOT NULL OR COALESCE(${J('checkStatus')}, '') != '')
+      AND ${legacy ? `CAST(${J('legacyId')} AS INTEGER) = ?` : 'slug = ?'} LIMIT 1`)
       .bind(legacy ? Number(legacy.id) : slug).first<{ category: string | null }>()
     if (gone) return moved(gone.category && directorySettings().taxonomy.categories.some(c => c.slug === gone.category) ? categoryUrl(gone.category) : directoryUrl())
   }
@@ -144,6 +163,46 @@ function orderBy(sort: string): string {
   // Visits: the optional `views` field (e.g. carried over from an old site).
   if (sort === params.sortPopular) return `CAST(${J('views')} AS INTEGER) DESC, title COLLATE NOCASE`
   return `premium DESC, CAST(${J('views')} AS INTEGER) DESC, title COLLATE NOCASE`
+}
+
+// Cities that have published companies (name + slug), cached briefly per isolate.
+let cityCache: { at: number; list: { name: string; slug: string; n: number }[] } | null = null
+async function cityList(db: D1Database) {
+  if (cityCache && Date.now() - cityCache.at < 300_000) return cityCache.list
+  const rows = (await db.prepare(`SELECT ${J('city')} AS city, COUNT(*) AS n FROM documents WHERE ${PUBLISHED} AND COALESCE(${J('city')}, '') != '' GROUP BY 1`).all<{ city: string; n: number }>()).results
+  const bySlug = new Map<string, { name: string; slug: string; n: number }>()
+  for (const r of rows) { const slug = slugify(r.city); const e = bySlug.get(slug); if (e) e.n += Number(r.n); else if (slug) bySlug.set(slug, { name: r.city, slug, n: Number(r.n) }) }
+  cityCache = { at: Date.now(), list: [...bySlug.values()] }
+  return cityCache.list
+}
+
+/** The longest city name (whole words, accents ignored) in the search text, and the text without it. */
+async function cityInQuery(db: D1Database, q: string): Promise<{ slug: string; rest: string } | null> {
+  const words = slugify(q).split('-').filter(Boolean)
+  if (!words.length) return null
+  const cities = (await cityList(db)).map(c => ({ ...c, w: c.slug.split('-') })).sort((a, b) => b.w.length - a.w.length)
+  for (const c of cities) {
+    for (let i = 0; i + c.w.length <= words.length; i++) {
+      if (c.w.every((w, j) => words[i + j] === w)) {
+        const rest = [...words.slice(0, i), ...words.slice(i + c.w.length)].join(' ')
+        return { slug: c.slug, rest }
+      }
+    }
+  }
+  return null
+}
+
+/** Search-box suggestions: up to 5 cities (by name start) and 6 companies (by name), with their addresses. */
+async function suggestions(db: D1Database, raw: string) {
+  const q = slugify(raw).replace(/-/g, ' ').trim()
+  if (q.length < 2) return []
+  const cities = (await cityList(db)).filter(c => c.slug.replace(/-/g, ' ').startsWith(q) || c.slug.replace(/-/g, ' ').includes(' ' + q))
+    .sort((a, b) => b.n - a.n).slice(0, 5)
+    .map(c => ({ kind: 'city', label: c.name, count: c.n, url: cityUrl(c.slug) }))
+  const today = new Date().toISOString().slice(0, 10)
+  const rows = (await db.prepare(`SELECT ${CARD_FIELDS} FROM documents WHERE ${PUBLISHED} AND ${fold('title')} LIKE ? ORDER BY premium DESC, CAST(${J('views')} AS INTEGER) DESC, title COLLATE NOCASE LIMIT 6`)
+    .bind(today, `%${q}%`).all<Row>()).results.map(toCard)
+  return [...cities, ...rows.map(c => ({ kind: 'company', label: c.title, city: c.city ?? '', url: listingUrl(c) }))]
 }
 
 export interface Card {
@@ -392,7 +451,7 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
     <form class="tools" method="get" action="${esc(DIR)}">
       ${Object.entries({ category: f.category, region: f.region, city: f.city, guests: f.guests, price: f.price, setting: f.setting, premium: f.premium, view: f.view }).map(([k, v]) => hidden((P as Record<string, string>)[k], v)).join('')}
       ${f.amenities.map(a => hidden(a, '1')).join('')}
-      <label class="search">${icon('search')}<input type="search" name="${P.q}" value="${esc(f.q)}" placeholder="${esc(text.searchPlaceholder)}" aria-label="${esc(text.searchLabel)}"></label>
+      <label class="search">${icon('search')}<input type="search" name="${P.q}" value="${esc(f.q)}" placeholder="${esc(text.searchPlaceholder)}" aria-label="${esc(text.searchLabel)}" data-suggest="${esc(DIR)}"></label>
       <select name="${P.sort}" aria-label="${esc(text.sortLabel)}" data-auto-submit>${option('', text.sortRecommended, f.sort)}${alphabetical([[P.sortName, text.sortName], [P.sortNewest, text.sortNewest], [P.sortPopular, text.sortPopular], ...(isVenue ? [[P.sortCapacity, text.sortCapacity]] : [])] as [string, string][], o => o[1]).map(([k, t]) => option(k, t, f.sort)).join('')}</select>
       <span class="views"><a class="${f.view === P.viewList ? '' : 'on'}" href="${params({ view: null })}" title="${esc(text.viewGrid)}" aria-label="${esc(text.viewGridLabel)}">${icon('grid')}</a><a class="${f.view === P.viewList ? 'on' : ''}" href="${params({ view: P.viewList })}" title="${esc(text.viewList)}" aria-label="${esc(text.viewListLabel)}">${icon('list')}</a></span>
     </form></div></div>`

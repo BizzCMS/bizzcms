@@ -42,7 +42,7 @@ export async function handleCompanyPortal(request: Request, env: Env, cms: Cms):
   if (account) return account
 
   const user = await currentUser(request, cms)
-  if (path === P.base) return html(user ? await dashboard(env.DB, user, url.searchParams.get(A.notice)) : landingPage())
+  if (path === P.base) return html(user ? await dashboard(env.DB, user, url.searchParams.get(A.notice)) : landingPage(url.origin))
   if (!user) return loginRedirect(audience(), url, path)
 
   if (path === `${P.base}/${P.new}`) {
@@ -232,13 +232,14 @@ function redirect(url: URL, notice: string): Response {
   return Response.redirect(`${url.origin}${directorySettings().portal.base}?${accountPaths().notice}=${notice}`, 303)
 }
 
-function landingPage(): string {
+// The landing page is public (indexed, with description and canonical); the rest of the portal is private.
+function landingPage(origin: string): string {
   const P = directorySettings().portal
   const A = accountPaths()
-  return portalPage(P.forCompanies, `<section class="hero"><p class="eyebrow">${esc(P.forCompanies)}</p><h1>${esc(P.landingHeading)}</h1>
+  return directorySettings().layout(P.forCompanies, `<div class="wrap portal"><section class="hero"><p class="eyebrow">${esc(P.forCompanies)}</p><h1>${esc(P.landingHeading)}</h1>
     <p class="lead">${esc(P.landingLead)}</p>
     <p class="actions"><a class="btn" href="${P.base}/${A.register}">${esc(P.landingCta)}</a><a class="btn ghost" href="${P.base}/${A.login}">${esc(P.landingLogin)}</a></p></section>
-    <div class="features">${P.landingFeatures.map(([h, t]) => `<div class="box"><h2>${esc(h)}</h2><p>${esc(t)}</p></div>`).join('')}</div>`)
+    <div class="features">${P.landingFeatures.map(([h, t]) => `<div class="box"><h2>${esc(h)}</h2><p>${esc(t)}</p></div>`).join('')}</div></div>`, { description: P.landingLead, canonical: `${origin}${P.base}`, index: true })
 }
 
 async function dashboard(db: D1Database, user: User, notice: string | null): Promise<string> {

@@ -14,4 +14,4 @@ export {
 export { handleDirectory, findListing, listingCardHtml, featuredListings, directoryOverview, directorySitemap, type Card, type Listing } from './directory'
 export { handleCompanyPortal } from './portal'
 export { directoryCollections } from './collections'
-export { directoryScript, fold } from './util'
+export { directoryScript, DIRECTORY_CSS, fold } from './util'
