@@ -8,7 +8,7 @@
 import { DocumentsService } from 'bizzcms-core'
 import { readForm } from '../../site-accounts'
 import {
-  alphabetical, categoryUrl, cityUrl, directorySettings, directoryUrl, label, listingUrl, matchRoute, slugify, subcategories
+  alphabetical, categoryUrl, cityUrl, regionUrl, directorySettings, directoryUrl, label, listingUrl, matchRoute, slugify, subcategories
 } from './config'
 import { esc, fold, html, icon, mediaList, pageWindow, safeDecode, safeUrl, str, truthy } from './util'
 import { mediaGallery, mediaHero, mediaItems, mediaViewer, videoIds } from './media'
@@ -35,10 +35,12 @@ export async function handleDirectory(request: Request, env: Env): Promise<Respo
 
   const landing = matchRoute(routes.directory, path) ? { kind: 'directory' }
     : matchRoute(routes.category, path) ? { kind: 'category', slug: matchRoute(routes.category, path)!.slug }
-    : matchRoute(routes.city, path) ? { kind: 'city', slug: matchRoute(routes.city, path)!.slug } : null
+    : matchRoute(routes.city, path) ? { kind: 'city', slug: matchRoute(routes.city, path)!.slug }
+    : routes.region && matchRoute(routes.region, path) ? { kind: 'region', slug: matchRoute(routes.region, path)!.slug } : null
   if (landing) {
     if (!get) return null
-    const pattern = landing.kind === 'directory' ? routes.directory : landing.kind === 'category' ? routes.category : routes.city
+    const pattern = landing.kind === 'directory' ? routes.directory : landing.kind === 'category' ? routes.category
+      : landing.kind === 'region' ? routes.region! : routes.city
     if (slashed(pattern)) return moved(url.pathname + '/' + url.search)
     // Type-ahead suggestions for the search box: ?suggest=<text> → JSON (cities first, then companies).
     const suggest = url.searchParams.get('suggest')
@@ -51,12 +53,16 @@ export async function handleDirectory(request: Request, env: Env): Promise<Respo
     if (landing.kind === 'directory' && !clean.has(params.q)) {
       const cat = clean.get(params.category), city = clean.get(params.city)
       if (cat) { clean.delete(params.category); return moved(categoryUrl(cat) + (clean.toString() ? `?${clean}` : '')) }
-      if (city) { clean.delete(params.city); return moved(cityUrl(city) + (clean.toString() ? `?${clean}` : '')) }
+      // A city already says the region, so the region filter goes with it.
+      if (city) { clean.delete(params.city); clean.delete(params.region); return moved(cityUrl(city) + (clean.toString() ? `?${clean}` : '')) }
+      const region = clean.get(params.region)
+      if (region && routes.region) { clean.delete(params.region); return moved(regionUrl(region) + (clean.toString() ? `?${clean}` : '')) }
     }
     if (clean.toString() !== url.searchParams.toString()) return moved(url.pathname + (clean.toString() ? `?${clean}` : ''))
     const filters = readFilters(url.searchParams)
     if (landing.kind === 'category') filters.category = safeDecode(landing.slug!)
     if (landing.kind === 'city') filters.city = safeDecode(landing.slug!)
+    if (landing.kind === 'region') filters.region = safeDecode(landing.slug!)
     // A typed city is an exact filter: "osijek" → the Osijek page; "bend osijek" → "bend" among Osijek companies.
     if (filters.q && !filters.city) {
       const hit = await cityInQuery(env.DB, filters.q)
@@ -377,15 +383,19 @@ export async function directoryOverview(db: D1Database) {
 /** For the sitemap: the directory, every category and city page and every company profile (path, last change). */
 export async function directorySitemap(db: D1Database): Promise<[string, number?][]> {
   const { taxonomy } = directorySettings()
-  const [companies, cities] = await db.batch([
+  const [companies, cities, regions] = await db.batch([
     db.prepare(`SELECT slug, updated_at, ${J('legacyId')} AS legacyId, ${J('legacySlug')} AS legacySlug FROM documents WHERE ${PUBLISHED} ORDER BY slug`),
-    db.prepare(`SELECT DISTINCT ${J('city')} AS city FROM documents WHERE ${PUBLISHED} AND COALESCE(${J('city')}, '') != ''`)
+    db.prepare(`SELECT DISTINCT ${J('city')} AS city FROM documents WHERE ${PUBLISHED} AND COALESCE(${J('city')}, '') != ''`),
+    db.prepare(`SELECT DISTINCT ${J('county')} AS region FROM documents WHERE ${PUBLISHED} AND COALESCE(${J('county')}, '') != ''`)
   ])
+  const regionSlugs = directorySettings().routes.region
+    ? (regions.results as { region: string }[]).map(r => r.region).filter(s => taxonomy.regions.some(([k]) => k === s)) : []
   const citySlugs = [...new Set((cities.results as { city: string }[]).map(r => slugify(r.city)).filter(Boolean))]
   return [
     [directoryUrl()],
     ...taxonomy.categories.flatMap(c => [[categoryUrl(c.slug)], ...(c.subs ?? []).map(s => [categoryUrl(s.slug)])] as [string][]),
     ...citySlugs.map(s => [cityUrl(s)] as [string]),
+    ...regionSlugs.map(s => [regionUrl(s)] as [string]),
     ...(companies.results as Row[]).map(r => [listingUrl({ slug: String(r.slug), legacyId: Number(r.legacyId) || undefined, legacySlug: str(r.legacySlug) }), Number(r.updated_at)] as [string, number])
   ]
 }
@@ -487,18 +497,20 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
       <span class="views"><a class="${f.view === P.viewList ? '' : 'on'}" href="${params({ view: null })}" title="${esc(text.viewGrid)}" aria-label="${esc(text.viewGridLabel)}">${icon('grid')}</a><a class="${f.view === P.viewList ? 'on' : ''}" href="${params({ view: P.viewList })}" title="${esc(text.viewList)}" aria-label="${esc(text.viewListLabel)}">${icon('list')}</a></span>
     </form></div></div>`
 
-  // Only plain category/city pages are canonical and indexable; filter combinations are noindex.
-  const plain = !f.q && !f.region && !f.guests && !f.price && !f.setting && !f.premium && !f.amenities.length && !f.sort && !f.view && f.page === 1
+  // Only plain category/city/region pages are canonical and indexable; filter combinations are noindex.
+  const hasRegionPage = !!directorySettings().routes.region
+  const plain = !f.q && !f.guests && !f.price && !f.setting && !f.premium && !f.amenities.length && !f.sort && !f.view && f.page === 1
   const canonicalPath = !plain ? null
-    : f.category && !f.city ? categoryUrl(f.category)
-    : f.city && !f.category ? cityUrl(f.city)
-    : !f.category && !f.city ? DIR : null
+    : f.category && !f.city && !f.region ? categoryUrl(f.category)
+    : f.city && !f.category && !f.region ? cityUrl(f.city)
+    : f.region && hasRegionPage && !f.category && !f.city ? regionUrl(f.region)
+    : !f.category && !f.city && !f.region ? DIR : null
   const body = `${header}<div class="wrap layout"><aside>${sidebar}</aside><section>
     ${pillBar}
     <div class="results ${f.view === P.viewList ? 'list' : 'grid'}">${cards || `<div class="empty"><h2>${esc(text.noResults)}</h2><p>${esc(text.noResultsText)}</p><p><a class="btn ghost" href="${esc(DIR)}">${esc(text.clearFilters)}</a></p></div>`}</div>
     ${pager}</section></div>`
   // Unknown category/city landing pages are 404s (but still render the directory).
-  const found = (!f.category || !!(cat || sub)) && (!f.city || !!r.cityLabel)
+  const found = (!f.category || !!(cat || sub)) && (!f.city || !!r.cityLabel) && (!f.region || !!label(taxonomy.regions, f.region))
   const ld = jsonLd({ '@context': 'https://schema.org', '@graph': [
     { '@type': 'CollectionPage', name: heading, url: `${url.origin}${encodeURI(canonicalPath ?? DIR)}`, mainEntity: { '@type': 'ItemList', numberOfItems: r.total,
       itemListElement: r.cards.map((c, i) => ({ '@type': 'ListItem', position: (f.page - 1) * PAGE_SIZE + i + 1, url: abs(url.origin, listingUrl(c)), name: c.title })) } },

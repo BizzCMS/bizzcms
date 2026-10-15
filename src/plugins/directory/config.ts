@@ -21,6 +21,9 @@ export interface DirectoryRoutes {
   category: string
   /** City landing page; {slug} is the city, e.g. '/companies/city/{slug}/'. */
   city: string
+  /** Optional region (county) landing page; {slug} is the region, e.g. '/companies/region/{slug}/'.
+   *  Without it a region stays a filter on the directory (?region=…). */
+  region?: string
   /** A company's profile; {slug} is its URL slug, e.g. '/company/{slug}/'. */
   listing: string
   /** Optional: profile address for companies imported from an older site, with {name} and {id}
@@ -315,6 +318,9 @@ const fill = (pattern: string, values: Record<string, string>) => pattern.replac
 export const directoryUrl = () => current.routes.directory
 export const categoryUrl = (slug: string) => fill(current.routes.category, { slug })
 export const cityUrl = (slug: string) => fill(current.routes.city, { slug })
+/** A region's page, or the directory filtered by region when the site has no region route. */
+export const regionUrl = (slug: string) => current.routes.region ? fill(current.routes.region, { slug })
+  : `${current.routes.directory}?${new URLSearchParams({ [current.params.region]: slug })}`
 /** A company's profile address: the old site's address when it came from one, else the listing pattern. */
 export function listingUrl(p: { slug: string; legacyId?: number; legacySlug?: string }): string {
   const legacy = current.routes.legacyListing

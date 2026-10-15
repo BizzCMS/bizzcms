@@ -94,6 +94,8 @@ Other exports for the site's own pages:
 - `directoryScript()`: filters apply on change and collapse on phones; include it once in your layout
 - URL helpers: `directoryUrl`, `categoryUrl`, `cityUrl`, `listingUrl`
 
+Region pages: set `routes.region` (e.g. `'/companies/region/{slug}/'`) and each region with published companies gets its own indexable page (and sitemap entry); choosing a region in the filter goes there. Without it a region stays a ?region= filter (noindex).
+
 ## Styling
 
 The plugin writes plain HTML with stable class names, styled by your site's CSS:
