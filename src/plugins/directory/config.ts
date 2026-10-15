@@ -46,6 +46,8 @@ export const DEFAULT_TAXONOMY = {
   regions: [] as Pairs,
   guestBuckets: [[50, '50+'], [100, '100+'], [200, '200+'], [300, '300+'], [400, '400+']] as readonly (readonly [number, string])[],
   priceLevels: [['1', '€'], ['2', '€€'], ['3', '€€€'], ['4', '€€€€']] as Pairs,
+  /** Show the price filter in the directory sidebar (false hides it; price levels stay on profiles and in the portal). */
+  priceFilter: true as boolean,
   settings: [['indoor', 'Indoor'], ['outdoor', 'Outdoor'], ['both', 'Indoor and outdoor']] as Pairs,
   amenities: [['hasAccommodation', 'Accommodation for guests'], ['hasCatering', 'Own catering'], ['hasParking', 'Parking']] as Pairs
 }
