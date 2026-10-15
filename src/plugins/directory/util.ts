@@ -57,7 +57,9 @@ export const fold = (expr: string) => FOLD.reduce((e, [from, to]) => `replace(${
 /** Progressive enhancement for the filter forms: apply on change; filters collapsed on small screens.
  *  Sites include it once in their layout. */
 export function directoryScript(regionParam = 'region', cityParam = 'city'): string {
-  return `document.querySelectorAll('form[data-auto]').forEach(function(f){f.addEventListener('change',function(e){
+  // GET forms never send empty fields (no ?grad=&q= in addresses); the server also redirects those to clean ones.
+  return `document.addEventListener('submit',function(e){var f=e.target;if(!f||(f.getAttribute('method')||'get').toLowerCase()!=='get')return;var off=[];[].forEach.call(f.elements,function(el){if(el.name&&!el.disabled&&el.type!=='submit'&&String(el.value).trim()===''&&((el.type!=='checkbox'&&el.type!=='radio')||el.checked)){el.disabled=true;off.push(el)}});setTimeout(function(){off.forEach(function(el){el.disabled=false})},0)});
+document.querySelectorAll('form[data-auto]').forEach(function(f){f.addEventListener('change',function(e){
 if(e.target.name===${JSON.stringify(regionParam)}&&f.elements[${JSON.stringify(cityParam)}])f.elements[${JSON.stringify(cityParam)}].value='';f.requestSubmit()})});
 document.querySelectorAll('[data-auto-submit]').forEach(function(s){s.addEventListener('change',function(){s.form.requestSubmit()})});
 if(window.matchMedia('(max-width:900px)').matches)document.querySelectorAll('aside details').forEach(function(d){d.open=false});

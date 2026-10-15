@@ -43,6 +43,17 @@ export async function handleDirectory(request: Request, env: Env): Promise<Respo
     // Type-ahead suggestions for the search box: ?suggest=<text> → JSON (cities first, then companies).
     const suggest = url.searchParams.get('suggest')
     if (suggest !== null) return Response.json(await suggestions(env.DB, suggest), { headers: { 'cache-control': 'public, max-age=300' } })
+    // Clean addresses: empty parameters go (?q=&kategorija=x), and a search that is only a category or a city
+    // goes to that category/city page (the home search form sends ?kategorija=catering&q=).
+    const clean = new URLSearchParams()
+    for (const [k, v] of url.searchParams) if (v.trim() !== '') clean.append(k, v)
+    // Filters stay on the category (or city) page: /directory?category=x&region=y → /category/x/?region=y.
+    if (landing.kind === 'directory' && !clean.has(params.q)) {
+      const cat = clean.get(params.category), city = clean.get(params.city)
+      if (cat) { clean.delete(params.category); return moved(categoryUrl(cat) + (clean.toString() ? `?${clean}` : '')) }
+      if (city) { clean.delete(params.city); return moved(cityUrl(city) + (clean.toString() ? `?${clean}` : '')) }
+    }
+    if (clean.toString() !== url.searchParams.toString()) return moved(url.pathname + (clean.toString() ? `?${clean}` : ''))
     const filters = readFilters(url.searchParams)
     if (landing.kind === 'category') filters.category = safeDecode(landing.slug!)
     if (landing.kind === 'city') filters.city = safeDecode(landing.slug!)

@@ -5,6 +5,7 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 ## [Unreleased]
 
 ### Added
+- **Directory plugin: clean filter addresses**: empty parameters are dropped (301), a directory search with a category or city goes to that category/city page with the other filters (?region=…&guests=…), and GET forms no longer send empty fields.
 - **Directory plugin: `taxonomy.priceFilter`** (default true): false hides the price filter in the directory sidebar; price levels stay on profiles and in the portal.
 - **Directory plugin: unique profile titles**: `Name - (sub)category, city` when the company has no own SEO title (an imported SEO title equal to the name counts as none), so same-named companies never share a <title>.
 - **MCP publish date**: `create_<collection>` and `publish_<collection>` take an optional `publishedAt` (ISO 8601 date or date-time, or unix seconds; not in the future), so imported or historical articles go live with their own date and sort correctly (docs/mcp.md › Publish dates).
