@@ -5,6 +5,7 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 ## [Unreleased]
 
 ### Added
+- **Directory plugin: unique profile titles**: `Name - (sub)category, city` when the company has no own SEO title (an imported SEO title equal to the name counts as none), so same-named companies never share a <title>.
 - **MCP publish date**: `create_<collection>` and `publish_<collection>` take an optional `publishedAt` (ISO 8601 date or date-time, or unix seconds; not in the future), so imported or historical articles go live with their own date and sort correctly (docs/mcp.md › Publish dates).
 - **MCP `upload_media`**: adds an image from an https link or base64 to the media library in the site's own folder and returns the `/files/...` path for `featuredImage`; alt text, caption, tags and a source/licence note are stored. Safe fetch: https only, no IP addresses or internal host names, redirects checked, JPEG/PNG/WebP/GIF/AVIF only, 10 MB at most; the link (which may carry a key) is never stored or echoed. Listed only for callers with write access (docs/mcp.md › Media upload).
 - **MCP categories**: `list_/get_/create_/update_/publish_/delete_categories`, with read and write following the per-collection MCP access settings.

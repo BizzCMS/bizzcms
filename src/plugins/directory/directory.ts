@@ -534,7 +534,11 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
         <label class="hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
         <button type="submit">${esc(text.formSend)}</button>
       </form></section>`
-  return page(p.seoTitle || p.title, `<div class="wrap profile">
+  // Title: the company's own SEO title, else name - (sub)category, city, so companies with the same name in
+  // different towns or categories never share a <title> (old directories have many: "Ana", "Simple", "Croata").
+  const where = [sub?.label ?? parent?.label, p.city].filter(Boolean).join(', ')
+  const ownTitle = p.seoTitle && p.seoTitle.trim() !== p.title.trim() ? p.seoTitle : '' // an imported SEO title equal to the name adds nothing
+  return page(ownTitle || (where ? `${p.title} - ${where}` : p.title), `<div class="wrap profile">
     <p class="crumbs"><a href="${esc(directoryUrl())}">${esc(text.directoryTitle)}</a>${parent ? ` › <a href="${esc(categoryUrl(parent.slug))}">${esc(parent.label)}</a>` : ''}${sub ? ` › <a href="${esc(categoryUrl(sub.slug))}">${esc(sub.label)}</a>` : ''}</p>
     <div class="phead"><h1>${esc(p.title)}</h1>${p.premium ? `<span class="pill premium">${esc(text.premium)}</span>` : ''}</div>
     ${mediaHero(media, p.title, mt)}
