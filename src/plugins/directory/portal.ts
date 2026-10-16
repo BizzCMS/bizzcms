@@ -13,7 +13,7 @@ import {
   accountPaths, accountRoute, type Audience, type Cms, crossOrigin, currentUser, galleryAction, galleryEditor, loginRedirect,
   portalPage, readForm, type User
 } from '../../site-accounts'
-import { alphabetical, directorySettings, listingUrl, slugify, subcategories } from './config'
+import { alphabetical, directorySettings, listingUrl, notifyDirectory, slugify, subcategories } from './config'
 import { esc, fold, html, mediaList, str, truthy } from './util'
 import { videoIds } from './media'
 
@@ -55,6 +55,7 @@ export async function handleCompanyPortal(request: Request, env: Env, cms: Cms):
       typeId: 'partners', title: result.title, slug, publishOnCreate: false,
       data: { ...result.data, slug, ownerEmail: user.email, paidMember: false }
     } as unknown as Parameters<DocumentsService['create']>[0], user.id)
+    await notifyDirectory({ type: 'listing', title: result.title, userEmail: user.email, adminUrl: `${url.origin}/admin/content?model=partners` })
     return redirect(url, P.noticeNew)
   }
 
@@ -222,6 +223,7 @@ async function claim(request: Request, db: D1Database, user: User, url: URL): Pr
       typeId: 'listing-claims', title, publishOnCreate: false,
       data: { title, partner: listing.slug, partnerName: listing.title, userEmail: user.email, message: '', handling: 'new' }
     } as unknown as Parameters<DocumentsService['create']>[0], user.id)
+    await notifyDirectory({ type: 'claim', listing: { title: listing.title, url: `${url.origin}${listingUrl({ slug: listing.slug, legacyId: Number(listing.data.legacyId) || undefined, legacySlug: (listing.data.legacySlug as string) || undefined })}` }, userEmail: user.email })
   }
   return redirect(url, P.noticeRequested)
 }

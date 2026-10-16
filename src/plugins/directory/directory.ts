@@ -8,7 +8,7 @@
 import { DocumentsService } from 'bizzcms-core'
 import { readForm } from '../../site-accounts'
 import {
-  alphabetical, categoryUrl, cityUrl, regionUrl, directorySettings, directoryUrl, label, listingUrl, matchRoute, slugify, subcategories
+  alphabetical, categoryUrl, cityUrl, regionUrl, directorySettings, notifyDirectory, directoryUrl, label, listingUrl, matchRoute, slugify, subcategories
 } from './config'
 import { esc, fold, html, icon, mediaList, pageWindow, safeDecode, safeUrl, str, truthy } from './util'
 import { mediaGallery, mediaHero, mediaItems, mediaViewer, videoIds } from './media'
@@ -103,7 +103,7 @@ export async function handleDirectory(request: Request, env: Env): Promise<Respo
   if (get && safeDecode(url.pathname) !== canonical) return moved(canonical + url.search)
   if (request.method === 'POST') {
     if (!company.premium) return html(page(company.title, `<div class="wrap profile"><h1>${esc(text.requestsUnavailable)}</h1></div>`), 403)
-    const result = await saveRequest(await readForm(request), company, env)
+    const result = await saveRequest(await readForm(request), company, env, url.origin)
     if (result.ok) return Response.redirect(new URL(`${canonical}?${params.sent}=1#${params.requestAnchor}`, url.origin).href, 303)
     return html(profilePage(company, { error: result.error, values: result.values }, url.origin, await shareFor(env.DB, url.origin + canonical, company)), 400)
   }
@@ -313,7 +313,7 @@ export async function findListing(db: D1Database, by: { slug: string } | { legac
   }
 }
 
-async function saveRequest(form: FormData, company: Listing, env: Env) {
+async function saveRequest(form: FormData, company: Listing, env: Env, origin: string) {
   const { text } = directorySettings()
   const values = Object.fromEntries(['coupleName', 'email', 'phone', 'weddingDate', 'guests', 'message']
     .map(k => [k, String(form.get(k) ?? '').trim()]))
@@ -334,6 +334,9 @@ async function saveRequest(form: FormData, company: Listing, env: Env) {
       guests: Number.isFinite(guests) && guests > 0 ? guests : undefined, message: values.message, handling: 'new'
     }
   } as unknown as Parameters<DocumentsService['create']>[0]) // create() applies schema defaults
+  await notifyDirectory({ type: 'booking', listing: { title: company.title, url: abs(origin, listingUrl(company)), email: company.email || undefined },
+    request: { coupleName: values.coupleName, email: values.email, phone: values.phone, weddingDate: values.weddingDate || undefined,
+      guests: Number.isFinite(guests) && guests > 0 ? guests : undefined, message: values.message } })
   return { ok: true as const }
 }
 

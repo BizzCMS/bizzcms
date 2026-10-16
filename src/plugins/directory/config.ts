@@ -254,7 +254,16 @@ export interface DirectorySettings {
   /** Share buttons on profiles, e.g. the Social Share plugin:
    *  (db, url, title, image) => shareBar(db, url, title, image, 'hr'). None or '' = no buttons. */
   share?: (db: D1Database, url: string, title: string, image?: string) => Promise<string>
+  /** Called after a date request, a profile claim or a new company profile is saved (e.g. to send e-mail).
+   *  Errors are caught and logged; they never fail the save. */
+  notify?: (event: DirectoryEvent) => Promise<void>
 }
+
+/** What happened in the directory, for setDirectory({ notify }). URLs are absolute. */
+export type DirectoryEvent =
+  | { type: 'booking'; listing: { title: string; url: string; email?: string }; request: { coupleName: string; email: string; phone: string; weddingDate?: string; guests?: number; message: string } }
+  | { type: 'claim'; listing: { title: string; url: string }; userEmail: string }
+  | { type: 'listing'; title: string; userEmail: string; adminUrl: string }
 
 let current: DirectorySettings = {
   routes: DEFAULT_ROUTES, params: DEFAULT_PARAMS, taxonomy: DEFAULT_TAXONOMY, text: DEFAULT_TEXT, portal: DEFAULT_PORTAL,
@@ -274,6 +283,7 @@ export interface DirectoryOptions {
   locale?: string
   sample?: DirectorySettings['sample']
   share?: DirectorySettings['share']
+  notify?: DirectorySettings['notify']
 }
 
 /** Turn the directory on for this site with its own addresses, categories, wording and layout. */
@@ -288,10 +298,15 @@ export function setDirectory(opts: DirectoryOptions): void {
     labels: { ...current.labels, ...opts.labels },
     locale: opts.locale ?? current.locale,
     sample: opts.sample ?? current.sample,
-    share: opts.share ?? current.share
+    share: opts.share ?? current.share,
+    notify: opts.notify ?? current.notify
   }
 }
 export const directorySettings = (): DirectorySettings => current
+/** Runs the site's notify hook without ever failing the caller. */
+export async function notifyDirectory(event: DirectoryEvent): Promise<void> {
+  try { await current.notify?.(event) } catch (e) { console.error('directory notify', event.type, e) }
+}
 
 // ---------------------------------------------------------------- taxonomy helpers
 

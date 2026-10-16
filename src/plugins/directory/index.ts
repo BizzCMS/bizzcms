@@ -9,7 +9,7 @@
 export {
   setDirectory, directorySettings, directoryUrl, alphabetical, categoryUrl, cityUrl, regionUrl, listingUrl, matchRoute, slugify, label, subcategories,
   DEFAULT_TEXT, DEFAULT_PORTAL, DEFAULT_PARAMS, DEFAULT_ROUTES, DEFAULT_TAXONOMY,
-  type Category, type DirectoryOptions, type DirectoryText, type PortalSettings, type PageOptions
+  type Category, type DirectoryEvent, type DirectoryOptions, type DirectoryText, type PortalSettings, type PageOptions
 } from './config'
 export { handleDirectory, findListing, listingCardHtml, featuredListings, directoryOverview, directorySitemap, type Card, type Listing } from './directory'
 export { handleCompanyPortal } from './portal'
