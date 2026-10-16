@@ -1,15 +1,20 @@
 // Per-collection write-access toggles for the BizzCMS MCP Server.
 // Settings stored in bizz_settings (key 'mcp.access').
 // Injects an access control section into the Admin › MCP Server page.
+// Also puts "MCP Server" into the sidebar (the engine leaves its MCP plugin out of the menu).
+import { getPluginMenu, setPluginMenu, PluginServiceClass as PluginService } from 'bizzcms-core'
 
 type Fetcher = (request: Request) => Promise<Response>
 
-export type McpCollection = { name: string; label: string }
+/** writeDefault: write access until the owner saves the access form (default off). */
+export type McpCollection = { name: string; label: string; writeDefault?: boolean }
 
 type AccessSettings = Record<string, { write: boolean }>
 
 export type McpOptions = {
   expose?: string[]
+  /** Fields removed from every MCP read and write (the engine strips them from output and from write patches). */
+  redactFields?: string[]
   types?: Record<string, { read?: boolean; write?: boolean }>
   listLimit?: number
 }
@@ -44,13 +49,38 @@ async function setMcpAccessSettings(db: D1Database, settings: AccessSettings) {
   cache = null
 }
 
+export const MCP_PLUGIN_ID = 'mcp'
+
+/** Adds Admin › MCP Server to the sidebar. Call once after createSonicJSApp(): the engine builds the plugin menu from
+ *  plugins that are not in its own registry, and its MCP plugin is, so it never gets an entry by itself. The entry
+ *  shows while the plugin's record is active (ensureMcpPlugin), like every other plugin's. */
+export function addMcpMenu(): void {
+  const menu = getPluginMenu()
+  if (menu.some(m => m.path === '/admin/mcp')) return
+  setPluginMenu([...menu, { label: 'MCP Server', path: '/admin/mcp', icon: 'bolt', order: 87, pluginId: MCP_PLUGIN_ID } as (typeof menu)[number]])
+}
+
+let pluginEnsured = false
+/** Installs and activates the MCP plugin record once, so its card says Active and the sidebar entry shows. */
+async function ensureMcpPlugin(db: D1Database) {
+  if (pluginEnsured) return
+  try {
+    const svc = new PluginService(db)
+    if (!(await svc.getPlugin(MCP_PLUGIN_ID))) {
+      await svc.ensurePlugin(MCP_PLUGIN_ID, { displayName: 'MCP Server', version: '1.0.0', description: 'Exposes BizzCMS content as Model Context Protocol tools for AI agents (Claude Code, Cursor, VS Code)', author: 'BizzCMS' })
+      await svc.activatePlugin(MCP_PLUGIN_ID).catch(() => null)
+    }
+    pluginEnsured = true
+  } catch { /* try again on a later request */ }
+}
+
 /** Reads DB settings and updates mcpOptions.types[col].write accordingly. Call before each /mcp request. */
 export async function applyMcpAccess(mcpOptions: McpOptions, db: D1Database, collections: McpCollection[]) {
   const settings = await getMcpAccessSettings(db)
   if (!mcpOptions.types) mcpOptions.types = {}
   for (const col of collections) {
     const current = mcpOptions.types[col.name] ?? {}
-    mcpOptions.types[col.name] = { ...current, write: settings[col.name]?.write ?? false }
+    mcpOptions.types[col.name] = { ...current, write: settings[col.name]?.write ?? col.writeDefault ?? false }
   }
 }
 
@@ -70,7 +100,7 @@ async function isAdmin(request: Request, fetcher: Fetcher): Promise<boolean> {
 function accessForm(collections: McpCollection[], settings: AccessSettings, saved: boolean) {
   const rows = collections
     .map(col => {
-      const write = settings[col.name]?.write ?? false
+      const write = settings[col.name]?.write ?? col.writeDefault ?? false
       return `<tr class="border-b border-zinc-100 dark:border-zinc-800 last:border-0">
         <td class="py-3 pr-4 text-sm font-medium text-zinc-950 dark:text-white">${col.label}</td>
         <td class="py-3 pr-4">
@@ -132,6 +162,7 @@ export async function mcpAccessRoute(
   fetcher: Fetcher,
   collections: McpCollection[]
 ): Promise<Response | null> {
+  if (path.startsWith('/admin')) await ensureMcpPlugin(db)
   if (path !== '/admin/mcp' && path !== '/admin/mcp/access' && path !== '/admin/plugins/mcp') return null
   const url = new URL(request.url)
 

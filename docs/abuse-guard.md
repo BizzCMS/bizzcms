@@ -31,3 +31,11 @@ return withAbuseGuard(request, env.DB, req => cms.fetch(req, env, ctx), () => ha
 ```
 
 Sites copy the file with `scripts/sync-core.mjs`. First used by planervjencanja.hr (`src/abuse-guard-site.ts`).
+
+## Admin › Security
+
+The guard is the **Security** plugin (`abuseGuardPlugin`, id `abuse-guard`): a card under Plugins, a sidebar entry and
+`/admin/abuse-guard` (administrators only; register `abuseGuardPlugin` and route `abuseGuardAdminRoute` before the
+engine). **Log** tab: every refused or blocked attempt, signed-out ones too (table `bizz_abuse_log`, newest 5000 kept,
+values shown escaped). **Blocked accounts** tab: accounts with `is_active = 0` and their last attempt, with an
+**Unblock** button (POST, same-origin). The protection has no off switch.

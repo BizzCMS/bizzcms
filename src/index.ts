@@ -16,7 +16,8 @@ import { landingPage } from './landing'
 import { blogResponse } from './blog'
 import { checkRegisterPasswords, blockedRoute } from './auth'
 import { guardApi, apiSettingsPage, withApiTab } from './api-access'
-import { applyMcpAccess, mcpAccessRoute, type McpCollection, type McpOptions } from './plugins/mcp-access'
+import { applyMcpAccess, mcpAccessRoute, addMcpMenu, type McpCollection, type McpOptions } from './plugins/mcp-access'
+import { mcpGuard } from './plugins/mcp-guard'
 import { googleAnalyticsPlugin, withGoogleAnalytics, gaAdminRoute } from './plugins/google-analytics'
 import { socialSharePlugin, shareAdminRoute } from './plugins/social-share'
 import { taxonomyRoute } from './taxonomy'
@@ -56,6 +57,8 @@ const cms = createSonicJSApp({
   plugins: { register: [readOnlyMcp as unknown as RegisteredPlugin, googleAnalyticsPlugin as unknown as RegisteredPlugin, socialSharePlugin as unknown as RegisteredPlugin, seoPlugin as unknown as RegisteredPlugin] },
   email: { providerName: 'console', from: 'BizzCMS <noreply@bizzcms.local>' }
 })
+// Admin › MCP Server in the sidebar (the engine leaves its MCP plugin out of the menu).
+addMcpMenu()
 
 export default {
   // Errors never reach a visitor as technical text; they go to Admin › Settings › Error log (src/errors.ts).
@@ -89,7 +92,8 @@ async function handleRequest(request: Request, env: Parameters<typeof cms.fetch>
     const mcpAccess = await mcpAccessRoute(request, path, db, upstream, MCP_COLLECTIONS)
     if (mcpAccess) return mcpAccess.headers.get('content-type')?.includes('text/html') ? applyBranding(mcpAccess, path) : mcpAccess
     // MCP calls: publish dates, unique slugs, upload_media, cache renewal after writes (src/mcp-extras.ts).
-    if (path === '/mcp' && request.method === 'POST') return mcpWithExtras(request, db, upstream)
+    // Nothing is ever deleted through MCP: delete_* calls are refused and the tools are hidden (src/plugins/mcp-guard.ts).
+    if (path === '/mcp' && request.method === 'POST') return mcpGuard(request, req => mcpWithExtras(req, db, upstream))
     // Blog / News counts for the sidebar, drawn by the server (src/sections.ts).
     if (path.startsWith('/admin')) await primeSidebarCounts(db, (env as unknown as { CACHE_KV?: KVNamespace }).CACHE_KV)
     // Google Analytics plugin: install + after-save redirect (see src/plugins/google-analytics.ts).

@@ -14,6 +14,7 @@ const ICONS = {
   seo: svg('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/><path d="M8 11h6"/><path d="M11 8v6"/>'),
   editor: svg('<path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/>'),
   twoFactor: svg('<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>'),
+  mcp: svg('<path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/>'),
   docs: svg('<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>'),
   settings: svg('<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>'),
   moon: svg('<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>'),
@@ -32,6 +33,8 @@ export const SIDEBAR_ICONS: [string, string][] = [
   ['nav a[href="/admin/plugins/lexical-editor"] > span > svg', ICONS.editor],
   ['nav a[href="/admin/two-factor"] > span > svg', ICONS.twoFactor],
   ['nav a[href="/admin/seo"] > span > svg', ICONS.seo],
+  ['nav a[href="/admin/mcp"] > span > svg', ICONS.mcp],
+  ['nav a[href="/admin/abuse-guard"] > span > svg', ICONS.twoFactor],
   ['nav button[data-docs-menu] > svg.h-5', ICONS.docs],
   ['nav a[href="/admin/settings"] > span > svg', ICONS.settings]
 ]
@@ -72,7 +75,7 @@ const PI = {
 
 // Matched by substring against the card's data-name / detail slug (lower-case), first hit wins.
 const PLUGIN_ICON_RULES: [RegExp, string][] = [
-  [/two-?factor|2fa|turnstile/, PI.shieldCheck], [/security-?audit/, PI.shieldAlert], [/auth(entication)?-?system|^auth|core-auth/, PI.shield],
+  [/two-?factor|2fa|turnstile|^security$|abuse-?guard/, PI.shieldCheck], [/security-?audit/, PI.shieldAlert], [/auth(entication)?-?system|^auth|core-auth/, PI.shield],
   [/media/, PI.image], [/lexical|quill|tinymce|easymde|markdown|editor/, PI.pen], [/ai-?search|search|^seo$/, PI.search],
   [/api-?key/, PI.key], [/oauth/, PI.key], [/analytics|insight/, PI.chart], [/cache/, PI.zap], [/database|db-tools/, PI.database],
   [/magic-?link|otp|demo-?login|login/, PI.login], [/reconcil/, PI.mailCheck], [/email/, PI.mail], [/form/, PI.form],

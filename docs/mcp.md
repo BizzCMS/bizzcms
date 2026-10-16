@@ -97,3 +97,14 @@ site's own folder (`mcpWithExtras(..., { mediaFolder })`, default `uploads`).
 
 A successful MCP create, update, publish or delete renews the edge cache, as a save in the admin
 does, so pages, sitemaps and feeds show the change right away.
+
+## Sidebar, no deleting, locked fields
+
+- **Sidebar:** the engine leaves its own MCP plugin out of the admin menu; `addMcpMenu()` (src/plugins/mcp-access.ts,
+  call once after `createSonicJSApp`) adds **MCP Server**, and `mcpAccessRoute` records the plugin as active.
+- **Never delete** (`src/plugins/mcp-guard.ts`): wrap the endpoint —
+  `mcpGuard(request, req => mcpWithExtras(req, db, upstream))`. `delete_*` tools disappear from `tools/list`, calls
+  (and batches containing one) are refused with "Deleting is not allowed through MCP".
+- **Locked fields:** `McpOptions.redactFields` hides fields from reads and strips them from write patches (a write
+  merges into the draft, so they keep their value). Use it for owner, account and package fields.
+- `McpCollection.writeDefault`: write access a collection has until the owner saves the switches.
