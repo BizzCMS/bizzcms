@@ -3,6 +3,7 @@
 // booking-requests, listing-claims) are fixed so data stays the same when a site changes its labels.
 import type { CollectionConfig } from 'bizzcms-core'
 import { directorySettings, subcategories } from './config'
+import { SEO_FIELDS } from '../../seo-fields'
 
 const pairs = (list: readonly (readonly [string, string])[]) => ({ enum: list.map(([k]) => k), enumLabels: list.map(([, v]) => v) })
 
@@ -46,8 +47,8 @@ export function directoryCollections(): CollectionConfig[] {
         legacyId: { type: 'number', title: 'Old site ID', helpText: 'From the old site\'s profile address. Keeps old links working.' },
         legacySlug: { type: 'string', title: 'Old URL name', helpText: 'The name part of the old site\'s profile address, spelled exactly as there (accents included). Empty = the URL slug.', maxLength: 200 },
         keywords: { type: 'string', title: 'Keywords', helpText: 'Search phrases people use, separated by commas. The directory search finds the company by them too.', maxLength: 500 },
-        seoTitle: { type: 'string', title: 'SEO title', maxLength: 200 },
-        seoDescription: { type: 'textarea', title: 'SEO description', maxLength: 500 },
+        // The SEO panel (SEO / Social / Advanced) like Pages and Posts; seoTitle and seoDescription keep their keys.
+        ...SEO_FIELDS,
         // Online check (e.g. after an import): is the business still there? For staff only; never shown publicly.
         checkStatus: { type: 'select', title: 'Online check', enum: ['', 'active', 'closed', 'unknown'], enumLabels: ['Not checked', 'Active', 'Closed', 'Unknown'], default: '' },
         checkedAt: { type: 'date', title: 'Checked on' },

@@ -322,7 +322,7 @@ function toCard(r: Row): Card {
 
 export interface Listing extends Card {
   description?: string; gallery: string[]; website?: string; phone?: string; email?: string; setting?: string
-  amenities: string[]; seoTitle?: string; seoDescription?: string; cover?: string; videos: string[]
+  amenities: string[]; seoTitle?: string; seoDescription?: string; seoImage?: string; canonical?: string; noindex?: boolean; cover?: string; videos: string[]
   /** The company's package now (undefined when the site has no packages). */
   plan?: Plan
   /** Social network links shown on the profile: [label, url]. */
@@ -354,7 +354,7 @@ export async function findListing(db: D1Database, by: { slug: string } | { legac
     socials: links ? directorySettings().taxonomy.socials.flatMap(([k, name]) => { const u = safeUrl(str(d[k])); return u ? [[name, u] as [string, string]] : [] }) : [],
     phone: str(d.phone), email: str(d.email), setting: str(d.setting),
     amenities: directorySettings().taxonomy.amenities.filter(([k]) => truthy(d[k])).map(([, v]) => v),
-    seoTitle: str(d.seoTitle), seoDescription: str(d.seoDescription)
+    seoTitle: str(d.seoTitle), seoDescription: str(d.seoDescription), seoImage: str(d.seoImage), canonical: str(d.canonical), noindex: truthy(d.noindex)
   }
 }
 
@@ -664,7 +664,8 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
       ${contact.length ? `<div><span>${esc(text.contact)}</span>${contact.join('<br>')}</div>` : ''}
       ${p.socials.length ? `<div><span>${esc(text.socialTitle)}</span>${p.socials.map(([name, u]) => `<a href="${esc(u)}" rel="noopener" target="_blank">${esc(name)} ↗</a>`).join('<br>')}</div>` : ''}
       ${p.requests ? `<a class="btn" href="#${esc(P.requestAnchor)}" data-open-request>${esc(p.premium ? text.requestDate : text.inquiryTitle)}</a>` : ''}</aside></div></div>${mediaViewer(media, p.title, mt)}`,
-    { description: p.seoDescription || p.summary, canonical: abs(origin, listingUrl(p)), image: p.cover ?? p.image ? abs(origin, (p.cover ?? p.image)!) : undefined, head: jsonLd({ '@context': 'https://schema.org', '@graph': [
+    { description: p.seoDescription || p.summary, canonical: p.canonical && /^https?:\/\//.test(p.canonical) ? p.canonical : abs(origin, listingUrl(p)), index: !p.noindex,
+      image: p.seoImage ?? p.cover ?? p.image ? abs(origin, (p.seoImage ?? p.cover ?? p.image)!) : undefined, head: jsonLd({ '@context': 'https://schema.org', '@graph': [
       {
         '@type': 'LocalBusiness', '@id': `${abs(origin, listingUrl(p))}#business`, name: p.title, url: abs(origin, listingUrl(p)),
         description: p.seoDescription || p.summary || undefined,

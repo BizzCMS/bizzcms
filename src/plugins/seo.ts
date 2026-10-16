@@ -531,7 +531,9 @@ export async function seoFeed(url: URL, db: D1Database, routes: SitemapRoutes | 
     let d: Record<string, unknown> = {}; try { d = JSON.parse(r.data) } catch { /* empty */ }
     const path = routes.posts!(d, r.slug); if (!path) return ''
     const link = abs(url.origin, path)
-    const img = str(d.featuredImage) ? abs(url.origin, str(d.featuredImage)) : ''
+    // Sites name the image and author fields differently (featuredImage/authorName, or coverImage/author).
+    const image = str(d.featuredImage) || str(d.coverImage)
+    const img = image ? abs(url.origin, image) : ''
     const alt = str(d.featuredImageAlt) || r.title
     const imgHtml = img ? `<img src="${xesc(img)}" alt="${xesc(alt)}" class="webfeedsFeaturedVisual" style="display:block;margin-bottom:5px;clear:both;max-width:100%;" />` : ''
     const content = absolutise(str(d.content) || str(d.body), url.origin)
@@ -541,7 +543,7 @@ export async function seoFeed(url: URL, db: D1Database, routes: SitemapRoutes | 
     return `<item>
 <title>${cdata(r.title)}</title>
 <link>${xesc(link)}</link>
-<dc:creator>${cdata(str(d.authorName) || s.orgName || site)}</dc:creator>
+<dc:creator>${cdata(str(d.authorName) || str(d.author) || s.orgName || site)}</dc:creator>
 <pubDate>${rfc822(r.published_at ?? r.updated_at)}</pubDate>
 ${[...new Set(terms)].map(t => `<category>${cdata(t)}</category>`).join('\n')}
 <guid isPermaLink="true">${xesc(link)}</guid>
