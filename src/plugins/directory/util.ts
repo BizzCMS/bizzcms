@@ -61,6 +61,10 @@ export function directoryScript(regionParam = 'region', cityParam = 'city'): str
   return `document.addEventListener('submit',function(e){var f=e.target;if(!f||(f.getAttribute('method')||'get').toLowerCase()!=='get')return;var off=[];[].forEach.call(f.elements,function(el){if(el.name&&!el.disabled&&el.type!=='submit'&&String(el.value).trim()===''&&((el.type!=='checkbox'&&el.type!=='radio')||el.checked)){el.disabled=true;off.push(el)}});setTimeout(function(){off.forEach(function(el){el.disabled=false})},0)});
 document.querySelectorAll('form[data-auto]').forEach(function(f){f.addEventListener('change',function(e){
 if(e.target.name===${JSON.stringify(regionParam)}&&f.elements[${JSON.stringify(cityParam)}])f.elements[${JSON.stringify(cityParam)}].value='';f.requestSubmit()})});
+document.querySelectorAll('[data-dual]').forEach(function(d){var a=d.querySelectorAll('input'),lo=+d.getAttribute('data-lo'),hi=+d.getAttribute('data-hi'),out=d.parentNode.querySelector('[data-pr-out]');
+function show(){var x=+a[0].value,y=+a[1].value;if(out){var L=out.getAttribute('data-locale');out.textContent=out.getAttribute('data-from')+' '+x.toLocaleString(L)+' € – '+out.getAttribute('data-to')+' '+y.toLocaleString(L)+' €'}}
+[].forEach.call(a,function(inp,i){inp.addEventListener('input',function(){if(+a[0].value>+a[1].value){if(i===0)a[0].value=a[1].value;else a[1].value=a[0].value}show()});
+inp.addEventListener('change',function(){a[0].disabled=+a[0].value<=lo;a[1].disabled=+a[1].value>=hi})})});
 document.querySelectorAll('[data-auto-submit]').forEach(function(s){s.addEventListener('change',function(){s.form.requestSubmit()})});
 if(window.matchMedia('(max-width:900px)').matches)document.querySelectorAll('aside details').forEach(function(d){d.open=false});
 document.querySelectorAll('input[data-suggest]').forEach(function(inp){var box=document.createElement('ul');box.className='dir-suggest';box.hidden=true;box.setAttribute('role','listbox');
@@ -74,7 +78,12 @@ inp.addEventListener('blur',function(){setTimeout(function(){box.hidden=true},15
 }
 
 /** Styles for the search suggestions (sites can override .dir-suggest). */
-export const DIRECTORY_CSS = `.dir-share{margin:28px 0}
+export const DIRECTORY_CSS = `.dual{position:relative;height:28px;margin:4px 2px 0}.dual::before{content:"";position:absolute;left:0;right:0;top:12px;height:4px;border-radius:2px;background:var(--border,#e6ddd8)}
+.dual input{position:absolute;left:0;top:0;width:100%;height:28px;margin:0;background:none;-webkit-appearance:none;appearance:none;pointer-events:none;border:0;padding:0;min-height:0;box-shadow:none}
+.dual input::-webkit-slider-thumb{-webkit-appearance:none;pointer-events:auto;width:20px;height:20px;border-radius:50%;background:#fff;border:2px solid var(--accent,#b8323f);cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.dual input::-moz-range-thumb{pointer-events:auto;width:18px;height:18px;border-radius:50%;background:#fff;border:2px solid var(--accent,#b8323f);cursor:pointer}
+.dual input::-webkit-slider-runnable-track{background:none}.dual input::-moz-range-track{background:none}.pr-out{font-size:14px;margin:2px 0 6px}
+.dir-share{margin:28px 0}
 .dir-suggest{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:50;margin:0;padding:6px;list-style:none;background:#fff;border:1px solid rgba(0,0,0,.12);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.14);max-height:360px;overflow:auto;text-align:left}
 .dir-suggest li{display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:center;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:15px;color:#222}
 .dir-suggest li.on,.dir-suggest li:hover{background:rgba(0,0,0,.06)}.dir-suggest .k{font-size:13px;opacity:.75}.dir-suggest .m{font-size:12px;color:#888}`

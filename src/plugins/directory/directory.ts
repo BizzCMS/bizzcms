@@ -161,7 +161,7 @@ function readFilters(p: URLSearchParams): Filters {
   }
 }
 
-type Facet = 'category' | 'region' | 'city'
+type Facet = 'category' | 'region' | 'city' | 'price'
 
 function where(f: Filters, cityNames: string[], today: string, skip: Facet[] = []) {
   const sql = [PUBLISHED]
@@ -188,7 +188,7 @@ function where(f: Filters, cityNames: string[], today: string, skip: Facet[] = [
   if (f.setting === 'indoor' || f.setting === 'outdoor') { sql.push(`${J('setting')} IN (?, 'both')`); binds.push(f.setting) }
   for (const a of f.amenities) sql.push(TRUE(a))
   if (f.premium === '1') { sql.push(PREMIUM()); binds.push(today) }
-  if (f.priceMin || f.priceMax) {
+  if ((f.priceMin || f.priceMax) && !skip.includes('price')) {
     sql.push(`CAST(COALESCE(${J('priceFrom')}, 0) AS INTEGER) > 0`)
     if (f.priceMin) { sql.push(`CAST(${J('priceFrom')} AS INTEGER) >= ?`); binds.push(Number(f.priceMin)) }
     if (f.priceMax) { sql.push(`CAST(${J('priceFrom')} AS INTEGER) <= ?`); binds.push(Number(f.priceMax)) }
@@ -275,13 +275,17 @@ async function search(db: D1Database, f: Filters) {
   const byCategory = where(f, cityNames, today, ['category'])
   const byRegion = where(f, cityNames, today, ['region', 'city'])
   const byCity = where(f, cityNames, today, ['city'])
-  const [count, rows, catFacets, regionFacets, cityFacets] = await db.batch([
+  const byPrice = where(f, cityNames, today, ['price'])
+  const PRICE = `CAST(COALESCE(${J('priceFrom')}, 0) AS INTEGER)`
+  const [count, rows, catFacets, regionFacets, cityFacets, priceFacet] = await db.batch([
     db.prepare(`SELECT COUNT(*) AS n FROM documents WHERE ${main.sql}`).bind(...main.binds),
     db.prepare(`SELECT ${CARD_FIELDS()} FROM documents WHERE ${main.sql} ORDER BY ${orderBy(f.sort)} LIMIT ? OFFSET ?`).bind(today, ...main.binds, PAGE_SIZE, offset),
     db.prepare(`SELECT ${J('category')} AS k, ${J('subcategory')} AS s, COUNT(*) AS n FROM documents WHERE ${byCategory.sql} GROUP BY k, s`).bind(...byCategory.binds),
     db.prepare(`SELECT ${J('county')} AS k, COUNT(*) AS n FROM documents WHERE ${byRegion.sql} GROUP BY k`).bind(...byRegion.binds),
-    db.prepare(`SELECT ${J('city')} AS k, COUNT(*) AS n FROM documents WHERE ${byCity.sql} AND COALESCE(${J('city')}, '') != '' GROUP BY k ORDER BY k`).bind(...byCity.binds)
+    db.prepare(`SELECT ${J('city')} AS k, COUNT(*) AS n FROM documents WHERE ${byCity.sql} AND COALESCE(${J('city')}, '') != '' GROUP BY k ORDER BY k`).bind(...byCity.binds),
+    db.prepare(`SELECT MIN(${PRICE}) AS lo, MAX(${PRICE}) AS hi, COUNT(*) AS n FROM documents WHERE ${byPrice.sql} AND ${PRICE} > 0`).bind(...byPrice.binds)
   ])
+  const pb = priceFacet.results[0] as { lo: number | null; hi: number | null; n: number } | undefined
   return {
     total: Number((count.results[0] as Row)?.n ?? 0),
     cards: (rows.results as Row[]).map(toCard),
@@ -289,7 +293,9 @@ async function search(db: D1Database, f: Filters) {
     regionCounts: new Map((regionFacets.results as { k: string; n: number }[]).map(r => [r.k, r.n])),
     cities: (cityFacets.results as { k: string; n: number }[]).map(r => ({ name: r.k, slug: slugify(r.k), n: r.n })),
     cityLabel: cityNames[0],
-    cityRegion
+    cityRegion,
+    /** Lowest and highest "price from" among the results (without the price filter); null when fewer than two have one. */
+    priceBounds: pb && pb.n >= 2 && Number(pb.hi) > Number(pb.lo) ? { lo: Number(pb.lo), hi: Number(pb.hi) } : null
   }
 }
 
@@ -380,6 +386,29 @@ async function saveRequest(form: FormData, company: Listing, env: Env, origin: s
 }
 
 /** Directory card: the directory, and anywhere a site shows companies (home page, articles). */
+/**
+ * Price range slider: two handles on one track, from the lowest to the highest "price from" in the results. A handle
+ * left at its end does not filter (the script disables it before the form is sent). Without bounds (fewer than two
+ * companies with a price) the section only shows while a price filter is in use, so it can be removed by its pill.
+ */
+function priceSlider(f: Filters, bounds: { lo: number; hi: number } | null): string {
+  const { text, params: P, locale } = directorySettings()
+  if (!bounds) return ''
+  const span = bounds.hi - bounds.lo
+  const step = span <= 300 ? 5 : span <= 3000 ? 50 : 100
+  const lo = Math.floor(bounds.lo / step) * step, hi = Math.ceil(bounds.hi / step) * step
+  const clamp = (v: string, d: number) => (v ? Math.min(hi, Math.max(lo, Number(v))) : d)
+  const from = clamp(f.priceMin, lo), to = clamp(f.priceMax, hi)
+  const fmt = (n: number) => n.toLocaleString(locale === 'hr' ? 'hr-HR' : 'en-GB')
+  return `<div class="fsec price-range"${memberOnly(!!(f.priceMin || f.priceMax))}>
+    <p class="flabel">${esc(text.priceRange)}</p>
+    <p class="pr-out" data-pr-out data-from="${esc(text.priceRangeFrom)}" data-to="${esc(text.priceRangeTo)}" data-locale="${locale === 'hr' ? 'hr-HR' : 'en-GB'}">${esc(text.priceRangeFrom)} ${fmt(from)} € – ${esc(text.priceRangeTo)} ${fmt(to)} €</p>
+    <div class="dual" data-dual data-lo="${lo}" data-hi="${hi}">
+      <input type="range" name="${P.priceMin}" min="${lo}" max="${hi}" step="${step}" value="${from}" aria-label="${esc(text.priceRange)}: ${esc(text.priceRangeFrom)}">
+      <input type="range" name="${P.priceMax}" min="${lo}" max="${hi}" step="${step}" value="${to}" aria-label="${esc(text.priceRange)}: ${esc(text.priceRangeTo)}">
+    </div></div>`
+}
+
 /** Marks a filter that only signed-in visitors see (memberFilters): hidden until the site's script reveals it,
  *  unless it is already in use (e.g. a shared link). */
 function memberOnly(inUse: boolean): string {
@@ -531,9 +560,7 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
       <label class="flabel" for="f-grad">${esc(text.city)}</label><select id="f-grad" name="${P.city}">${option('', text.allCities, f.city)}${cityOptions}</select></div>
     ${isVenue || f.guests || f.setting ? `<div class="fsec"><p class="flabel">${esc(text.guests)}</p>${radios(P.guests, taxonomy.guestBuckets.map(([n, t]) => [String(n), t] as const), f.guests)}
       <label class="flabel" for="f-pro">${esc(text.setting)}</label><select id="f-pro" name="${P.setting}">${option('', text.any, f.setting)}${option('indoor', settingLabel('indoor'), f.setting)}${option('outdoor', settingLabel('outdoor'), f.setting)}</select></div>` : ''}
-    ${directorySettings().priceRange ? `<div class="fsec price-range"${memberOnly(!!(f.priceMin || f.priceMax))}><p class="flabel">${esc(text.priceRange)}</p><div class="two">
-      <label>${esc(text.priceRangeFrom)}<input type="number" name="${P.priceMin}" min="0" step="10" inputmode="numeric" value="${esc(f.priceMin)}"></label>
-      <label>${esc(text.priceRangeTo)}<input type="number" name="${P.priceMax}" min="0" step="10" inputmode="numeric" value="${esc(f.priceMax)}"></label></div></div>` : ''}
+    ${directorySettings().priceRange ? priceSlider(f, r.priceBounds) : ''}
     ${taxonomy.priceFilter !== false && taxonomy.priceLevels.length ? `<div class="fsec"><p class="flabel">${esc(text.price)}</p>${radios(P.price, taxonomy.priceLevels, f.price)}</div>` : ''}
     <div class="fsec">${(isVenue || f.amenities.length ? taxonomy.amenities : []).map(([k, v]) =>
       `<label class="check"><input type="checkbox" name="${k}" value="1"${f.amenities.includes(k) ? ' checked' : ''}>${esc(v)}</label>`).join('')}
