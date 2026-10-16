@@ -46,6 +46,8 @@ export function directoryCollections(): CollectionConfig[] {
         ownerEmail: { type: 'email', title: 'Owner account email', helpText: 'The company account that may edit this listing (set it to approve a claim).' },
         legacyId: { type: 'number', title: 'Old site ID', helpText: 'From the old site\'s profile address. Keeps old links working.' },
         legacySlug: { type: 'string', title: 'Old URL name', helpText: 'The name part of the old site\'s profile address, spelled exactly as there (accents included). Empty = the URL slug.', maxLength: 200 },
+        inviteEmail: { type: 'string', title: 'Invitation e-mail', helpText: 'Where the activation invitation goes, e.g. the old site account that ran this profile. Empty = the profile e-mail.', maxLength: 200 },
+        legacyMemberId: { type: 'number', title: 'Old site account ID', helpText: 'The old site account that ran this profile (import).' },
         keywords: { type: 'string', title: 'Keywords', helpText: 'Search phrases people use, separated by commas. The directory search finds the company by them too.', maxLength: 500 },
         // The SEO panel (SEO / Social / Advanced) like Pages and Posts; seoTitle and seoDescription keep their keys.
         ...SEO_FIELDS,

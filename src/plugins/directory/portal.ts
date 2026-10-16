@@ -223,6 +223,9 @@ export async function createInvite(db: D1Database, rootId: string): Promise<stri
   return token
 }
 
+/** Where a profile's invitation goes: inviteEmail (e.g. the old site account that ran it), else the profile e-mail. */
+export const inviteAddress = (data: Record<string, unknown>) => (str(data.inviteEmail) ?? str(data.email) ?? '').trim().toLowerCase()
+
 async function invited(db: D1Database, token: string): Promise<Owned | null> {
   if (!/^[a-f0-9]{48}$/.test(token)) return null
   const row = await db.prepare(`SELECT d.root_id AS rootId, d.id, d.slug, d.title, d.data,
@@ -232,7 +235,7 @@ async function invited(db: D1Database, token: string): Promise<Owned | null> {
   if (!row) return null
   const listing = toOwned(row)
   const at = Date.parse(String(listing.data.invitedAt ?? ''))
-  return Number.isFinite(at) && Date.now() - at < INVITE_DAYS * 86400000 && str(listing.data.email) ? listing : null
+  return Number.isFinite(at) && Date.now() - at < INVITE_DAYS * 86400000 && inviteAddress(listing.data) ? listing : null
 }
 
 async function activate(request: Request, db: D1Database, url: URL, cms: Cms): Promise<Response> {
@@ -242,7 +245,7 @@ async function activate(request: Request, db: D1Database, url: URL, cms: Cms): P
   const listing = await invited(db, token)
   if (!listing) return html(portalPage(P.activateTitle, `<div class="auth box"><h1>${esc(P.activateTitle)}</h1><p class="err">${esc(P.activateInvalid)}</p>
     <p class="actions"><a class="btn" href="${P.base}/${A.login}">${esc(P.landingLogin)}</a><a class="btn ghost" href="${P.base}/${A.register}">${esc(P.landingCta)}</a></p></div>`), 400)
-  const email = String(listing.data.email).trim().toLowerCase()
+  const email = inviteAddress(listing.data)
   const linkTo = async (userEmail: string) => {
     // Owner set, invitation used up; both on the current draft and (when live) the published version.
     const svc = new DocumentsService(db)
