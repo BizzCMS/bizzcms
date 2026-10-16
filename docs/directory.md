@@ -24,6 +24,14 @@ manage their own profiles. Code: `src/plugins/directory/`, with visitor accounts
 - **Take over an existing profile**, for example one imported from an old site. It becomes theirs at once when its
   contact e-mail matches their account's; otherwise a claim is saved for staff.
 - **See the date requests** sent to their profiles.
+- **Forgotten password:** <base>/forgot-password e-mails a one-hour link (needs a mailer in configureAccounts and the
+  database passed to accountRoute). **Google sign-in** shows when the CMS has GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.
+- **Invitations:** createInvite(db, rootId) gives a token for <base>/activate?t=<token> (90 days, once). The company opens
+  an account with the profile's e-mail and owns the profile at once; an existing account gets the profile linked.
+- **Packages** (setDirectory({ plans, pricingUrl })): the first plan is free. Each plan sets the photos shown and allowed,
+  the YouTube videos shown, website + social links (taxonomy.socials), inquiries from couples and booking ("request a
+  date", badge, first in lists). A profile's plan is its  field; without one, paidMember means the first booking
+  plan; after paidUntil it is the free plan. No plans = the old behaviour (paidMember = Premium, 30 photos, everything shown).
 
 ## In the admin
 

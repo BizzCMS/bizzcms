@@ -23,6 +23,12 @@ interface Owned { rootId: string; id: string; slug: string; title: string; live:
 const MAX_PHOTOS = 30
 /** Photos a company may have: its package's limit, or MAX_PHOTOS when the site has no packages. */
 const photoLimit = (data: Record<string, unknown>) => planOf(data)?.photos ?? MAX_PHOTOS
+/** All photos of a profile, the cover first even when it is not in the gallery (imported profiles), so it counts and can be changed. */
+function allPhotos(data: Record<string, unknown>): string[] {
+  const gallery = mediaList(data.gallery)
+  const cover = str(data.coverImage)
+  return cover && !gallery.includes(cover) ? [cover, ...gallery] : gallery
+}
 
 function audience(): Audience {
   const p = directorySettings().portal
@@ -186,7 +192,7 @@ async function photos(request: Request, env: Env, listing: Owned, user: User, ur
   const P = directorySettings().portal
   const result = await galleryAction({
     form: await readForm(request), action, bucket: env.MEDIA_BUCKET, prefix: `partners/${listing.rootId}/`,
-    gallery: mediaList(listing.data.gallery), cover: str(listing.data.coverImage) ?? '', max: photoLimit(listing.data),
+    gallery: allPhotos(listing.data), cover: str(listing.data.coverImage) ?? '', max: photoLimit(listing.data),
     save: data => saveListing(env.DB, listing, data, undefined, user)
   })
   if ('error' in result) return html(editPage(listing, listing.data, result.error), 400)
@@ -338,7 +344,7 @@ function planBox(plan: Plan, data: Record<string, unknown>): string {
   const until = typeof data.paidUntil === 'string' && data.paidUntil && plan !== directorySettings().plans[0] ? data.paidUntil : ''
   const row = (ok: boolean, label: string) => `<li class="${ok ? 'yes' : 'no'}">${esc(label)}${ok ? '' : ` <small>(${esc(P.planNot)})</small>`}</li>`
   return `<section class="box plan"><h2>${esc(P.planTitle)}: ${esc(plan.label)}</h2>${until ? `<p class="muted">${esc(P.planPaidUntil(until.split('-').reverse().join('. ') + '.'))}</p>` : ''}
-    <ul>${row(true, P.planPhotos(plan.photos))}${row(plan.videos > 0, P.planVideos(plan.videos))}${row(plan.links, P.planLinks)}${row(plan.requests || plan.booking, P.planRequests)}${row(plan.booking, P.planBooking)}</ul>
+    <ul>${row(true, P.planPhotos(plan.photos))}${row(plan.videos > 0, P.planVideos(Math.max(plan.videos, 1)))}${row(plan.links, P.planLinks)}${row(plan.requests || plan.booking, P.planRequests)}${row(plan.booking, P.planBooking)}</ul>
     ${upgrade() ? `<p>${upgrade()}</p>` : ''}</section>`
 }
 
@@ -391,7 +397,7 @@ function editPage(listing: Owned | null, v: Record<string, unknown>, error?: str
   const s = (k: string) => esc(String(v[k] ?? ''))
   const opt = (value: string, text: string, current: unknown) => `<option value="${esc(value)}"${value === String(current ?? '') ? ' selected' : ''}>${esc(text)}</option>`
   const subOptions = alphabetical(T.categories, c => c.label).map(c => c.subs ? `<optgroup label="${esc(c.label)}">${alphabetical(c.subs, sub => sub.label).map(sub => opt(sub.slug, sub.label, v.subcategory)).join('')}</optgroup>` : '').join('')
-  const gallery = listing ? mediaList(listing.data.gallery) : []
+  const gallery = listing ? allPhotos(listing.data) : []
   const cover = listing ? str(listing.data.coverImage) : undefined
   const editUrl = listing ? `${P.base}/${P.edit}/${listing.rootId}` : `${P.base}/${P.new}`
   const plan = planOf(listing?.data ?? {})
