@@ -214,6 +214,7 @@ export const DEFAULT_PORTAL = {
   errRegion: 'Please choose a region.',
   errWebsite: 'The web address must start with https://',
   errEmail: 'Invalid contact e-mail.',
+  errPhone: 'Enter the phone number in digits, e.g. +385 91 234 5678.',
   errCapacity: 'Capacity must be a number of guests (1–10000).',
   notFound: 'Profile not found',
   myProfile: 'My profile',

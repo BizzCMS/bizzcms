@@ -14,7 +14,7 @@ import {
   accountText, portalPage, readForm, redirectWithSession, type User
 } from '../../site-accounts'
 import { alphabetical, directorySettings, listingUrl, notifyDirectory, planOf, type Plan, slugify, subcategories } from './config'
-import { esc, fold, html, mediaList, str, truthy } from './util'
+import { esc, fold, html, mediaList, str, truthy, validEmail, validPhone } from './util'
 import { videoIds } from './media'
 
 type Env = { DB: D1Database; MEDIA_BUCKET: R2Bucket; GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string }
@@ -158,7 +158,9 @@ function readListing(form: FormData): { title: string; data: Record<string, unkn
   const website = get('website', 300)
   if (website && !/^https?:\/\/[^\s]+\.[^\s]+$/i.test(website)) return { error: P.errWebsite }
   const email = get('email', 200)
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: P.errEmail }
+  if (email && !validEmail(email)) return { error: P.errEmail }
+  const phone = get('phone', 60)
+  if (phone && !validPhone(phone)) return { error: P.errPhone }
   const capacityRaw = get('capacity', 10)
   const capacity = capacityRaw ? Number.parseInt(capacityRaw, 10) : undefined
   if (capacityRaw && (!Number.isFinite(capacity) || capacity! < 1 || capacity! > 10000)) return { error: P.errCapacity }
@@ -185,7 +187,7 @@ function readListing(form: FormData): { title: string; data: Record<string, unkn
         : { priceLevel: T.priceLevels.some(([k]) => k === priceLevel) ? priceLevel : '' }),
       setting: T.settings.some(([k]) => k === setting) ? setting : '',
       ...Object.fromEntries(T.amenities.map(([k]) => [k, form.get(k) === '1'])),
-      website, phone: get('phone', 60), email, ...socials,
+      website, phone, email, ...socials,
       // YouTube links only (one per line); anything else is dropped.
       videos: videoIds(String(form.get('videos') ?? '').slice(0, 3000)).map(id => `https://www.youtube.com/watch?v=${id}`).join('\n')
     }

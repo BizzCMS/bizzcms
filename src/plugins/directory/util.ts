@@ -96,3 +96,8 @@ export const DIRECTORY_CSS = `.req-dialog{width:min(560px,calc(100% - 32px));max
 .dir-suggest{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:50;margin:0;padding:6px;list-style:none;background:#fff;border:1px solid rgba(0,0,0,.12);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.14);max-height:360px;overflow:auto;text-align:left}
 .dir-suggest li{display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:center;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:15px;color:#222}
 .dir-suggest li.on,.dir-suggest li:hover{background:rgba(0,0,0,.06)}.dir-suggest .k{font-size:13px;opacity:.75}.dir-suggest .m{font-size:12px;color:#888}`
+
+/** A plain e-mail address: no spaces, quotes, angle brackets or other markup characters; a real domain. */
+export const validEmail = (v: string) => v.length <= 200 && /^[A-Za-z0-9._%+'-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/.test(v)
+/** One or more phone numbers: digits with the usual separators (+, spaces, dashes, dots, slashes, brackets, ",", "|"); no letters or markup. */
+export const validPhone = (v: string) => /^[+(]?[0-9][0-9 ()./,|+-]{4,58}$/.test(v)

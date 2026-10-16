@@ -10,7 +10,7 @@ import { readForm } from '../../site-accounts'
 import {
   alphabetical, bookingSql, categoryUrl, cityUrl, regionUrl, directorySettings, notifyDirectory, directoryUrl, label, listingUrl, matchRoute, planOf, type Plan, slugify, subcategories
 } from './config'
-import { esc, fold, html, icon, mediaList, pageWindow, safeDecode, safeUrl, str, truthy } from './util'
+import { esc, fold, html, icon, mediaList, pageWindow, safeDecode, safeUrl, str, truthy, validEmail } from './util'
 import { mediaGallery, mediaHero, mediaItems, mediaViewer, videoIds } from './media'
 
 type Env = { DB: D1Database }
@@ -365,7 +365,7 @@ async function saveRequest(form: FormData, company: Listing, env: Env, origin: s
     .map(k => [k, String(form.get(k) ?? '').trim()]))
   if (String(form.get('website') ?? '') !== '') return { ok: true as const } // honeypot: pretend success
   if (!values.coupleName || values.coupleName.length > 200) return { ok: false as const, error: text.errName, values }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email) || values.email.length > 200) return { ok: false as const, error: text.errEmail, values }
+  if (!validEmail(values.email)) return { ok: false as const, error: text.errEmail, values }
   if (values.weddingDate && !/^\d{4}-\d{2}-\d{2}$/.test(values.weddingDate)) return { ok: false as const, error: text.errDate, values }
   if (values.message.length > 3000 || values.phone.length > 60) return { ok: false as const, error: text.errTooLong, values }
   const guests = Number.parseInt(values.guests, 10)
