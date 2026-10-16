@@ -57,7 +57,7 @@ export const DEFAULT_ROUTES: DirectoryRoutes = {
 /** Query-parameter names and values used in directory links. */
 export const DEFAULT_PARAMS = {
   q: 'q', category: 'category', region: 'region', city: 'city', guests: 'guests', price: 'price', setting: 'setting',
-  premium: 'premium', sort: 'sort', view: 'view', page: 'page', sent: 'sent', requestAnchor: 'request',
+  premium: 'premium', favorites: 'favorites', sort: 'sort', view: 'view', page: 'page', sent: 'sent', requestAnchor: 'request',
   sortName: 'name', sortNewest: 'newest', sortCapacity: 'capacity', sortPopular: 'popular', viewList: 'list'
 }
 
@@ -104,6 +104,10 @@ export const DEFAULT_TEXT = {
   quoted: (q: string) => `"${q}"`,
   guestsPill: (n: string) => `${n}+ guests`,
   premiumPill: 'Premium',
+  favAdd: 'Save to favourites',
+  favRemove: 'Remove from favourites',
+  favOnly: 'Favourites only',
+  favPill: 'Favourites',
   pages: 'Pages',
   previous: '‹ Previous',
   next: 'Next ›',
@@ -309,6 +313,9 @@ export interface DirectorySettings {
   /** Share buttons on profiles, e.g. the Social Share plugin:
    *  (db, url, title, image) => shareBar(db, url, title, image, 'hr'). None or '' = no buttons. */
   share?: (db: D1Database, url: string, title: string, image?: string) => Promise<string>
+  /** Heart buttons on cards and profiles, and the "favourites only" filter (?favorites=slug,slug). The site's script
+   *  keeps the list (in the browser and/or the visitor's account) and fills in the filter. */
+  favorites?: boolean
   /** Packages, the free one first; empty = no packages (every company gets everything, paidMember = Premium). */
   plans: Plan[]
   /** The site's price list page, linked from the company portal. */
@@ -347,6 +354,7 @@ export interface DirectoryOptions {
   notify?: DirectorySettings['notify']
   plans?: Plan[]
   pricingUrl?: string
+  favorites?: boolean
 }
 
 /** Turn the directory on for this site with its own addresses, categories, wording and layout. */
@@ -364,7 +372,8 @@ export function setDirectory(opts: DirectoryOptions): void {
     share: opts.share ?? current.share,
     notify: opts.notify ?? current.notify,
     plans: opts.plans ?? current.plans,
-    pricingUrl: opts.pricingUrl ?? current.pricingUrl
+    pricingUrl: opts.pricingUrl ?? current.pricingUrl,
+    favorites: opts.favorites ?? current.favorites
   }
 }
 export const directorySettings = (): DirectorySettings => current

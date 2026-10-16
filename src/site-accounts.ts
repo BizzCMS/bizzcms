@@ -171,9 +171,14 @@ export async function currentUser(request: Request, cms: Cms): Promise<User | nu
   return { id: body.user.id, email: body.user.email.toLowerCase(), firstName: body.user.first_name }
 }
 
-function withCookies(target: string, from: Response): Response {
+/** Not secret: only tells the site's pages (which are cached for everyone) to load the visitor's account menu. */
+export const SIGNED_IN_COOKIE = 'signed_in'
+export const signedInCookie = (on: boolean) =>
+  on ? `${SIGNED_IN_COOKIE}=1; Path=/; Max-Age=2592000; SameSite=Lax; Secure` : `${SIGNED_IN_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax; Secure`
+function withCookies(target: string, from: Response, signedIn = true): Response {
   const headers = new Headers({ location: target })
   for (const c of from.headers.getSetCookie?.() ?? []) headers.append('set-cookie', c)
+  headers.append('set-cookie', signedInCookie(signedIn))
   return new Response(null, { status: 303, headers })
 }
 
@@ -272,7 +277,7 @@ export async function accountRoute(a: Audience, request: Request, url: URL, path
   }
   if (path === `${a.base}/${paths.logout}` && post) {
     const res = await cms(new Request(`${url.origin}/auth/logout`, { headers: forwardHeaders(request, { cookie: request.headers.get('cookie') ?? '' }) }))
-    const out = withCookies(a.base, res)
+    const out = withCookies(a.base, res, false)
     // Also expire the session cookie here in case the CMS did not.
     out.headers.append('set-cookie', 'auth_token=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict')
     return out
@@ -302,6 +307,11 @@ export async function createAccount(request: Request, url: URL, cms: Cms, v: { f
   const session = await signIn(request, url, cms, v.email.toLowerCase(), v.password)
   return session.ok ? { session } : {}
 }
+/** True when the e-mail and password sign in (used to confirm the current password before a change). */
+export async function verifyPassword(request: Request, url: URL, cms: Cms, email: string, password: string): Promise<boolean> {
+  return !!password && (await signIn(request, url, cms, email, password)).ok
+}
+
 /** Redirect to `target` carrying the session cookies of `session` (from createAccount). */
 export const redirectWithSession = (target: string, session: Response) => withCookies(target, session)
 
