@@ -57,7 +57,7 @@ export const DEFAULT_ROUTES: DirectoryRoutes = {
 /** Query-parameter names and values used in directory links. */
 export const DEFAULT_PARAMS = {
   q: 'q', category: 'category', region: 'region', city: 'city', guests: 'guests', price: 'price', setting: 'setting',
-  premium: 'premium', favorites: 'favorites', sort: 'sort', view: 'view', page: 'page', sent: 'sent', requestAnchor: 'request',
+  premium: 'premium', favorites: 'favorites', priceMin: 'price_from', priceMax: 'price_to', sort: 'sort', view: 'view', page: 'page', sent: 'sent', requestAnchor: 'request',
   sortName: 'name', sortNewest: 'newest', sortCapacity: 'capacity', sortPopular: 'popular', viewList: 'list'
 }
 
@@ -108,6 +108,11 @@ export const DEFAULT_TEXT = {
   favRemove: 'Remove from favourites',
   favOnly: 'Favourites only',
   favPill: 'Favourites',
+  priceRange: 'Price from (€)',
+  priceRangeFrom: 'from',
+  priceRangeTo: 'to',
+  priceMinPill: (n: string) => `from €${n}`,
+  priceMaxPill: (n: string) => `up to €${n}`,
   pages: 'Pages',
   previous: '‹ Previous',
   next: 'Next ›',
@@ -316,6 +321,10 @@ export interface DirectorySettings {
   /** Heart buttons on cards and profiles, and the "favourites only" filter (?favorites=slug,slug). The site's script
    *  keeps the list (in the browser and/or the visitor's account) and fills in the filter. */
   favorites?: boolean
+  /** Filter by the companies' "price from" amount (from - to €); only companies with an amount match. */
+  priceRange?: boolean
+  /** Show the favourites and price filters only to signed-in visitors (the site's script reveals them). */
+  memberFilters?: boolean
   /** Packages, the free one first; empty = no packages (every company gets everything, paidMember = Premium). */
   plans: Plan[]
   /** The site's price list page, linked from the company portal. */
@@ -355,6 +364,8 @@ export interface DirectoryOptions {
   plans?: Plan[]
   pricingUrl?: string
   favorites?: boolean
+  priceRange?: boolean
+  memberFilters?: boolean
 }
 
 /** Turn the directory on for this site with its own addresses, categories, wording and layout. */
@@ -373,7 +384,9 @@ export function setDirectory(opts: DirectoryOptions): void {
     notify: opts.notify ?? current.notify,
     plans: opts.plans ?? current.plans,
     pricingUrl: opts.pricingUrl ?? current.pricingUrl,
-    favorites: opts.favorites ?? current.favorites
+    favorites: opts.favorites ?? current.favorites,
+    priceRange: opts.priceRange ?? current.priceRange,
+    memberFilters: opts.memberFilters ?? current.memberFilters
   }
 }
 export const directorySettings = (): DirectorySettings => current

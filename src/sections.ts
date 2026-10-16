@@ -75,15 +75,22 @@ export async function sectionCounts(db: D1Database): Promise<Record<string, numb
 // News only shows when the site has news posts; Blog when it has any posts; a pinned collection always.
 export interface PinnedCollection { name: string; label: string; icon?: string }
 let pinned: PinnedCollection[] = []
-/** Collections a site shows as their own sidebar entries (after Blog / News), e.g. [{ name: 'portfolio', label: 'Portfolio' }]. */
-export function setSidebarCollections(list: PinnedCollection[]) { pinned = list }
+let sectionsOn = true
+/**
+ * Collections a site shows as their own sidebar entries (after Blog / News), e.g. [{ name: 'portfolio', label: 'Portfolio' }].
+ * `sections: false` leaves out the Blog / News entries (a site that pins its posts under its own name instead).
+ */
+export function setSidebarCollections(list: PinnedCollection[], opts: { sections?: boolean } = {}) {
+  pinned = list
+  sectionsOn = opts.sections !== false
+}
 
 const COUNTS_KEY = 'bizz:sidebar-counts:v1'
 let sidebarCounts: { at: number; counts: Record<string, number> } | null = null
 
 async function countAll(db: D1Database): Promise<Record<string, number>> {
   const counts: Record<string, number> = {}
-  for (const [k, n] of Object.entries(await sectionCounts(db))) counts[`section:${k}`] = n
+  if (sectionsOn) for (const [k, n] of Object.entries(await sectionCounts(db))) counts[`section:${k}`] = n
   if (pinned.length) {
     const { results } = await db.prepare(`SELECT type_id, COUNT(*) AS n FROM documents WHERE tenant_id = 'default' AND is_current_draft = 1 AND deleted_at IS NULL AND type_id IN (${pinned.map(() => '?').join(',')}) GROUP BY type_id`)
       .bind(...pinned.map(c => c.name)).all<{ type_id: string; n: number }>().catch(() => ({ results: [] as { type_id: string; n: number }[] }))
@@ -126,12 +133,12 @@ export function sidebarSectionsHtml(): string {
   const entry = (key: string, href: string, label: string, icon: string, n: number) => `<a href="${href}" class="${NAV_LINK}" data-bizz-section="${escAttr(key)}"><span class="${NAV_ICON_SPAN}"><svg class="h-5 w-5 bizz-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg></span><span class="truncate">${escAttr(label)}</span><span class="bizz-nav-count">${fmt(n)}</span></a>`
   const posts = SECTIONS.reduce((a, s) => a + (counts[`section:${s}`] ?? 0), 0)
   const items = [
-    ...(posts ? SECTIONS.filter(s => s !== 'news' || (counts['section:news'] ?? 0) > 0).map(s => entry(s, `/admin/content?model=posts&amp;section=${s}`, LABEL[s], NAV_ICON[s], counts[`section:${s}`] ?? 0)) : []),
+    ...(sectionsOn && posts ? SECTIONS.filter(s => s !== 'news' || (counts['section:news'] ?? 0) > 0).map(s => entry(s, `/admin/content?model=posts&amp;section=${s}`, LABEL[s], NAV_ICON[s], counts[`section:${s}`] ?? 0)) : []),
     ...pinned.map(c => entry(`c-${c.name}`, `/admin/content?model=${encodeURIComponent(c.name)}`, c.label, c.icon ?? NAV_ICON.collection, counts[`collection:${c.name}`] ?? 0))
   ]
   if (!items.length) return ''
   // Runs while the page is still loading (before the first paint): marks the current entry (Blog / News on
   // their posts list, a pinned collection on its list) and Content as not current there.
-  const active = `<script>(function(){var q=new URLSearchParams(location.search),m=q.get('model'),s=q.get('section'),key=null;if(location.pathname!=='/admin/content'||!m)return;if(m==='posts'&&s)key=s.replace(/[^a-z]/g,'');else if(m!=='posts')key='c-'+m.replace(/[^a-z0-9_-]/gi,'');if(!key)return;var p=document.currentScript.parentNode,a=p.querySelector('[data-bizz-section="'+key+'"]'),c=p.querySelector('a[href="/admin/content"][class*="gap-3"]');if(!a||!c)return;var ai=a.querySelector('span'),ci=c.querySelector('span');a.className=c.className;a.setAttribute('data-current','true');a.setAttribute('aria-current','page');if(ai&&ci){var t=ai.className;ai.className=ci.className;ci.className=t}c.className=${JSON.stringify(NAV_LINK)};c.removeAttribute('data-current');c.removeAttribute('aria-current')})()</script>`
+  const active = `<script>(function(){var q=new URLSearchParams(location.search),m=q.get('model'),s=q.get('section'),key=null;if(location.pathname!=='/admin/content'||!m)return;if(m==='posts'&&s)key=s.replace(/[^a-z]/g,'');else key='c-'+m.replace(/[^a-z0-9_-]/gi,'');if(!key)return;var p=document.currentScript.parentNode,a=p.querySelector('[data-bizz-section="'+key+'"]'),c=p.querySelector('a[href="/admin/content"][class*="gap-3"]');if(!a||!c)return;var ai=a.querySelector('span'),ci=c.querySelector('span');a.className=c.className;a.setAttribute('data-current','true');a.setAttribute('aria-current','page');if(ai&&ci){var t=ai.className;ai.className=ci.className;ci.className=t}c.className=${JSON.stringify(NAV_LINK)};c.removeAttribute('data-current');c.removeAttribute('aria-current')})()</script>`
   return items.join('') + active
 }

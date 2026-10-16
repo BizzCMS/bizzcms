@@ -23,6 +23,8 @@ interface Filters {
   amenities: string[]
   /** "Favourites only": the visitor's saved profiles (slugs); null when the filter is off. */
   favorites: string[] | null
+  /** "Price from" range in euros ('' = no limit). */
+  priceMin: string; priceMax: string
 }
 
 /** Directory pages and profiles at the site's addresses; null for any other path. */
@@ -153,6 +155,8 @@ function readFilters(p: URLSearchParams): Filters {
     price: get(params.price), setting: get(params.setting), premium: get(params.premium), sort: get(params.sort), view: get(params.view),
     page: Math.min(10000, Math.max(1, Number.parseInt(get(params.page), 10) || 1)),
     amenities: taxonomy.amenities.map(([k]) => k).filter(k => p.get(k) === '1'),
+    priceMin: /^\d{1,7}$/.test(get(params.priceMin)) ? String(Number(get(params.priceMin))) : '',
+    priceMax: /^\d{1,7}$/.test(get(params.priceMax)) ? String(Number(get(params.priceMax))) : '',
     favorites: p.has(params.favorites) ? (p.get(params.favorites) ?? '').split(',').map(s => s.trim()).filter(s => /^[a-z0-9-]{1,120}$/.test(s)).slice(0, 200) : null
   }
 }
@@ -184,6 +188,11 @@ function where(f: Filters, cityNames: string[], today: string, skip: Facet[] = [
   if (f.setting === 'indoor' || f.setting === 'outdoor') { sql.push(`${J('setting')} IN (?, 'both')`); binds.push(f.setting) }
   for (const a of f.amenities) sql.push(TRUE(a))
   if (f.premium === '1') { sql.push(PREMIUM()); binds.push(today) }
+  if (f.priceMin || f.priceMax) {
+    sql.push(`CAST(COALESCE(${J('priceFrom')}, 0) AS INTEGER) > 0`)
+    if (f.priceMin) { sql.push(`CAST(${J('priceFrom')} AS INTEGER) >= ?`); binds.push(Number(f.priceMin)) }
+    if (f.priceMax) { sql.push(`CAST(${J('priceFrom')} AS INTEGER) <= ?`); binds.push(Number(f.priceMax)) }
+  }
   if (f.favorites) {
     sql.push(f.favorites.length ? `slug IN (${f.favorites.map(() => '?').join(',')})` : '0')
     binds.push(...f.favorites)
@@ -371,6 +380,12 @@ async function saveRequest(form: FormData, company: Listing, env: Env, origin: s
 }
 
 /** Directory card: the directory, and anywhere a site shows companies (home page, articles). */
+/** Marks a filter that only signed-in visitors see (memberFilters): hidden until the site's script reveals it,
+ *  unless it is already in use (e.g. a shared link). */
+function memberOnly(inUse: boolean): string {
+  return directorySettings().memberFilters ? ` data-member-only${inUse ? '' : ' hidden'}` : ''
+}
+
 /** Heart button (the site's script saves the profile and marks it); empty when favourites are off. */
 function favButton(slug: string): string {
   const { favorites, text } = directorySettings()
@@ -456,7 +471,7 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
   const params = (change: Partial<Record<keyof typeof P | string, string | null>>) => {
     const current: Record<string, string> = {
       q: f.q, category: f.category, region: f.region, city: f.city, guests: f.guests, price: f.price,
-      setting: f.setting, premium: f.premium, favorites: f.favorites?.join(',') ?? '', sort: f.sort, view: f.view, page: f.page > 1 ? String(f.page) : '',
+      setting: f.setting, premium: f.premium, favorites: f.favorites?.join(',') ?? '', priceMin: f.priceMin, priceMax: f.priceMax, sort: f.sort, view: f.view, page: f.page > 1 ? String(f.page) : '',
       ...Object.fromEntries(f.amenities.map(a => [a, '1']))
     }
     const p = new URLSearchParams()
@@ -489,7 +504,7 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
     f.q && ['q', text.quoted(f.q)], f.category && ['category', sub?.label ?? cat?.label ?? f.category],
     f.region && ['region', label(taxonomy.regions, f.region) ?? f.region], f.city && ['city', r.cityLabel ?? f.city],
     f.guests && ['guests', text.guestsPill(f.guests)], f.price && ['price', label(taxonomy.priceLevels, f.price) ?? f.price],
-    f.setting && ['setting', label(taxonomy.settings, f.setting) ?? f.setting], f.premium === '1' && ['premium', text.premiumPill], f.favorites && ['favorites', text.favPill],
+    f.setting && ['setting', label(taxonomy.settings, f.setting) ?? f.setting], f.premium === '1' && ['premium', text.premiumPill], f.favorites && ['favorites', text.favPill], f.priceMin && ['priceMin', text.priceMinPill(f.priceMin)], f.priceMax && ['priceMax', text.priceMaxPill(f.priceMax)],
     ...f.amenities.map(a => [a, label(taxonomy.amenities, a) ?? a])
   ].filter(Boolean) as [string, string][]
   const pillBar = pills.length ? `<div class="pills">${pills.map(([k, v]) =>
@@ -516,11 +531,14 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
       <label class="flabel" for="f-grad">${esc(text.city)}</label><select id="f-grad" name="${P.city}">${option('', text.allCities, f.city)}${cityOptions}</select></div>
     ${isVenue || f.guests || f.setting ? `<div class="fsec"><p class="flabel">${esc(text.guests)}</p>${radios(P.guests, taxonomy.guestBuckets.map(([n, t]) => [String(n), t] as const), f.guests)}
       <label class="flabel" for="f-pro">${esc(text.setting)}</label><select id="f-pro" name="${P.setting}">${option('', text.any, f.setting)}${option('indoor', settingLabel('indoor'), f.setting)}${option('outdoor', settingLabel('outdoor'), f.setting)}</select></div>` : ''}
+    ${directorySettings().priceRange ? `<div class="fsec price-range"${memberOnly(!!(f.priceMin || f.priceMax))}><p class="flabel">${esc(text.priceRange)}</p><div class="two">
+      <label>${esc(text.priceRangeFrom)}<input type="number" name="${P.priceMin}" min="0" step="10" inputmode="numeric" value="${esc(f.priceMin)}"></label>
+      <label>${esc(text.priceRangeTo)}<input type="number" name="${P.priceMax}" min="0" step="10" inputmode="numeric" value="${esc(f.priceMax)}"></label></div></div>` : ''}
     ${taxonomy.priceFilter !== false && taxonomy.priceLevels.length ? `<div class="fsec"><p class="flabel">${esc(text.price)}</p>${radios(P.price, taxonomy.priceLevels, f.price)}</div>` : ''}
     <div class="fsec">${(isVenue || f.amenities.length ? taxonomy.amenities : []).map(([k, v]) =>
       `<label class="check"><input type="checkbox" name="${k}" value="1"${f.amenities.includes(k) ? ' checked' : ''}>${esc(v)}</label>`).join('')}
       <label class="check"><input type="checkbox" name="${P.premium}" value="1"${f.premium === '1' ? ' checked' : ''}>${esc(text.premiumOnly)}</label>
-      ${directorySettings().favorites ? `<label class="check"><input type="checkbox" data-fav-only${f.favorites ? ' checked' : ''}>${esc(text.favOnly)}</label><input type="hidden" name="${P.favorites}" value="${esc(f.favorites?.join(',') ?? '')}" data-fav-list${f.favorites ? '' : ' disabled'}>` : ''}</div>
+      ${directorySettings().favorites ? `<label class="check"${memberOnly(!!f.favorites)}><input type="checkbox" data-fav-only${f.favorites ? ' checked' : ''}>${esc(text.favOnly)} <span class="fav-n" data-fav-count></span></label><input type="hidden" name="${P.favorites}" value="${esc(f.favorites?.join(',') ?? '')}" data-fav-list${f.favorites ? '' : ' disabled'}>` : ''}</div>
     <div class="fsec factions"><button type="submit">${esc(text.apply)}</button><a class="link" href="${esc(DIR)}">${esc(text.clear)}</a></div>
     </details></form>`
 
@@ -530,7 +548,7 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
     <div><p class="crumbs"><a href="${esc(DIR)}">${esc(text.directoryTitle)}</a>${parent && sub ? ` › <a href="${esc(categoryUrl(parent.slug))}">${esc(parent.label)}</a>` : ''}</p>
       <h1>${f.q ? esc(text.resultsFor(f.q)) : esc(heading)}</h1></div>
     <form class="tools" method="get" action="${esc(DIR)}">
-      ${Object.entries({ category: f.category, region: f.region, city: f.city, guests: f.guests, price: f.price, setting: f.setting, premium: f.premium, favorites: f.favorites?.join(',') ?? '', view: f.view }).map(([k, v]) => hidden((P as Record<string, string>)[k], v)).join('')}
+      ${Object.entries({ category: f.category, region: f.region, city: f.city, guests: f.guests, price: f.price, setting: f.setting, premium: f.premium, favorites: f.favorites?.join(',') ?? '', priceMin: f.priceMin, priceMax: f.priceMax, view: f.view }).map(([k, v]) => hidden((P as Record<string, string>)[k], v)).join('')}
       ${f.amenities.map(a => hidden(a, '1')).join('')}
       <label class="search">${icon('search')}<input type="search" name="${P.q}" value="${esc(f.q)}" placeholder="${esc(text.searchPlaceholder)}" aria-label="${esc(text.searchLabel)}" data-suggest="${esc(DIR)}"></label>
       <select name="${P.sort}" aria-label="${esc(text.sortLabel)}" data-auto-submit>${option('', text.sortRecommended, f.sort)}${alphabetical([[P.sortName, text.sortName], [P.sortNewest, text.sortNewest], [P.sortPopular, text.sortPopular], ...(isVenue ? [[P.sortCapacity, text.sortCapacity]] : [])] as [string, string][], o => o[1]).map(([k, t]) => option(k, t, f.sort)).join('')}</select>
@@ -539,7 +557,7 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
 
   // Only plain category/city/region pages are canonical and indexable; filter combinations are noindex.
   const hasRegionPage = !!directorySettings().routes.region
-  const plain = !f.q && !f.guests && !f.price && !f.setting && !f.premium && !f.favorites && !f.amenities.length && !f.sort && !f.view && f.page === 1
+  const plain = !f.q && !f.guests && !f.price && !f.setting && !f.premium && !f.favorites && !f.priceMin && !f.priceMax && !f.amenities.length && !f.sort && !f.view && f.page === 1
   const canonicalPath = !plain ? null
     : f.category && !f.city && !f.region ? categoryUrl(f.category)
     : f.city && !f.category && !f.region ? cityUrl(f.city)
