@@ -107,7 +107,7 @@ export async function handleDirectory(request: Request, env: Env): Promise<Respo
   if (get && safeDecode(url.pathname) !== canonical) return moved(canonical + url.search)
   if (request.method === 'POST') {
     if (!company.requests) return html(page(company.title, `<div class="wrap profile"><h1>${esc(text.requestsUnavailable)}</h1></div>`), 403)
-    const result = await saveRequest(await readForm(request), company, env, url.origin)
+    const result = await saveRequest(await readForm(request), company, env, url.origin, request.headers.get('x-bizz-account') ?? undefined)
     if (result.ok) return Response.redirect(new URL(`${canonical}?${params.sent}=1#${params.requestAnchor}`, url.origin).href, 303)
     return html(profilePage(company, { error: result.error, values: result.values }, url.origin, await shareFor(env.DB, url.origin + canonical, company)), 400)
   }
@@ -358,7 +358,8 @@ export async function findListing(db: D1Database, by: { slug: string } | { legac
   }
 }
 
-async function saveRequest(form: FormData, company: Listing, env: Env, origin: string) {
+/** `account`: the signed-in visitor's e-mail, when the site passes it (header x-bizz-account, set by the site only). */
+async function saveRequest(form: FormData, company: Listing, env: Env, origin: string, account?: string) {
   const { text } = directorySettings()
   const values = Object.fromEntries(['coupleName', 'email', 'phone', 'weddingDate', 'guests', 'message']
     .map(k => [k, String(form.get(k) ?? '').trim()]))
@@ -376,7 +377,8 @@ async function saveRequest(form: FormData, company: Listing, env: Env, origin: s
     data: {
       title, partner: company.slug, partnerName: company.title, coupleName: values.coupleName,
       email: values.email, phone: values.phone, weddingDate: values.weddingDate || undefined,
-      guests: Number.isFinite(guests) && guests > 0 ? guests : undefined, message: values.message, handling: 'new'
+      guests: Number.isFinite(guests) && guests > 0 ? guests : undefined, message: values.message, handling: 'new',
+      ...(account ? { userEmail: account } : {})
     }
   } as unknown as Parameters<DocumentsService['create']>[0]) // create() applies schema defaults
   await notifyDirectory({ type: 'booking', listing: { title: company.title, url: abs(origin, listingUrl(company)), email: company.email || undefined },
@@ -629,10 +631,8 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
     p.phone && `<a href="tel:${esc(p.phone.replace(/[^\d+]/g, ''))}">${esc(p.phone)}</a>`,
     p.email && `<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>`
   ].filter(Boolean)
-  const form = !p.requests ? '' : state.sent
-    ? `<section id="${esc(P.requestAnchor)}" class="box ok"><h2>${esc(text.thanksTitle)}</h2><p>${esc(text.thanksText)}</p></section>`
-    : `<section id="${esc(P.requestAnchor)}" class="box"><h2>${esc(p.premium ? text.requestTitle : text.inquiryTitle)}</h2>${state.error ? `<p class="err">${esc(state.error)}</p>` : ''}
-      <form class="request" method="post" action="${esc(listingUrl(p))}#${esc(P.requestAnchor)}">
+  const requestForm = `<h2>${esc(p.premium ? text.requestTitle : text.inquiryTitle)}</h2>${state.error ? `<p class="err">${esc(state.error)}</p>` : ''}
+      <form class="request" method="post" action="${esc(listingUrl(p))}">
         <label>${esc(text.formName)}<input name="coupleName" required maxlength="200" value="${esc(v.coupleName ?? '')}"></label>
         <label>${esc(text.formEmail)}<input name="email" type="email" required maxlength="200" value="${esc(v.email ?? '')}"></label>
         <label>${esc(text.formPhone)}<input name="phone" maxlength="60" value="${esc(v.phone ?? '')}"></label>
@@ -641,7 +641,16 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
         <label class="full">${esc(text.formMessage)}<textarea name="message" rows="4" maxlength="3000">${esc(v.message ?? '')}</textarea></label>
         <label class="hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
         <button type="submit">${esc(text.formSend)}</button>
-      </form></section>`
+      </form>`
+  // The request form opens as a popup (the profile's button, "Request a date" on cards: #<anchor> or ?<anchor>=1).
+  // With requestLogin, signed-out visitors see sign-in / sign-up links in it instead (the site refuses their posts).
+  const login = directorySettings().requestLogin
+  const back = encodeURIComponent(`${listingUrl(p)}?${P.requestAnchor}=1`)
+  const loginBox = login ? `<div class="req-login" data-req-login hidden><h2>${esc(text.requestLoginTitle)}</h2><p>${esc(text.requestLoginText)}</p>
+      <p class="actions"><a class="btn" href="${esc(login.login.replace('{return}', back))}">${esc(text.requestLoginButton)}</a><a class="btn ghost" href="${esc(login.register.replace('{return}', back))}">${esc(text.requestRegisterButton)}</a></p></div>` : ''
+  const form = !p.requests ? '' : `<dialog id="${esc(P.requestAnchor)}" class="req-dialog" data-request${login ? ' data-needs-login' : ''}${state.sent || state.error ? ' data-open' : ''}>
+      <button type="button" class="req-close" data-close aria-label="${esc(text.close)}">×</button>${state.sent ? '' : loginBox}
+      <div data-req-form>${state.sent ? `<div class="req-thanks"><h2>${esc(text.thanksTitle)}</h2><p>${esc(text.thanksText)}</p></div>` : requestForm}</div></dialog>`
   // Title: the company's own SEO title, else name - (sub)category, city, so companies with the same name in
   // different towns or categories never share a <title> (old directories have many: "Ana", "Simple", "Croata").
   const where = [sub?.label ?? parent?.label, p.city].filter(Boolean).join(', ')
@@ -654,7 +663,7 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
     <aside class="box facts">${facts.map(([k, val]) => `<div><span>${esc(k)}</span>${esc(val)}</div>`).join('')}
       ${contact.length ? `<div><span>${esc(text.contact)}</span>${contact.join('<br>')}</div>` : ''}
       ${p.socials.length ? `<div><span>${esc(text.socialTitle)}</span>${p.socials.map(([name, u]) => `<a href="${esc(u)}" rel="noopener" target="_blank">${esc(name)} ↗</a>`).join('<br>')}</div>` : ''}
-      ${p.requests && !state.sent ? `<a class="btn" href="#${esc(P.requestAnchor)}">${esc(p.premium ? text.requestDate : text.inquiryTitle)}</a>` : ''}</aside></div></div>${mediaViewer(media, p.title, mt)}`,
+      ${p.requests ? `<a class="btn" href="#${esc(P.requestAnchor)}" data-open-request>${esc(p.premium ? text.requestDate : text.inquiryTitle)}</a>` : ''}</aside></div></div>${mediaViewer(media, p.title, mt)}`,
     { description: p.seoDescription || p.summary, canonical: abs(origin, listingUrl(p)), image: p.cover ?? p.image ? abs(origin, (p.cover ?? p.image)!) : undefined, head: jsonLd({ '@context': 'https://schema.org', '@graph': [
       {
         '@type': 'LocalBusiness', '@id': `${abs(origin, listingUrl(p))}#business`, name: p.title, url: abs(origin, listingUrl(p)),

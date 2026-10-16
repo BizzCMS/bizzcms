@@ -96,6 +96,7 @@ let pageShell: (title: string, body: string) => string =
   (title, body) => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,follow"><title>${esc(title)}</title></head><body><main class="wrap portal">${body}</main></body></html>`
 let mailer: ((m: AccountMail) => Promise<boolean>) | undefined
 let emails: AccountEmails = DEFAULT_EMAILS
+let returnPaths: RegExp | undefined
 let onRegistered: ((a: Audience, user: { email: string; firstName: string; lastName: string }, origin: string) => Promise<void>) | undefined
 
 /**
@@ -106,6 +107,8 @@ export function configureAccounts(opts: {
   text?: Partial<AccountText>; paths?: Partial<AccountPaths>; page?: (title: string, body: string) => string
   mail?: (m: AccountMail) => Promise<boolean>; emails?: Partial<AccountEmails>
   registered?: (a: Audience, user: { email: string; firstName: string; lastName: string }, origin: string) => Promise<void>
+  /** Other site paths an account page may return to after sign-in or sign-up (e.g. a company profile). */
+  returnPaths?: RegExp
 }) {
   if (opts.text) text = { ...ACCOUNT_TEXT, ...opts.text }
   if (opts.paths) paths = { ...ACCOUNT_PATHS, ...opts.paths }
@@ -113,6 +116,7 @@ export function configureAccounts(opts: {
   if (opts.mail) mailer = opts.mail
   if (opts.emails) emails = { ...DEFAULT_EMAILS, ...opts.emails }
   if (opts.registered) onRegistered = opts.registered
+  if (opts.returnPaths) returnPaths = opts.returnPaths
 }
 /** Sends through the site's mailer (false when none is configured). */
 export async function sendAccountMail(m: AccountMail): Promise<boolean> {
@@ -185,6 +189,7 @@ function withCookies(target: string, from: Response, signedIn = true): Response 
 // Only paths inside the audience's area are accepted as a post-login target.
 function nextPath(a: Audience, value: unknown): string {
   const next = String(value ?? '')
+  if (returnPaths && next.startsWith('/') && !next.startsWith('//') && returnPaths.test(next)) return next
   const base = a.base.replace(/[/-]/g, c => `\\${c}`)
   return new RegExp(`^${base}(\\/[A-Za-z0-9/_-]*)?$`).test(next) ? next : a.base
 }
@@ -223,20 +228,21 @@ export async function accountRoute(a: Audience, request: Request, url: URL, path
     return withCookies(body.twoFactorRequired ? '/auth/two-factor' : nextPath(a, form.get(paths.next)), res)
   }
   if (path === `${a.base}/${paths.register}`) {
-    if (!post) return html(registerPage(a, undefined, {}, google))
+    if (!post) return html(registerPage(a, undefined, { [paths.next]: url.searchParams.get(paths.next) ?? '' }, google))
     const form = await readForm(request)
-    const v = { firstName: String(form.get('firstName') ?? '').trim(), lastName: String(form.get('lastName') ?? '').trim(), email: String(form.get('email') ?? '').trim() }
+    const v = { firstName: String(form.get('firstName') ?? '').trim(), lastName: String(form.get('lastName') ?? '').trim(), email: String(form.get('email') ?? '').trim(), [paths.next]: String(form.get(paths.next) ?? '') }
     const password = String(form.get('password') ?? '')
     if (!v.firstName || !v.lastName) return html(registerPage(a, text.enterName, v, google), 400)
     if (password.length < 8) return html(registerPage(a, text.passwordShort, v, google), 400)
     if (form.get(paths.terms) !== '1') return html(registerPage(a, text.acceptTerms, v, google), 400)
-    const created = await createAccount(request, url, cms, { ...v, password })
+    const created = await createAccount(request, url, cms, { firstName: v.firstName, lastName: v.lastName, email: v.email, password })
     if ('error' in created) return html(registerPage(a, created.error, v, google), created.status)
-    const user = { ...v, email: v.email.toLowerCase() }
+    const user = { firstName: v.firstName, lastName: v.lastName, email: v.email.toLowerCase() }
     if (onRegistered) await onRegistered(a, user, url.origin).catch(e => console.error('site-accounts: registered hook', e))
     if (emails.welcome) await sendAccountMail({ to: user.email, ...emails.welcome(a, url.origin, v.firstName) })
     if (!created.session) return Response.redirect(`${url.origin}${a.base}/${paths.login}`, 303)
-    return withCookies(`${a.base}?${paths.notice}=${paths.registered}`, created.session)
+    const back = v[paths.next] ? nextPath(a, v[paths.next]) : a.base
+    return withCookies(back === a.base ? `${a.base}?${paths.notice}=${paths.registered}` : back, created.session)
   }
   if (path === `${a.base}/google` && google) {
     // The CMS (Better Auth) starts the Google sign-in: it answers with Google's address and sets a state cookie.
@@ -370,14 +376,14 @@ function loginPage(a: Audience, error?: string, email = '', next = a.base, googl
       <label>${esc(text.password)}<input name="password" type="password" autocomplete="current-password" required></label>
       <button type="submit">${esc(text.signIn)}</button></form>
     ${forgot ? `<p class="muted"><a href="${a.base}/${paths.forgot}">${esc(text.forgotLink)}</a></p>` : ''}
-    <p class="muted">${esc(text.noAccount)} <a href="${a.base}/${paths.register}">${esc(text.registerLink)}</a></p></div>`)
+    <p class="muted">${esc(text.noAccount)} <a href="${a.base}/${paths.register}${next !== a.base ? `?${paths.next}=${encodeURIComponent(next)}` : ''}">${esc(text.registerLink)}</a></p></div>`)
 }
 
 function registerPage(a: Audience, error?: string, v: Record<string, string> = {}, google = false): string {
   return portalPage(a.registerTitle, `<div class="auth box"><h1>${esc(text.registerHeading)}</h1>
     <p class="muted">${esc(a.registerIntro)}</p>${error ? `<p class="err">${esc(error)}</p>` : ''}
-    ${google ? googleButton(a, a.base) : ''}
-    <form method="post" action="${a.base}/${paths.register}" class="stack">
+    ${google ? googleButton(a, nextPath(a, v[paths.next])) : ''}
+    <form method="post" action="${a.base}/${paths.register}" class="stack">${v[paths.next] ? `<input type="hidden" name="${paths.next}" value="${esc(v[paths.next])}">` : ''}
       <div class="two"><label>${esc(text.firstName)}<input name="firstName" autocomplete="given-name" required maxlength="80" value="${esc(v.firstName ?? '')}"></label>
       <label>${esc(text.lastName)}<input name="lastName" autocomplete="family-name" required maxlength="80" value="${esc(v.lastName ?? '')}"></label></div>
       <label>${esc(text.email)}<input name="email" type="email" autocomplete="email" required maxlength="200" value="${esc(v.email ?? '')}"></label>

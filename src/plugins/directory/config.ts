@@ -164,6 +164,10 @@ export const DEFAULT_TEXT = {
   thanksText: 'Your request has been received. We will get back to you soon.',
   requestTitle: 'Request a date',
   inquiryTitle: 'Send an inquiry',
+  requestLoginTitle: 'Sign in to send an inquiry',
+  requestLoginText: 'Inquiries go straight to the company. Sign in or open a free account; you will come back here.',
+  requestLoginButton: 'Sign in',
+  requestRegisterButton: 'Open an account',
   socialTitle: 'Follow',
   formName: 'Full name*',
   formEmail: 'E-mail*',
@@ -321,6 +325,9 @@ export interface DirectorySettings {
   /** Heart buttons on cards and profiles, and the "favourites only" filter (?favorites=slug,slug). The site's script
    *  keeps the list (in the browser and/or the visitor's account) and fills in the filter. */
   favorites?: boolean
+  /** Only signed-in visitors send inquiries: the popup shows sign-in / sign-up links instead of the form when the
+   *  `signed_in` cookie is missing ({return} = the profile's address). The site must also refuse signed-out posts. */
+  requestLogin?: { login: string; register: string }
   /** Filter by the companies' "price from" amount (from - to €); only companies with an amount match. */
   priceRange?: boolean
   /** Show the favourites and price filters only to signed-in visitors (the site's script reveals them). */
@@ -364,6 +371,7 @@ export interface DirectoryOptions {
   plans?: Plan[]
   pricingUrl?: string
   favorites?: boolean
+  requestLogin?: { login: string; register: string }
   priceRange?: boolean
   memberFilters?: boolean
 }
@@ -385,6 +393,7 @@ export function setDirectory(opts: DirectoryOptions): void {
     plans: opts.plans ?? current.plans,
     pricingUrl: opts.pricingUrl ?? current.pricingUrl,
     favorites: opts.favorites ?? current.favorites,
+    requestLogin: opts.requestLogin ?? current.requestLogin,
     priceRange: opts.priceRange ?? current.priceRange,
     memberFilters: opts.memberFilters ?? current.memberFilters
   }

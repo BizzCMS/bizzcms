@@ -65,6 +65,11 @@ document.querySelectorAll('[data-dual]').forEach(function(d){var a=d.querySelect
 function show(){var x=+a[0].value,y=+a[1].value;if(out){var L=out.getAttribute('data-locale');out.textContent=out.getAttribute('data-from')+' '+x.toLocaleString(L)+' € – '+out.getAttribute('data-to')+' '+y.toLocaleString(L)+' €'}}
 [].forEach.call(a,function(inp,i){inp.addEventListener('input',function(){if(+a[0].value>+a[1].value){if(i===0)a[0].value=a[1].value;else a[1].value=a[0].value}show()});
 inp.addEventListener('change',function(){a[0].disabled=+a[0].value<=lo;a[1].disabled=+a[1].value>=hi})})});
+(function(){var d=document.querySelector('dialog[data-request]');if(!d||!d.showModal)return;var id=d.id;
+function open(){if(d.hasAttribute('data-needs-login')&&!/(^|;\\s*)signed_in=1/.test(document.cookie)){var l=d.querySelector('[data-req-login]'),f=d.querySelector('[data-req-form]');if(l&&f&&!d.querySelector('.req-thanks')){l.hidden=false;f.hidden=true}}if(!d.open)d.showModal()}
+document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('[data-open-request],a[href="#'+id+'"]');if(a){e.preventDefault();open()}});
+d.addEventListener('click',function(e){if(e.target===d||e.target.closest('[data-close]'))d.close()});
+if(d.hasAttribute('data-open')||location.hash==='#'+id||new URLSearchParams(location.search).get(id)==='1')open()})();
 document.querySelectorAll('[data-auto-submit]').forEach(function(s){s.addEventListener('change',function(){s.form.requestSubmit()})});
 if(window.matchMedia('(max-width:900px)').matches)document.querySelectorAll('aside details').forEach(function(d){d.open=false});
 document.querySelectorAll('input[data-suggest]').forEach(function(inp){var box=document.createElement('ul');box.className='dir-suggest';box.hidden=true;box.setAttribute('role','listbox');
@@ -78,7 +83,11 @@ inp.addEventListener('blur',function(){setTimeout(function(){box.hidden=true},15
 }
 
 /** Styles for the search suggestions (sites can override .dir-suggest). */
-export const DIRECTORY_CSS = `.dual{position:relative;height:28px;margin:4px 2px 0}.dual::before{content:"";position:absolute;left:0;right:0;top:12px;height:4px;border-radius:2px;background:var(--border,#e6ddd8)}
+export const DIRECTORY_CSS = `.req-dialog{width:min(560px,calc(100% - 32px));max-height:calc(100% - 32px);border:0;border-radius:12px;padding:28px;box-shadow:0 30px 80px -20px rgba(0,0,0,.45)}
+.req-dialog::backdrop{background:rgba(30,26,24,.55)}.req-dialog h2{margin-top:0;padding-right:32px}.req-close{position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;border:0;background:transparent;font-size:24px;line-height:1;cursor:pointer;color:inherit;padding:0}
+.req-dialog .request{display:grid;grid-template-columns:1fr 1fr;gap:12px}.req-dialog .request .full,.req-dialog .request button{grid-column:1/-1}@media(max-width:560px){.req-dialog .request{grid-template-columns:1fr}.req-dialog{padding:22px 18px}}
+.req-login .actions{display:flex;gap:10px;flex-wrap:wrap}
+.dual{position:relative;height:28px;margin:4px 2px 0}.dual::before{content:"";position:absolute;left:0;right:0;top:12px;height:4px;border-radius:2px;background:var(--border,#e6ddd8)}
 .dual input{position:absolute;left:0;top:0;width:100%;height:28px;margin:0;background:none;-webkit-appearance:none;appearance:none;pointer-events:none;border:0;padding:0;min-height:0;box-shadow:none}
 .dual input::-webkit-slider-thumb{-webkit-appearance:none;pointer-events:auto;width:20px;height:20px;border-radius:50%;background:#fff;border:2px solid var(--accent,#b8323f);cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.2)}
 .dual input::-moz-range-thumb{pointer-events:auto;width:18px;height:18px;border-radius:50%;background:#fff;border:2px solid var(--accent,#b8323f);cursor:pointer}
