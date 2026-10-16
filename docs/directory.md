@@ -69,7 +69,7 @@ Everything you don't set keeps an English default (`src/plugins/directory/config
 |---|---|
 | `routes` | Addresses. `{slug}` is the category, city or company. Optional `legacyListing` with `{name}` and `{id}` keeps imported companies at the old site's profile address. Addresses ending in `/` redirect requests without the slash. |
 | `params` | Query words in the links (`category`, `region`, `page`, …), sort and view values, and the `#request` anchor. |
-| `taxonomy` | Categories (`venue: true` adds the guests, setting and amenity filters), regions, guest buckets, price levels, settings, amenities. |
+| `taxonomy` | Categories (`venue: true` adds the guests, setting and amenity filters), regions, guest buckets, price levels, price units, settings, amenities. With `priceUnits` the portal asks for a "price from" amount in euros plus a unit (per person, per event, ...) instead of a price level; cards and profiles show "from €35 per person". `showPriceLevels: false` hides the old €–€€€€ levels where no amount is set. `priceFilter: false` hides the price filter. |
 | `text` | All wording on the directory pages and profiles. |
 | `portal` | The portal's base address and URL words (`new`, `edit`, `claim`), notice codes and wording. |
 | `layout` | Your page shell (header, footer, styles). The plugin sends the title, body, description, canonical and index flag. |

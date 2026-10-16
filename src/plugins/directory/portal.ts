@@ -148,12 +148,20 @@ function readListing(form: FormData): { title: string; data: Record<string, unkn
   const capacity = capacityRaw ? Number.parseInt(capacityRaw, 10) : undefined
   if (capacityRaw && (!Number.isFinite(capacity) || capacity! < 1 || capacity! > 10000)) return { error: P.errCapacity }
   const priceLevel = get('priceLevel')
+  const priceFromRaw = get('priceFrom', 10).replace(/[.s€]/g, '')
+  const priceFrom = priceFromRaw ? Number.parseInt(priceFromRaw, 10) : undefined
+  if (priceFromRaw && (!/^d+$/.test(priceFromRaw) || priceFrom! < 1 || priceFrom! > 1000000)) return { error: P.errPrice }
+  const priceUnit = get('priceUnit')
   const setting = get('setting')
   return {
     title,
     data: {
       title, category, subcategory, county, city: get('city', 120), summary: get('summary', 300), description: get('description', 5000),
-      capacity: capacity ?? null, priceLevel: T.priceLevels.some(([k]) => k === priceLevel) ? priceLevel : '',
+      capacity: capacity ?? null,
+      // With price units the portal asks for a 'price from' amount; the old price level stays as it was (not in the form).
+      ...(T.priceUnits.length
+        ? { priceFrom: priceFrom ?? null, priceUnit: priceFrom && T.priceUnits.some(([k]) => k === priceUnit) ? priceUnit : '' }
+        : { priceLevel: T.priceLevels.some(([k]) => k === priceLevel) ? priceLevel : '' }),
       setting: T.settings.some(([k]) => k === setting) ? setting : '',
       ...Object.fromEntries(T.amenities.map(([k]) => [k, form.get(k) === '1'])),
       website, phone: get('phone', 60), email,
@@ -295,7 +303,10 @@ function editPage(listing: Owned | null, v: Record<string, unknown>, error?: str
       <label>${esc(P.fieldCity)}<input name="city" maxlength="120" value="${s('city')}"></label>
       <label class="full">${esc(P.fieldSummary)}<textarea name="summary" rows="2" maxlength="300">${s('summary')}</textarea></label>
       <label class="full">${esc(P.fieldDescription)}<textarea name="description" rows="8" maxlength="5000">${s('description')}</textarea><small>${esc(P.fieldDescriptionHint)}</small></label>
-      <label>${esc(P.fieldPrice)}<select name="priceLevel">${opt('', '—', v.priceLevel)}${T.priceLevels.map(([k, t]) => opt(k, t, v.priceLevel)).join('')}</select></label>
+      ${T.priceUnits.length
+        ? `<label>${esc(P.fieldPriceFrom)}<input name="priceFrom" type="number" min="1" max="1000000" step="1" inputmode="numeric" value="${s('priceFrom')}"><small>${esc(P.fieldPriceHint)}</small></label>
+      <label>${esc(P.fieldPriceUnit)}<select name="priceUnit">${opt('', '—', v.priceUnit)}${T.priceUnits.map(([k, t]) => opt(k, t, v.priceUnit)).join('')}</select></label>`
+        : `<label>${esc(P.fieldPrice)}<select name="priceLevel">${opt('', '—', v.priceLevel)}${T.priceLevels.map(([k, t]) => opt(k, t, v.priceLevel)).join('')}</select></label>`}
       <label>${esc(P.fieldCapacity)}<input name="capacity" type="number" min="1" max="10000" value="${s('capacity')}"></label>
       <label>${esc(P.fieldSetting)}<select name="setting">${opt('', '—', v.setting)}${alphabetical(T.settings, c => c[1]).map(([k, t]) => opt(k, t, v.setting)).join('')}</select></label>
       <fieldset><legend>${esc(P.fieldAmenities)}</legend>${T.amenities.map(([k, t]) => `<label class="check"><input type="checkbox" name="${k}" value="1"${truthy(v[k]) ? ' checked' : ''}>${esc(t)}</label>`).join('')}</fieldset>

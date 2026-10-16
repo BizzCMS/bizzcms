@@ -30,6 +30,8 @@ export function directoryCollections(): CollectionConfig[] {
         videos: { type: 'textarea', title: 'YouTube videos', helpText: 'One YouTube link per line (up to 12). They play on the profile.' },
         capacity: { type: 'number', title: 'Max guests (venues)', min: 0 },
         priceLevel: { type: 'select', title: 'Price level', ...pairs([['', '—'], ...T.priceLevels]) },
+        priceFrom: { type: 'number', title: 'Price from (€)', min: 0 },
+        priceUnit: { type: 'select', title: 'Price unit', ...pairs([['', '—'], ...T.priceUnits]) },
         setting: { type: 'select', title: 'Indoor / outdoor (venues)', ...pairs([['', '—'], ...T.settings]) },
         ...Object.fromEntries(T.amenities.map(([key, name]) => [key, { type: 'checkbox' as const, title: name, default: false }])),
         website: { type: 'url', title: 'Website' },

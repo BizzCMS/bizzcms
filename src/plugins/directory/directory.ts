@@ -141,7 +141,7 @@ const PUBLISHED = `type_id = 'partners' AND is_published = 1 AND (deleted_at IS 
 const PREMIUM = `(${TRUE('paidMember')} AND (COALESCE(${J('paidUntil')}, '') = '' OR ${J('paidUntil')} >= ?))`
 const CARD_FIELDS = `slug, title, ${J('category')} AS category, ${J('subcategory')} AS subcategory, ${J('county')} AS county,
   ${J('city')} AS city, ${J('summary')} AS summary, ${J('coverImage')} AS cover, ${J('gallery')} AS gallery,
-  ${J('capacity')} AS capacity, ${J('priceLevel')} AS priceLevel, ${J('legacyId')} AS legacyId, ${J('legacySlug')} AS legacySlug, ${PREMIUM} AS premium`
+  ${J('capacity')} AS capacity, ${J('priceLevel')} AS priceLevel, ${J('priceFrom')} AS priceFrom, ${J('priceUnit')} AS priceUnit, ${J('legacyId')} AS legacyId, ${J('legacySlug')} AS legacySlug, ${PREMIUM} AS premium`
 
 function readFilters(p: URLSearchParams): Filters {
   const { params, taxonomy } = directorySettings()
@@ -236,7 +236,7 @@ async function suggestions(db: D1Database, raw: string) {
 
 export interface Card {
   slug: string; title: string; category?: string; subcategory?: string; county?: string; city?: string; summary?: string
-  image?: string; capacity?: number; priceLevel?: string; premium: boolean; legacyId?: number; legacySlug?: string
+  image?: string; capacity?: number; priceLevel?: string; priceFrom?: number; priceUnit?: string; premium: boolean; legacyId?: number; legacySlug?: string
 }
 
 async function search(db: D1Database, f: Filters) {
@@ -277,6 +277,13 @@ async function search(db: D1Database, f: Filters) {
   }
 }
 
+/** "from €35 per person", or the price level (€–€€€€) when there is no amount and the site shows levels; '' for none. */
+function priceText(c: Pick<Card, 'priceFrom' | 'priceUnit' | 'priceLevel'>): string {
+  const { taxonomy, text } = directorySettings()
+  if (c.priceFrom) return text.priceFrom(c.priceFrom.toLocaleString('hr-HR'), label(taxonomy.priceUnits, c.priceUnit) ?? '')
+  return taxonomy.showPriceLevels !== false ? label(taxonomy.priceLevels, c.priceLevel) ?? '' : ''
+}
+
 function toCard(r: Row): Card {
   return {
     slug: String(r.slug), title: String(r.title), category: str(r.category), subcategory: str(r.subcategory),
@@ -285,6 +292,7 @@ function toCard(r: Row): Card {
     image: mediaList(r.cover)[0] ?? mediaList(r.gallery)[0] ?? directorySettings().taxonomy.categories.find(c => c.slug === str(r.category))?.image,
     capacity: Number(r.capacity) || undefined,
     priceLevel: r.priceLevel === null || r.priceLevel === undefined || r.priceLevel === '' ? undefined : String(r.priceLevel),
+    priceFrom: Number(r.priceFrom) > 0 ? Number(r.priceFrom) : undefined, priceUnit: str(r.priceUnit),
     premium: Number(r.premium) === 1,
     legacyId: Number(r.legacyId) > 0 ? Number(r.legacyId) : undefined, legacySlug: str(r.legacySlug)
   }
@@ -353,7 +361,7 @@ export function listingCardHtml(c: Card): string {
       <div class="body">
         <span class="cat">${esc(catLabel)}${isSample ? ` · ${esc(sample!.label)}` : ''}</span>
         <h2><a href="${href}">${esc(c.title)}</a></h2>
-        <div class="meta">${where ? `<span>${icon('pin')}${esc(where)}</span>` : ''}${c.capacity ? `<span>${icon('people')}${esc(text.upTo(c.capacity))}</span>` : ''}${c.priceLevel ? `<span class="price">${esc(label(taxonomy.priceLevels, c.priceLevel) ?? '')}</span>` : ''}</div>
+        <div class="meta">${where ? `<span>${icon('pin')}${esc(where)}</span>` : ''}${c.capacity ? `<span>${icon('people')}${esc(text.upTo(c.capacity))}</span>` : ''}${priceText(c) ? `<span class="price">${esc(priceText(c))}</span>` : ''}</div>
         ${c.summary ? `<p>${esc(c.summary)}</p>` : ''}
         <div class="actions">${c.premium ? `<a class="btn" href="${href}#${directorySettings().params.requestAnchor}">${esc(text.requestDate)}</a><a class="more" href="${href}">${esc(text.details)}</a>` : `<a class="btn ghost" href="${href}">${esc(text.view)}</a>`}</div>
       </div></article>`
@@ -538,7 +546,7 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
   const facts = [
     [text.location, [p.city, label(taxonomy.regions, p.county)].filter(Boolean).join(', ')],
     [text.capacity, p.capacity ? text.capacityValue(p.capacity) : ''],
-    [text.price, label(taxonomy.priceLevels, p.priceLevel) ?? ''],
+    [text.price, priceText(p)],
     [text.setting, label(taxonomy.settings, p.setting) ?? ''],
     [text.amenities, p.amenities.join(', ')]
   ].filter(([, val]) => val)

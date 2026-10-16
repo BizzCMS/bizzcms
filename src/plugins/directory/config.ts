@@ -51,6 +51,10 @@ export const DEFAULT_TAXONOMY = {
   priceLevels: [['1', '€'], ['2', '€€'], ['3', '€€€'], ['4', '€€€€']] as Pairs,
   /** Show the price filter in the directory sidebar (false hides it; price levels stay on profiles and in the portal). */
   priceFilter: true as boolean,
+  /** Units for the "price from" amount (e.g. per person). Empty keeps the old price-level select in the portal. */
+  priceUnits: [['person', 'per person'], ['event', 'per event'], ['hour', 'per hour'], ['item', 'per item'], ['package', 'per package']] as Pairs,
+  /** Show price levels (€–€€€€) on cards and profiles when a company has no "price from" amount. */
+  showPriceLevels: true as boolean,
   settings: [['indoor', 'Indoor'], ['outdoor', 'Outdoor'], ['both', 'Indoor and outdoor']] as Pairs,
   amenities: [['hasAccommodation', 'Accommodation for guests'], ['hasCatering', 'Own catering'], ['hasParking', 'Parking']] as Pairs
 }
@@ -70,6 +74,7 @@ export const DEFAULT_TEXT = {
   details: 'Details',
   view: 'View',
   upTo: (n: number) => `up to ${n}`,
+  priceFrom: (amount: string, unit: string) => `from €${amount}${unit ? ` ${unit}` : ''}`,
   results: (n: number) => `${n} ${n === 1 ? 'result' : 'results'}`,
   removeFilter: 'Remove filter',
   clearAll: 'Clear all',
@@ -216,6 +221,10 @@ export const DEFAULT_PORTAL = {
   fieldDescription: 'Description',
   fieldDescriptionHint: 'An empty line starts a new paragraph.',
   fieldPrice: 'Price',
+  fieldPriceFrom: 'Price from (€)',
+  fieldPriceUnit: 'Price unit',
+  fieldPriceHint: 'Your lowest usual price. Leave empty to show no price.',
+  errPrice: 'Enter the price as a whole number of euros.',
   fieldCapacity: 'Capacity (number of guests, for venues)',
   fieldSetting: 'Setting',
   fieldAmenities: 'Amenities',
