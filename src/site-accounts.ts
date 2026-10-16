@@ -213,6 +213,11 @@ export async function accountRoute(a: Audience, request: Request, url: URL, path
   const post = request.method === 'POST'
   const google = !!opts.google
   const forgot = !!opts.db && !!mailer
+  // Already signed in: no sign-in or sign-up form, straight on to where the visitor was going (or the area).
+  if (!post && (path === `${a.base}/${paths.login}` || path === `${a.base}/${paths.register}`) && request.headers.get('cookie')
+    && await currentUser(request, cms)) {
+    return Response.redirect(`${url.origin}${nextPath(a, url.searchParams.get(paths.next))}`, 303)
+  }
   if (path === `${a.base}/${paths.login}`) {
     const code = url.searchParams.get(paths.notice) ?? ''
     const notice = code === paths.passwordChanged ? text.passwordChanged : opts.notices?.[code]
