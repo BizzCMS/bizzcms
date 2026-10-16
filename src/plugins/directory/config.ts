@@ -25,7 +25,7 @@ export interface Plan {
   photos: number
   /** YouTube videos shown on the profile. */
   videos: number
-  /** Website and social network links on the profile. */
+  /** Social network links on the profile (the website shows on every profile). */
   links: boolean
   /** Couples can send an inquiry from the profile. */
   requests: boolean
@@ -273,13 +273,13 @@ export const DEFAULT_PORTAL = {
   planUpgrade: 'See packages',
   planPhotos: (n: number) => `${n} ${n === 1 ? 'photo' : 'photos'}`,
   planVideos: (n: number) => `${n} YouTube ${n === 1 ? 'video' : 'videos'}`,
-  planLinks: 'Website and social networks',
+  planLinks: 'Social networks',
   planRequests: 'Inquiries from couples',
   planBooking: '"Request a date" and first place in lists',
   planNot: 'Not in your package',
   planPaidUntil: (date: string) => `Paid until ${date}`,
   fieldSocials: 'Social networks',
-  linksNotInPlan: 'Your website and social networks are shown on the profile from a paid package.',
+  linksNotInPlan: 'Social network links are shown on the profile from a paid package.',
   videosNotInPlan: 'YouTube videos are shown on the profile from a paid package.',
   photosLimit: (n: number) => `Your package shows ${n} ${n === 1 ? 'photo' : 'photos'}.`,
   errSocial: (name: string) => `The ${name} link must start with https://`
