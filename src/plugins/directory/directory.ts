@@ -446,7 +446,7 @@ export async function featuredListings(db: D1Database, limit: number, category?:
   const today = new Date().toISOString().slice(0, 10)
   const where = category ? `AND (${J('category')} = ? OR ${J('subcategory')} = ?)` : ''
   const rows = await db.prepare(`SELECT ${CARD_FIELDS()} FROM documents WHERE ${PUBLISHED} ${where}
-    ORDER BY premium DESC, (COALESCE(${J('coverImage')}, '') != '' OR COALESCE(${J('gallery')}, '[]') != '[]') DESC, updated_at DESC LIMIT ?`)
+    ORDER BY premium DESC, (COALESCE(${J('coverImage')}, '') != '' OR COALESCE(${J('gallery')}, '[]') != '[]') DESC, created_at DESC LIMIT ?`)
     .bind(today, ...(category ? [category, category] : []), limit).all<Row>()
   return rows.results.map(toCard)
 }
