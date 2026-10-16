@@ -72,6 +72,12 @@ export async function handleCompanyPortal(request: Request, env: Env, cms: Cms):
 
   const editBase = `${P.base}/${P.edit}/`
   if (path.startsWith(editBase)) {
+    const pm = path.slice(editBase.length).match(new RegExp(`^([A-Za-z0-9_-]+)\\/${P.plan}$`))
+    if (pm && directorySettings().plans.length) {
+      const listing = await ownedListing(env.DB, user, pm[1])
+      if (!listing) return html(portalPage(P.notFound, `<h1>${esc(P.notFound)}</h1><p><a href="${P.base}">${esc(P.backToProfile)}</a></p>`), 404)
+      return post ? choosePlan(request, env.DB, listing, user, url) : html(planPage(listing, url.searchParams.get(A.notice)))
+    }
     const m = path.slice(editBase.length).match(new RegExp(`^([A-Za-z0-9_-]+)(\\/${A.photos}(?:\\/(${A.photoRemove}|${A.photoCover}))?)?$`))
     if (!m) return null
     const listing = await ownedListing(env.DB, user, m[1])
@@ -339,13 +345,47 @@ function planPill(data: Record<string, unknown>): string {
 }
 
 /** What the company's package includes, with a link to the price list. */
-function planBox(plan: Plan, data: Record<string, unknown>): string {
+/** The company's packages: the current one, the others with price and lines, a pending request. */
+function planPage(listing: Owned, notice: string | null): string {
+  const { portal: P, plans } = directorySettings()
+  const current = planOf(listing.data)!
+  const pending = plans.find(p => p.key === listing.data.planRequest && p.key !== current.key)
+  const back = `${P.base}/${P.edit}/${listing.rootId}`
+  const msg = notice === 'zahtjev' && pending ? P.planRequested(pending.label) : notice === 'promijenjeno' ? P.planSwitched(current.label) : ''
+  return portalPage(P.planChange, `<p class="crumbs"><a href="${P.base}">${esc(P.myProfile)}</a> › <a href="${back}">${esc(listing.title)}</a></p>
+    <h1>${esc(P.planChooseTitle(listing.title))}</h1><p class="lead">${esc(P.planChooseLead)}</p>
+    ${msg ? `<p class="notice">${esc(msg)}</p>` : pending ? `<p class="notice">${esc(P.planPending(pending.label))}</p>` : ''}
+    <div class="plan-choose">${plans.map(p => `<form method="post" action="${back}/${P.plan}" class="box plan-card${p.key === current.key ? ' current' : ''}${p.key === pending?.key ? ' pending' : ''}">
+      <h2>${esc(p.label)}</h2>${p.price !== undefined ? `<p class="plan-price">${p.price} €<span> ${esc(P.planPerYear)}</span></p>` : ''}
+      <ul>${(p.items ?? []).map(i => `<li>${esc(i)}</li>`).join('')}</ul>
+      ${p.key === current.key ? `<p class="plan-tag">${esc(P.planCurrent)}</p>` : `<input type="hidden" name="plan" value="${esc(p.key)}"><button type="submit"${p.key === pending?.key ? ' disabled' : ''}>${esc(P.planChoose)}</button>`}</form>`).join('')}</div>`)
+}
+
+async function choosePlan(request: Request, db: D1Database, listing: Owned, user: User, url: URL): Promise<Response> {
+  const { portal: P, plans } = directorySettings()
+  const wanted = String((await readForm(request)).get('plan') ?? '')
+  const target = plans.find(p => p.key === wanted)
+  const current = planOf(listing.data)!
+  const back = (n: string) => Response.redirect(`${url.origin}${P.base}/${P.edit}/${listing.rootId}/${P.plan}?${accountPaths().notice}=${n}`, 303)
+  if (!target || target.key === current.key) return back('')
+  // The free package at once (the paid-until date is cleared); a paid one is a request the team confirms after payment.
+  if (target === plans[0]) {
+    await saveListing(db, listing, { plan: target.key, paidUntil: '', paidMember: false, planRequest: '' }, undefined, user)
+    return back('promijenjeno')
+  }
+  await saveListing(db, listing, { planRequest: target.key, planRequestedAt: new Date().toISOString() }, undefined, user)
+  await notifyDirectory({ type: 'plan', listing: { title: listing.title, url: `${url.origin}${listingUrl({ slug: listing.slug, legacyId: Number(listing.data.legacyId) || undefined, legacySlug: str(listing.data.legacySlug) })}` },
+    userEmail: user.email, from: current.label, to: target.label })
+  return back('zahtjev')
+}
+
+function planBox(plan: Plan, data: Record<string, unknown>, rootId?: string): string {
   const P = directorySettings().portal
   const until = typeof data.paidUntil === 'string' && data.paidUntil && plan !== directorySettings().plans[0] ? data.paidUntil : ''
   const row = (ok: boolean, label: string) => `<li class="${ok ? 'yes' : 'no'}">${esc(label)}${ok ? '' : ` <small>(${esc(P.planNot)})</small>`}</li>`
   return `<section class="box plan"><h2>${esc(P.planTitle)}: ${esc(plan.label)}</h2>${until ? `<p class="muted">${esc(P.planPaidUntil(until.split('-').reverse().join('. ') + '.'))}</p>` : ''}
     <ul>${row(true, P.planPhotos(plan.photos))}${row(plan.videos > 0, P.planVideos(Math.max(plan.videos, 1)))}${row(plan.links, P.planLinks)}${row(plan.requests || plan.booking, P.planRequests)}${row(plan.booking, P.planBooking)}</ul>
-    ${upgrade() ? `<p>${upgrade()}</p>` : ''}</section>`
+    ${rootId ? `<p class="actions"><a class="btn" href="${P.base}/${P.edit}/${rootId}/${P.plan}">${esc(P.planChange)}</a>${upgrade()}</p>` : upgrade() ? `<p>${upgrade()}</p>` : ''}</section>`
 }
 
 function redirect(url: URL, notice: string): Response {
@@ -429,5 +469,5 @@ function editPage(listing: Owned | null, v: Record<string, unknown>, error?: str
       <div class="full"><button type="submit">${esc(listing ? P.save : P.submitNew)}</button></div>
     </form>
     <section id="photos"><h2>${esc(P.photos)}</h2>${plan && listing ? `<p class="muted">${esc(P.photosLimit(plan.photos))}${gallery.length > plan.photos || plan.photos < MAX_PHOTOS ? upgrade() : ''}</p>` : ''}${photosSection}</section>
-    ${listing && plan ? planBox(plan, listing.data) : ''}`)
+    ${listing && plan ? planBox(plan, listing.data, listing.rootId) : ''}`)
 }

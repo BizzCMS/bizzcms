@@ -38,6 +38,7 @@ export function directoryCollections(): CollectionConfig[] {
         phone: { type: 'string', title: 'Phone', maxLength: 60 },
         email: { type: 'email', title: 'Contact email' },
         ...(directorySettings().plans.length ? { plan: { type: 'select' as const, title: 'Package', ...pairs(directorySettings().plans.map(p => [p.key, p.label] as const)) } } : {}),
+        ...(directorySettings().plans.length ? { planRequest: { type: 'select' as const, title: 'Package requested by the company (switch Package after payment)', ...pairs([['', '—'], ...directorySettings().plans.map(p => [p.key, p.label] as const)]) } } : {}),
         ...Object.fromEntries(T.socials.map(([key, name]) => [key, { type: 'url' as const, title: name }])),
         paidMember: { type: 'checkbox', title: directorySettings().plans.length ? 'Paid member (old Premium; used only when no package is chosen)' : 'Paid member (Premium: listed first, booking requests)', default: false },
         paidUntil: { type: 'date', title: 'Paid until', helpText: 'Leave empty for no expiry.' },

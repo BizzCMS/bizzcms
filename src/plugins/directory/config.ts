@@ -31,6 +31,9 @@ export interface Plan {
   requests: boolean
   /** "Request a date", the ★ badge and first place in lists (what used to be Premium). */
   booking: boolean
+  /** Price per year in euros and the lines the price list shows (used on the company's "change package" page). */
+  price?: number
+  items?: string[]
 }
 
 export interface DirectoryRoutes {
@@ -181,7 +184,7 @@ export const DEFAULT_TEXT = {
 /** The company portal: URL words and wording. */
 export const DEFAULT_PORTAL = {
   base: '/for-companies',
-  new: 'new', edit: 'edit', claim: 'claim', activate: 'activate',
+  new: 'new', edit: 'edit', claim: 'claim', activate: 'activate', plan: 'package',
   /** Notice codes in the URL after an action (?notice=…); the gallery and sign-up codes come from site-accounts. */
   noticeNew: 'new', noticeClaimed: 'claimed', noticeRequested: 'requested', noticeActivated: 'activated',
   loginTitle: 'Sign in for companies',
@@ -283,6 +286,15 @@ export const DEFAULT_PORTAL = {
   photosAfterSave: 'You can add photos after saving the profile.',
   // Plans (packages)
   planTitle: 'Your package',
+  planChange: 'Change package',
+  planChooseTitle: (company: string) => `Package for ${company}`,
+  planChooseLead: 'Compare the packages. Moving to the free package happens at once; for a paid package we send you an offer and switch it on after payment.',
+  planCurrent: 'Your package',
+  planChoose: 'Choose',
+  planPerYear: '/ year',
+  planRequested: (label: string) => `Request for ${label} sent. We will contact you with the offer.`,
+  planPending: (label: string) => `Request for ${label} is waiting for confirmation.`,
+  planSwitched: (label: string) => `Your package is now ${label}.`,
   planUpgrade: 'See packages',
   planPhotos: (n: number) => `${n} ${n === 1 ? 'photo' : 'photos'}`,
   planVideos: (n: number) => `${n} YouTube ${n === 1 ? 'video' : 'videos'}`,
@@ -347,6 +359,7 @@ export type DirectoryEvent =
   | { type: 'claim'; listing: { title: string; url: string }; userEmail: string }
   | { type: 'listing'; title: string; userEmail: string; adminUrl: string }
   | { type: 'activated'; listing: { title: string; url: string }; userEmail: string }
+  | { type: 'plan'; listing: { title: string; url: string }; userEmail: string; from: string; to: string }
 
 let current: DirectorySettings = {
   routes: DEFAULT_ROUTES, params: DEFAULT_PARAMS, taxonomy: DEFAULT_TAXONOMY, text: DEFAULT_TEXT, portal: DEFAULT_PORTAL,
