@@ -148,9 +148,9 @@ function readListing(form: FormData): { title: string; data: Record<string, unkn
   const capacity = capacityRaw ? Number.parseInt(capacityRaw, 10) : undefined
   if (capacityRaw && (!Number.isFinite(capacity) || capacity! < 1 || capacity! > 10000)) return { error: P.errCapacity }
   const priceLevel = get('priceLevel')
-  const priceFromRaw = get('priceFrom', 10).replace(/[.s€]/g, '')
+  const priceFromRaw = get('priceFrom', 10).replace(/[.\s€]/g, '')
   const priceFrom = priceFromRaw ? Number.parseInt(priceFromRaw, 10) : undefined
-  if (priceFromRaw && (!/^d+$/.test(priceFromRaw) || priceFrom! < 1 || priceFrom! > 1000000)) return { error: P.errPrice }
+  if (priceFromRaw && (!/^\d+$/.test(priceFromRaw) || priceFrom! < 1 || priceFrom! > 1000000)) return { error: P.errPrice }
   const priceUnit = get('priceUnit')
   const setting = get('setting')
   return {
