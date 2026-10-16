@@ -109,8 +109,14 @@ function forwardHeaders(request: Request, extra: Record<string, string> = {}): H
 export async function currentUser(request: Request, cms: Cms): Promise<User | null> {
   const cookie = request.headers.get('cookie')
   if (!cookie) return null
-  const res = await cms(new Request(new URL('/auth/me', request.url), { headers: forwardHeaders(request, { cookie }) }))
-  if (!res.ok) return null
+  // Never let a slow session check hang the page: after 4 s the visitor is treated as signed out (and it is logged,
+  // with the cookie names only, so the cause can be found).
+  const started = Date.now()
+  const timeout = new Promise<null>(resolve => setTimeout(() => resolve(null), 4000))
+  const res = await Promise.race([cms(new Request(new URL('/auth/me', request.url), { headers: forwardHeaders(request, { cookie }) })), timeout])
+  const ms = Date.now() - started
+  if (!res || ms > 1500) console.warn(`site-accounts: /auth/me ${res ? `took ${ms} ms (status ${res.status})` : 'timed out after 4 s'}; cookies: ${cookie.split(';').map(c => c.split('=')[0].trim()).join(', ')}`)
+  if (!res || !res.ok) return null
   const body = await res.json().catch(() => null) as { user?: { id?: string; email?: string; first_name?: string } } | null
   if (!body?.user?.id || !body.user.email) return null
   return { id: body.user.id, email: body.user.email.toLowerCase(), firstName: body.user.first_name }
