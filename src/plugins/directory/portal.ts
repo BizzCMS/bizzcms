@@ -10,17 +10,19 @@
 // profile go live at once; new profiles stay drafts until an admin publishes them.
 import { DocumentsService } from 'bizzcms-core'
 import {
-  accountPaths, accountRoute, type Audience, type Cms, crossOrigin, currentUser, galleryAction, galleryEditor, loginRedirect,
-  portalPage, readForm, type User
+  accountPaths, accountRoute, type Audience, type Cms, createAccount, crossOrigin, currentUser, galleryAction, galleryEditor, loginRedirect,
+  accountText, portalPage, readForm, redirectWithSession, type User
 } from '../../site-accounts'
-import { alphabetical, directorySettings, listingUrl, notifyDirectory, slugify, subcategories } from './config'
+import { alphabetical, directorySettings, listingUrl, notifyDirectory, planOf, type Plan, slugify, subcategories } from './config'
 import { esc, fold, html, mediaList, str, truthy } from './util'
 import { videoIds } from './media'
 
-type Env = { DB: D1Database; MEDIA_BUCKET: R2Bucket }
+type Env = { DB: D1Database; MEDIA_BUCKET: R2Bucket; GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string }
 interface Owned { rootId: string; id: string; slug: string; title: string; live: boolean; data: Record<string, unknown> }
 
 const MAX_PHOTOS = 30
+/** Photos a company may have: its package's limit, or MAX_PHOTOS when the site has no packages. */
+const photoLimit = (data: Record<string, unknown>) => planOf(data)?.photos ?? MAX_PHOTOS
 
 function audience(): Audience {
   const p = directorySettings().portal
@@ -38,8 +40,9 @@ export async function handleCompanyPortal(request: Request, env: Env, cms: Cms):
   if (!post && request.method !== 'GET' && request.method !== 'HEAD') return null
   const blocked = crossOrigin(request, url)
   if (blocked) return blocked
-  const account = await accountRoute(audience(), request, url, path, cms)
+  const account = await accountRoute(audience(), request, url, path, cms, { db: env.DB, google: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET), notices: P.notices })
   if (account) return account
+  if (path === `${P.base}/${P.activate}`) return activate(request, env.DB, url, cms)
 
   const user = await currentUser(request, cms)
   if (path === P.base) return html(user ? await dashboard(env.DB, user, url.searchParams.get(A.notice)) : landingPage(url.origin))
@@ -153,6 +156,12 @@ function readListing(form: FormData): { title: string; data: Record<string, unkn
   if (priceFromRaw && (!/^\d+$/.test(priceFromRaw) || priceFrom! < 1 || priceFrom! > 1000000)) return { error: P.errPrice }
   const priceUnit = get('priceUnit')
   const setting = get('setting')
+  const socials: Record<string, string> = {}
+  for (const [k, name] of T.socials) {
+    const value = get(k, 300)
+    if (value && !/^https:\/\/[^\s]+\.[^\s]+$/i.test(value)) return { error: P.errSocial(name) }
+    socials[k] = value
+  }
   return {
     title,
     data: {
@@ -164,7 +173,7 @@ function readListing(form: FormData): { title: string; data: Record<string, unkn
         : { priceLevel: T.priceLevels.some(([k]) => k === priceLevel) ? priceLevel : '' }),
       setting: T.settings.some(([k]) => k === setting) ? setting : '',
       ...Object.fromEntries(T.amenities.map(([k]) => [k, form.get(k) === '1'])),
-      website, phone: get('phone', 60), email,
+      website, phone: get('phone', 60), email, ...socials,
       // YouTube links only (one per line); anything else is dropped.
       videos: videoIds(String(form.get('videos') ?? '').slice(0, 3000)).map(id => `https://www.youtube.com/watch?v=${id}`).join('\n')
     }
@@ -177,11 +186,84 @@ async function photos(request: Request, env: Env, listing: Owned, user: User, ur
   const P = directorySettings().portal
   const result = await galleryAction({
     form: await readForm(request), action, bucket: env.MEDIA_BUCKET, prefix: `partners/${listing.rootId}/`,
-    gallery: mediaList(listing.data.gallery), cover: str(listing.data.coverImage) ?? '', max: MAX_PHOTOS,
+    gallery: mediaList(listing.data.gallery), cover: str(listing.data.coverImage) ?? '', max: photoLimit(listing.data),
     save: data => saveListing(env.DB, listing, data, undefined, user)
   })
   if ('error' in result) return html(editPage(listing, listing.data, result.error), 400)
   return Response.redirect(`${url.origin}${P.base}/${P.edit}/${listing.rootId}?${accountPaths().notice}=${result.notice}#photos`, 303)
+}
+
+// ---------------------------------------------------------------- invitations
+// An imported company gets an e-mail with a link <base>/<activate>?t=<token>. Only the token's SHA-256 is stored on
+// the profile (inviteHash, invitedAt). Opening the link proves the company reads the profile's e-mail, so the
+// account it opens there (always with that e-mail) owns the profile at once. Valid for 90 days.
+
+const INVITE_DAYS = 90
+const sha256 = async (value: string) => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)))).map(b => b.toString(16).padStart(2, '0')).join('')
+
+/** Creates (or replaces) a profile's invitation; returns the token for the link. Writes every version of the profile. */
+export async function createInvite(db: D1Database, rootId: string): Promise<string> {
+  const token = Array.from(crypto.getRandomValues(new Uint8Array(24))).map(b => b.toString(16).padStart(2, '0')).join('')
+  await db.prepare(`UPDATE documents SET data = json_set(data, '$.inviteHash', ?, '$.invitedAt', ?) WHERE root_id = ? AND type_id = 'partners' AND (is_current_draft = 1 OR is_published = 1)`)
+    .bind(await sha256(token), new Date().toISOString(), rootId).run()
+  return token
+}
+
+async function invited(db: D1Database, token: string): Promise<Owned | null> {
+  if (!/^[a-f0-9]{48}$/.test(token)) return null
+  const row = await db.prepare(`SELECT d.root_id AS rootId, d.id, d.slug, d.title, d.data,
+      EXISTS (SELECT 1 FROM documents p WHERE p.root_id = d.root_id AND p.is_published = 1 AND (p.deleted_at IS NULL OR p.deleted_at = '')) AS live
+    FROM documents d WHERE d.type_id = 'partners' AND d.is_current_draft = 1 AND (d.deleted_at IS NULL OR d.deleted_at = '')
+      AND json_extract(d.data, '$.inviteHash') = ? LIMIT 1`).bind(await sha256(token)).first<Record<string, unknown>>()
+  if (!row) return null
+  const listing = toOwned(row)
+  const at = Date.parse(String(listing.data.invitedAt ?? ''))
+  return Number.isFinite(at) && Date.now() - at < INVITE_DAYS * 86400000 && str(listing.data.email) ? listing : null
+}
+
+async function activate(request: Request, db: D1Database, url: URL, cms: Cms): Promise<Response> {
+  const P = directorySettings().portal
+  const A = accountPaths()
+  const token = url.searchParams.get('t') ?? ''
+  const listing = await invited(db, token)
+  if (!listing) return html(portalPage(P.activateTitle, `<div class="auth box"><h1>${esc(P.activateTitle)}</h1><p class="err">${esc(P.activateInvalid)}</p>
+    <p class="actions"><a class="btn" href="${P.base}/${A.login}">${esc(P.landingLogin)}</a><a class="btn ghost" href="${P.base}/${A.register}">${esc(P.landingCta)}</a></p></div>`), 400)
+  const email = String(listing.data.email).trim().toLowerCase()
+  const linkTo = async (userEmail: string) => {
+    // Owner set, invitation used up; both on the current draft and (when live) the published version.
+    const svc = new DocumentsService(db)
+    const draft = await svc.saveDraft(listing.rootId, { data: { ownerEmail: userEmail, inviteHash: '' } } as unknown as Parameters<DocumentsService['saveDraft']>[1])
+    if (listing.live && !draft.isPublished) await svc.publish(draft.id)
+    await notifyDirectory({ type: 'activated', listing: { title: listing.title, url: `${url.origin}${listingUrl({ slug: listing.slug, legacyId: Number(listing.data.legacyId) || undefined, legacySlug: str(listing.data.legacySlug) })}` }, userEmail })
+  }
+  // Already has an account with this e-mail: link the profile and ask to sign in.
+  const existing = await db.prepare(`SELECT 1 FROM auth_user WHERE lower(email) = ? LIMIT 1`).bind(email).first()
+  if (existing) {
+    await linkTo(email)
+    return Response.redirect(`${url.origin}${P.base}/${A.login}?${A.next}=${encodeURIComponent(P.base)}&${A.notice}=${P.noticeActivated}`, 303)
+  }
+  const page = (error?: string, v: Record<string, string> = {}) => portalPage(P.activateTitle, `<div class="auth box"><h1>${esc(P.activateTitle)}</h1>
+    <p class="lead"><strong>${esc(listing.title)}</strong></p><p class="muted">${esc(P.activateLead(listing.title))} <strong>${esc(email)}</strong></p>${error ? `<p class="err">${esc(error)}</p>` : ''}
+    <form method="post" action="${P.base}/${P.activate}?t=${esc(token)}" class="stack">
+      <div class="two"><label>${esc(accountText('firstName'))}<input name="firstName" autocomplete="given-name" required maxlength="80" value="${esc(v.firstName ?? '')}"></label>
+      <label>${esc(accountText('lastName'))}<input name="lastName" autocomplete="family-name" required maxlength="80" value="${esc(v.lastName ?? '')}"></label></div>
+      <label>${esc(accountText('passwordHint'))}<input name="password" type="password" autocomplete="new-password" required minlength="8"></label>
+      <label class="check"><input type="checkbox" name="${A.terms}" value="1" required>${esc(accountText('terms'))}</label>
+      <button type="submit">${esc(P.activateButton)}</button></form></div>`)
+  if (request.method !== 'POST') return html(page())
+  const form = await readForm(request)
+  const v = { firstName: String(form.get('firstName') ?? '').trim().slice(0, 80), lastName: String(form.get('lastName') ?? '').trim().slice(0, 80) }
+  const password = String(form.get('password') ?? '')
+  if (!v.firstName || !v.lastName) return html(page(accountText('enterName'), v), 400)
+  if (password.length < 8) return html(page(accountText('passwordShort'), v), 400)
+  if (form.get(A.terms) !== '1') return html(page(accountText('acceptTerms'), v), 400)
+  const created = await createAccount(request, url, cms, { ...v, email, password })
+  if ('error' in created) return html(page(created.error, v), created.status)
+  // The link reached this inbox, so the e-mail address is confirmed.
+  await db.prepare(`UPDATE auth_user SET email_verified = 1 WHERE lower(email) = ?`).bind(email).run()
+  await linkTo(email)
+  const target = `${P.base}?${A.notice}=${P.noticeActivated}`
+  return created.session ? redirectWithSession(target, created.session) : Response.redirect(`${url.origin}${P.base}/${A.login}`, 303)
 }
 
 // ---------------------------------------------------------------- claims
@@ -238,6 +320,28 @@ async function claim(request: Request, db: D1Database, user: User, url: URL): Pr
 
 // ---------------------------------------------------------------- pages
 
+/** " See packages" link to the site's price list (empty without one). */
+function upgrade(): string {
+  const url = directorySettings().pricingUrl
+  return url ? ` <a href="${esc(url)}">${esc(directorySettings().portal.planUpgrade)}</a>` : ''
+}
+
+function planPill(data: Record<string, unknown>): string {
+  const plan = planOf(data)
+  if (!plan) return truthy(data.paidMember) ? `<span class="pill premium">${esc(directorySettings().text.premium)}</span>` : ''
+  return `<span class="pill${plan.booking ? ' premium' : ''}">${esc(plan.label)}</span>`
+}
+
+/** What the company's package includes, with a link to the price list. */
+function planBox(plan: Plan, data: Record<string, unknown>): string {
+  const P = directorySettings().portal
+  const until = typeof data.paidUntil === 'string' && data.paidUntil && plan !== directorySettings().plans[0] ? data.paidUntil : ''
+  const row = (ok: boolean, label: string) => `<li class="${ok ? 'yes' : 'no'}">${esc(label)}${ok ? '' : ` <small>(${esc(P.planNot)})</small>`}</li>`
+  return `<section class="box plan"><h2>${esc(P.planTitle)}: ${esc(plan.label)}</h2>${until ? `<p class="muted">${esc(P.planPaidUntil(until.split('-').reverse().join('. ') + '.'))}</p>` : ''}
+    <ul>${row(true, P.planPhotos(plan.photos))}${row(plan.videos > 0, P.planVideos(plan.videos))}${row(plan.links, P.planLinks)}${row(plan.requests || plan.booking, P.planRequests)}${row(plan.booking, P.planBooking)}</ul>
+    ${upgrade() ? `<p>${upgrade()}</p>` : ''}</section>`
+}
+
 function redirect(url: URL, notice: string): Response {
   return Response.redirect(`${url.origin}${directorySettings().portal.base}?${accountPaths().notice}=${notice}`, 303)
 }
@@ -264,7 +368,7 @@ async function dashboard(db: D1Database, user: User, notice: string | null): Pro
     const href = listingUrl({ slug: l.slug, legacyId: Number(l.data.legacyId) || undefined, legacySlug: str(l.data.legacySlug) })
     return `<article class="mine">${image ? `<img src="${esc(image)}" alt="">` : '<span class="ph"></span>'}
       <div><h3>${esc(l.title)}</h3><p><span class="status ${l.live ? 'ok' : 'wait'}">${esc(l.live ? P.published : P.pending)}</span>
-      ${truthy(l.data.paidMember) ? `<span class="pill premium">${esc(directorySettings().text.premium)}</span>` : ''}</p>
+      ${planPill(l.data)}</p>
       <p class="actions"><a class="btn" href="${P.base}/${P.edit}/${l.rootId}">${esc(P.editProfile)}</a>${l.live ? `<a class="btn ghost" href="${esc(href)}">${esc(P.view)}</a>` : ''}</p></div></article>`
   }).join('')
   const reqs = requests.map(r => {
@@ -290,7 +394,8 @@ function editPage(listing: Owned | null, v: Record<string, unknown>, error?: str
   const gallery = listing ? mediaList(listing.data.gallery) : []
   const cover = listing ? str(listing.data.coverImage) : undefined
   const editUrl = listing ? `${P.base}/${P.edit}/${listing.rootId}` : `${P.base}/${P.new}`
-  const photosSection = !listing ? `<p class="muted">${esc(P.photosAfterSave)}</p>` : galleryEditor(editUrl, gallery, cover, MAX_PHOTOS)
+  const plan = planOf(listing?.data ?? {})
+  const photosSection = !listing ? `<p class="muted">${esc(P.photosAfterSave)}</p>` : galleryEditor(editUrl, gallery, cover, Math.max(photoLimit(listing.data), gallery.length))
   return portalPage(listing ? P.editTitle(listing.title) : P.newTitle, `<p class="crumbs"><a href="${P.base}">${esc(P.myProfile)}</a></p>
     <h1>${listing ? esc(listing.title) : esc(P.newHeading)}</h1>
     ${listing ? `<p><span class="status ${listing.live ? 'ok' : 'wait'}">${esc(listing.live ? P.livePublished : P.pending)}</span></p>` : `<p class="muted">${esc(P.newPending)}</p>`}
@@ -313,8 +418,10 @@ function editPage(listing: Owned | null, v: Record<string, unknown>, error?: str
       <label>${esc(P.fieldWebsite)}<input name="website" type="url" placeholder="https://" maxlength="300" value="${s('website')}"></label>
       <label>${esc(P.fieldPhone)}<input name="phone" maxlength="60" value="${s('phone')}"></label>
       <label>${esc(P.fieldEmail)}<input name="email" type="email" maxlength="200" value="${s('email')}"></label>
-      <label class="full">${esc(P.fieldVideos)}<textarea name="videos" rows="3" placeholder="https://www.youtube.com/watch?v=…">${s('videos')}</textarea><small>${esc(P.fieldVideosHint)}</small></label>
+      <fieldset class="full"><legend>${esc(P.fieldSocials)}</legend>${plan && !plan.links ? `<p class="muted">${esc(P.linksNotInPlan)}${upgrade()}</p>` : ''}<div class="socials">${T.socials.map(([k, t]) => `<label>${esc(t)}<input name="${k}" type="url" placeholder="https://" maxlength="300" value="${s(k)}"></label>`).join('')}</div></fieldset>
+      <label class="full">${esc(P.fieldVideos)}<textarea name="videos" rows="3" placeholder="https://www.youtube.com/watch?v=…">${s('videos')}</textarea><small>${esc(P.fieldVideosHint)}</small>${plan && !plan.videos ? `<small>${esc(P.videosNotInPlan)}${upgrade()}</small>` : ''}</label>
       <div class="full"><button type="submit">${esc(listing ? P.save : P.submitNew)}</button></div>
     </form>
-    <section id="photos"><h2>${esc(P.photos)}</h2>${photosSection}</section>`)
+    <section id="photos"><h2>${esc(P.photos)}</h2>${plan && listing ? `<p class="muted">${esc(P.photosLimit(plan.photos))}${gallery.length > plan.photos || plan.photos < MAX_PHOTOS ? upgrade() : ''}</p>` : ''}${photosSection}</section>
+    ${listing && plan ? planBox(plan, listing.data) : ''}`)
 }

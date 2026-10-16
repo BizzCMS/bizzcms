@@ -8,7 +8,7 @@
 import { DocumentsService } from 'bizzcms-core'
 import { readForm } from '../../site-accounts'
 import {
-  alphabetical, categoryUrl, cityUrl, regionUrl, directorySettings, notifyDirectory, directoryUrl, label, listingUrl, matchRoute, slugify, subcategories
+  alphabetical, bookingSql, categoryUrl, cityUrl, regionUrl, directorySettings, notifyDirectory, directoryUrl, label, listingUrl, matchRoute, planOf, type Plan, slugify, subcategories
 } from './config'
 import { esc, fold, html, icon, mediaList, pageWindow, safeDecode, safeUrl, str, truthy } from './util'
 import { mediaGallery, mediaHero, mediaItems, mediaViewer, videoIds } from './media'
@@ -102,7 +102,7 @@ export async function handleDirectory(request: Request, env: Env): Promise<Respo
   const canonical = listingUrl(company)
   if (get && safeDecode(url.pathname) !== canonical) return moved(canonical + url.search)
   if (request.method === 'POST') {
-    if (!company.premium) return html(page(company.title, `<div class="wrap profile"><h1>${esc(text.requestsUnavailable)}</h1></div>`), 403)
+    if (!company.requests) return html(page(company.title, `<div class="wrap profile"><h1>${esc(text.requestsUnavailable)}</h1></div>`), 403)
     const result = await saveRequest(await readForm(request), company, env, url.origin)
     if (result.ok) return Response.redirect(new URL(`${canonical}?${params.sent}=1#${params.requestAnchor}`, url.origin).href, 303)
     return html(profilePage(company, { error: result.error, values: result.values }, url.origin, await shareFor(env.DB, url.origin + canonical, company)), 400)
@@ -138,10 +138,10 @@ const page = (title: string, body: string, opts: { description?: string; canonic
 const J = (field: string) => `json_extract(data, '$.${field}')`
 const TRUE = (field: string) => `${J(field)} IN (1, 'true', 'on', '1')`
 const PUBLISHED = `type_id = 'partners' AND is_published = 1 AND (deleted_at IS NULL OR deleted_at = '')`
-const PREMIUM = `(${TRUE('paidMember')} AND (COALESCE(${J('paidUntil')}, '') = '' OR ${J('paidUntil')} >= ?))`
-const CARD_FIELDS = `slug, title, ${J('category')} AS category, ${J('subcategory')} AS subcategory, ${J('county')} AS county,
+const PREMIUM = () => bookingSql()
+const CARD_FIELDS = () => `slug, title, ${J('category')} AS category, ${J('subcategory')} AS subcategory, ${J('county')} AS county,
   ${J('city')} AS city, ${J('summary')} AS summary, ${J('coverImage')} AS cover, ${J('gallery')} AS gallery,
-  ${J('capacity')} AS capacity, ${J('priceLevel')} AS priceLevel, ${J('priceFrom')} AS priceFrom, ${J('priceUnit')} AS priceUnit, ${J('legacyId')} AS legacyId, ${J('legacySlug')} AS legacySlug, ${PREMIUM} AS premium`
+  ${J('capacity')} AS capacity, ${J('priceLevel')} AS priceLevel, ${J('priceFrom')} AS priceFrom, ${J('priceUnit')} AS priceUnit, ${J('legacyId')} AS legacyId, ${J('legacySlug')} AS legacySlug, ${PREMIUM()} AS premium`
 
 function readFilters(p: URLSearchParams): Filters {
   const { params, taxonomy } = directorySettings()
@@ -180,7 +180,7 @@ function where(f: Filters, cityNames: string[], today: string, skip: Facet[] = [
   if (f.price) { sql.push(`CAST(${J('priceLevel')} AS TEXT) = ?`); binds.push(f.price) }
   if (f.setting === 'indoor' || f.setting === 'outdoor') { sql.push(`${J('setting')} IN (?, 'both')`); binds.push(f.setting) }
   for (const a of f.amenities) sql.push(TRUE(a))
-  if (f.premium === '1') { sql.push(PREMIUM); binds.push(today) }
+  if (f.premium === '1') { sql.push(PREMIUM()); binds.push(today) }
   return { sql: sql.join(' AND '), binds }
 }
 
@@ -229,7 +229,7 @@ async function suggestions(db: D1Database, raw: string) {
     .sort((a, b) => b.n - a.n).slice(0, 5)
     .map(c => ({ kind: 'city', label: c.name, count: c.n, url: cityUrl(c.slug) }))
   const today = new Date().toISOString().slice(0, 10)
-  const rows = (await db.prepare(`SELECT ${CARD_FIELDS} FROM documents WHERE ${PUBLISHED} AND ${fold('title')} LIKE ? ORDER BY premium DESC, CAST(${J('views')} AS INTEGER) DESC, title COLLATE NOCASE LIMIT 6`)
+  const rows = (await db.prepare(`SELECT ${CARD_FIELDS()} FROM documents WHERE ${PUBLISHED} AND ${fold('title')} LIKE ? ORDER BY premium DESC, CAST(${J('views')} AS INTEGER) DESC, title COLLATE NOCASE LIMIT 6`)
     .bind(today, `%${q}%`).all<Row>()).results.map(toCard)
   return [...cities, ...rows.map(c => ({ kind: 'company', label: c.title, city: c.city ?? '', url: listingUrl(c) }))]
 }
@@ -261,7 +261,7 @@ async function search(db: D1Database, f: Filters) {
   const byCity = where(f, cityNames, today, ['city'])
   const [count, rows, catFacets, regionFacets, cityFacets] = await db.batch([
     db.prepare(`SELECT COUNT(*) AS n FROM documents WHERE ${main.sql}`).bind(...main.binds),
-    db.prepare(`SELECT ${CARD_FIELDS} FROM documents WHERE ${main.sql} ORDER BY ${orderBy(f.sort)} LIMIT ? OFFSET ?`).bind(today, ...main.binds, PAGE_SIZE, offset),
+    db.prepare(`SELECT ${CARD_FIELDS()} FROM documents WHERE ${main.sql} ORDER BY ${orderBy(f.sort)} LIMIT ? OFFSET ?`).bind(today, ...main.binds, PAGE_SIZE, offset),
     db.prepare(`SELECT ${J('category')} AS k, ${J('subcategory')} AS s, COUNT(*) AS n FROM documents WHERE ${byCategory.sql} GROUP BY k, s`).bind(...byCategory.binds),
     db.prepare(`SELECT ${J('county')} AS k, COUNT(*) AS n FROM documents WHERE ${byRegion.sql} GROUP BY k`).bind(...byRegion.binds),
     db.prepare(`SELECT ${J('city')} AS k, COUNT(*) AS n FROM documents WHERE ${byCity.sql} AND COALESCE(${J('city')}, '') != '' GROUP BY k ORDER BY k`).bind(...byCity.binds)
@@ -301,20 +301,35 @@ function toCard(r: Row): Card {
 export interface Listing extends Card {
   description?: string; gallery: string[]; website?: string; phone?: string; email?: string; setting?: string
   amenities: string[]; seoTitle?: string; seoDescription?: string; cover?: string; videos: string[]
+  /** The company's package now (undefined when the site has no packages). */
+  plan?: Plan
+  /** Social network links shown on the profile: [label, url]. */
+  socials: [string, string][]
+  /** Couples can send an inquiry (the package has inquiries, or the company has "request a date"). */
+  requests: boolean
 }
 
 /** A published company by URL slug or by its old site ID. */
 export async function findListing(db: D1Database, by: { slug: string } | { legacyId: number }): Promise<Listing | null> {
   const today = new Date().toISOString().slice(0, 10)
   const match = 'slug' in by ? 'slug = ?' : `CAST(${J('legacyId')} AS INTEGER) = ?`
-  const row = await db.prepare(`SELECT slug, title, data, ${PREMIUM} AS premium FROM documents WHERE ${PUBLISHED} AND ${match} LIMIT 1`)
+  const row = await db.prepare(`SELECT slug, title, data, ${PREMIUM()} AS premium FROM documents WHERE ${PUBLISHED} AND ${match} LIMIT 1`)
     .bind(today, 'slug' in by ? by.slug : by.legacyId).first<Row>()
   if (!row) return null
   let d: Row = {}
   try { d = JSON.parse(String(row.data ?? '{}')) } catch { /* keep empty */ }
+  // The package decides what the profile shows: photos (the cover counts), videos, website and social links.
+  const plan = planOf(d)
+  const premium = Number(row.premium) === 1
+  const cover = mediaList(d.coverImage)[0]
+  const links = plan ? plan.links : true
+  let gallery = mediaList(d.gallery)
+  if (plan) gallery = gallery.filter(u => u !== cover).slice(0, Math.max(0, plan.photos - (cover ? 1 : 0)))
   return {
     ...toCard({ ...d, slug: row.slug, title: str(d.title) ?? row.title, cover: d.coverImage, premium: row.premium }),
-    description: str(d.description), gallery: mediaList(d.gallery), cover: mediaList(d.coverImage)[0], videos: videoIds(d.videos), website: safeUrl(str(d.website)),
+    description: str(d.description), gallery, cover, videos: videoIds(d.videos).slice(0, plan ? plan.videos : undefined),
+    website: links ? safeUrl(str(d.website)) : undefined, plan, requests: premium || !!plan?.requests,
+    socials: links ? directorySettings().taxonomy.socials.flatMap(([k, name]) => { const u = safeUrl(str(d[k])); return u ? [[name, u] as [string, string]] : [] }) : [],
     phone: str(d.phone), email: str(d.email), setting: str(d.setting),
     amenities: directorySettings().taxonomy.amenities.filter(([k]) => truthy(d[k])).map(([, v]) => v),
     seoTitle: str(d.seoTitle), seoDescription: str(d.seoDescription)
@@ -371,7 +386,7 @@ export function listingCardHtml(c: Card): string {
 export async function featuredListings(db: D1Database, limit: number, category?: string): Promise<Card[]> {
   const today = new Date().toISOString().slice(0, 10)
   const where = category ? `AND (${J('category')} = ? OR ${J('subcategory')} = ?)` : ''
-  const rows = await db.prepare(`SELECT ${CARD_FIELDS} FROM documents WHERE ${PUBLISHED} ${where}
+  const rows = await db.prepare(`SELECT ${CARD_FIELDS()} FROM documents WHERE ${PUBLISHED} ${where}
     ORDER BY premium DESC, (COALESCE(${J('coverImage')}, '') != '' OR COALESCE(${J('gallery')}, '[]') != '[]') DESC, updated_at DESC LIMIT ?`)
     .bind(today, ...(category ? [category, category] : []), limit).all<Row>()
   return rows.results.map(toCard)
@@ -555,9 +570,9 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
     p.phone && `<a href="tel:${esc(p.phone.replace(/[^\d+]/g, ''))}">${esc(p.phone)}</a>`,
     p.email && `<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>`
   ].filter(Boolean)
-  const form = !p.premium ? '' : state.sent
+  const form = !p.requests ? '' : state.sent
     ? `<section id="${esc(P.requestAnchor)}" class="box ok"><h2>${esc(text.thanksTitle)}</h2><p>${esc(text.thanksText)}</p></section>`
-    : `<section id="${esc(P.requestAnchor)}" class="box"><h2>${esc(text.requestTitle)}</h2>${state.error ? `<p class="err">${esc(state.error)}</p>` : ''}
+    : `<section id="${esc(P.requestAnchor)}" class="box"><h2>${esc(p.premium ? text.requestTitle : text.inquiryTitle)}</h2>${state.error ? `<p class="err">${esc(state.error)}</p>` : ''}
       <form class="request" method="post" action="${esc(listingUrl(p))}#${esc(P.requestAnchor)}">
         <label>${esc(text.formName)}<input name="coupleName" required maxlength="200" value="${esc(v.coupleName ?? '')}"></label>
         <label>${esc(text.formEmail)}<input name="email" type="email" required maxlength="200" value="${esc(v.email ?? '')}"></label>
@@ -579,7 +594,8 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
     <div class="pcols"><div>${paragraphs}${gallery}${share}${form}</div>
     <aside class="box facts">${facts.map(([k, val]) => `<div><span>${esc(k)}</span>${esc(val)}</div>`).join('')}
       ${contact.length ? `<div><span>${esc(text.contact)}</span>${contact.join('<br>')}</div>` : ''}
-      ${p.premium && !state.sent ? `<a class="btn" href="#${esc(P.requestAnchor)}">${esc(text.requestDate)}</a>` : ''}</aside></div></div>${mediaViewer(media, p.title, mt)}`,
+      ${p.socials.length ? `<div><span>${esc(text.socialTitle)}</span>${p.socials.map(([name, u]) => `<a href="${esc(u)}" rel="noopener" target="_blank">${esc(name)} ↗</a>`).join('<br>')}</div>` : ''}
+      ${p.requests && !state.sent ? `<a class="btn" href="#${esc(P.requestAnchor)}">${esc(p.premium ? text.requestDate : text.inquiryTitle)}</a>` : ''}</aside></div></div>${mediaViewer(media, p.title, mt)}`,
     { description: p.seoDescription || p.summary, canonical: abs(origin, listingUrl(p)), image: p.cover ?? p.image ? abs(origin, (p.cover ?? p.image)!) : undefined, head: jsonLd({ '@context': 'https://schema.org', '@graph': [
       {
         '@type': 'LocalBusiness', '@id': `${abs(origin, listingUrl(p))}#business`, name: p.title, url: abs(origin, listingUrl(p)),
@@ -587,7 +603,7 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
         image: media.filter(m => m.kind === 'photo').slice(0, 6).map(m => abs(origin, m.src)),
         telephone: p.phone || undefined,
         address: { '@type': 'PostalAddress', addressLocality: p.city || undefined, addressRegion: label(taxonomy.regions, p.county) || undefined, addressCountry: 'HR' },
-        sameAs: p.website ? [p.website] : undefined,
+        sameAs: [p.website, ...p.socials.map(([, u]) => u)].filter(Boolean).length ? [p.website, ...p.socials.map(([, u]) => u)].filter(Boolean) : undefined,
         subjectOf: p.videos.length ? p.videos.map(id => ({ '@type': 'VideoObject', name: `${p.title} - ${text.video}`, embedUrl: `https://www.youtube-nocookie.com/embed/${id}`, thumbnailUrl: `https://i.ytimg.com/vi/${id}/hqdefault.jpg` })) : undefined,
         additionalType: sub?.label ?? parent?.label
       },

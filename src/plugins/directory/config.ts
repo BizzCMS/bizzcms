@@ -14,6 +14,25 @@ export interface Category {
 }
 type Pairs = readonly (readonly [string, string])[]
 
+/**
+ * A package (plan) a company can have. The first plan in the list is the free one; a company without a plan,
+ * or whose paid-until date has passed, gets it. Limits apply on the profile and in the company portal.
+ */
+export interface Plan {
+  key: string
+  label: string
+  /** Photos shown on the profile (the cover counts) and the most the company can upload. */
+  photos: number
+  /** YouTube videos shown on the profile. */
+  videos: number
+  /** Website and social network links on the profile. */
+  links: boolean
+  /** Couples can send an inquiry from the profile. */
+  requests: boolean
+  /** "Request a date", the ★ badge and first place in lists (what used to be Premium). */
+  booking: boolean
+}
+
 export interface DirectoryRoutes {
   /** The directory itself, e.g. '/companies/'. Filters are query parameters on it. */
   directory: string
@@ -56,6 +75,8 @@ export const DEFAULT_TAXONOMY = {
   /** Show price levels (€–€€€€) on cards and profiles when a company has no "price from" amount. */
   showPriceLevels: true as boolean,
   settings: [['indoor', 'Indoor'], ['outdoor', 'Outdoor'], ['both', 'Indoor and outdoor']] as Pairs,
+  /** Social network links a company can add (field key, label); shown on the profile when its plan has links. */
+  socials: [['facebook', 'Facebook'], ['instagram', 'Instagram'], ['tiktok', 'TikTok'], ['youtube', 'YouTube'], ['pinterest', 'Pinterest']] as Pairs,
   amenities: [['hasAccommodation', 'Accommodation for guests'], ['hasCatering', 'Own catering'], ['hasParking', 'Parking']] as Pairs
 }
 
@@ -133,6 +154,8 @@ export const DEFAULT_TEXT = {
   thanksTitle: 'Thank you!',
   thanksText: 'Your request has been received. We will get back to you soon.',
   requestTitle: 'Request a date',
+  inquiryTitle: 'Send an inquiry',
+  socialTitle: 'Follow',
   formName: 'Full name*',
   formEmail: 'E-mail*',
   formPhone: 'Phone',
@@ -145,9 +168,9 @@ export const DEFAULT_TEXT = {
 /** The company portal: URL words and wording. */
 export const DEFAULT_PORTAL = {
   base: '/for-companies',
-  new: 'new', edit: 'edit', claim: 'claim',
+  new: 'new', edit: 'edit', claim: 'claim', activate: 'activate',
   /** Notice codes in the URL after an action (?notice=…); the gallery and sign-up codes come from site-accounts. */
-  noticeNew: 'new', noticeClaimed: 'claimed', noticeRequested: 'requested',
+  noticeNew: 'new', noticeClaimed: 'claimed', noticeRequested: 'requested', noticeActivated: 'activated',
   loginTitle: 'Sign in for companies',
   registerTitle: 'Register your company',
   registerIntro: 'For businesses that offer services in this directory.',
@@ -159,8 +182,16 @@ export const DEFAULT_PORTAL = {
     photos: 'The photos have been added.',
     removed: 'The photo has been removed.',
     cover: 'The cover photo has been set.',
-    registered: 'Welcome! Your account is open.'
+    registered: 'Welcome! Your account is open.',
+    password: 'Your new password is saved.',
+    activated: 'Welcome! Your profile is now linked to your account. Check it and add your photos.'
   },
+  // Invitation (activation) of an imported company
+  activateTitle: 'Activate your profile',
+  activateLead: (company: string) => `Open your account to edit ${company} in the directory. The account uses this e-mail address:`,
+  activateButton: 'Activate the profile',
+  activateInvalid: 'This activation link is not valid any more. Sign in or open an account, then take over your profile.',
+  activateExisting: 'You already have an account with this e-mail address. Sign in: the profile is linked to it.',
   errTitle: 'Please enter the name.',
   errCategory: 'Please choose a category.',
   errSubcategory: 'The subcategory does not belong to the chosen category.',
@@ -236,7 +267,22 @@ export const DEFAULT_PORTAL = {
   save: 'Save changes',
   submitNew: 'Send profile for approval',
   photos: 'Photos',
-  photosAfterSave: 'You can add photos after saving the profile.'
+  photosAfterSave: 'You can add photos after saving the profile.',
+  // Plans (packages)
+  planTitle: 'Your package',
+  planUpgrade: 'See packages',
+  planPhotos: (n: number) => `${n} ${n === 1 ? 'photo' : 'photos'}`,
+  planVideos: (n: number) => `${n} YouTube ${n === 1 ? 'video' : 'videos'}`,
+  planLinks: 'Website and social networks',
+  planRequests: 'Inquiries from couples',
+  planBooking: '"Request a date" and first place in lists',
+  planNot: 'Not in your package',
+  planPaidUntil: (date: string) => `Paid until ${date}`,
+  fieldSocials: 'Social networks',
+  linksNotInPlan: 'Your website and social networks are shown on the profile from a paid package.',
+  videosNotInPlan: 'YouTube videos are shown on the profile from a paid package.',
+  photosLimit: (n: number) => `Your package shows ${n} ${n === 1 ? 'photo' : 'photos'}.`,
+  errSocial: (name: string) => `The ${name} link must start with https://`
 }
 
 export type DirectoryText = typeof DEFAULT_TEXT
@@ -263,6 +309,10 @@ export interface DirectorySettings {
   /** Share buttons on profiles, e.g. the Social Share plugin:
    *  (db, url, title, image) => shareBar(db, url, title, image, 'hr'). None or '' = no buttons. */
   share?: (db: D1Database, url: string, title: string, image?: string) => Promise<string>
+  /** Packages, the free one first; empty = no packages (every company gets everything, paidMember = Premium). */
+  plans: Plan[]
+  /** The site's price list page, linked from the company portal. */
+  pricingUrl?: string
   /** Called after a date request, a profile claim or a new company profile is saved (e.g. to send e-mail).
    *  Errors are caught and logged; they never fail the save. */
   notify?: (event: DirectoryEvent) => Promise<void>
@@ -273,12 +323,14 @@ export type DirectoryEvent =
   | { type: 'booking'; listing: { title: string; url: string; email?: string }; request: { coupleName: string; email: string; phone: string; weddingDate?: string; guests?: number; message: string } }
   | { type: 'claim'; listing: { title: string; url: string }; userEmail: string }
   | { type: 'listing'; title: string; userEmail: string; adminUrl: string }
+  | { type: 'activated'; listing: { title: string; url: string }; userEmail: string }
 
 let current: DirectorySettings = {
   routes: DEFAULT_ROUTES, params: DEFAULT_PARAMS, taxonomy: DEFAULT_TAXONOMY, text: DEFAULT_TEXT, portal: DEFAULT_PORTAL,
   layout: (title, body, o) => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title.replace(/</g, '&lt;')}</title>${o.canonical ? `<link rel="canonical" href="${o.canonical}">` : ''}${o.index === false ? '<meta name="robots" content="noindex,follow">' : ''}</head><body><main>${body}</main></body></html>`,
   labels: { listings: 'Companies', bookingRequests: 'Booking requests', claims: 'Listing claims' },
-  locale: 'en'
+  locale: 'en',
+  plans: []
 }
 
 export interface DirectoryOptions {
@@ -293,6 +345,8 @@ export interface DirectoryOptions {
   sample?: DirectorySettings['sample']
   share?: DirectorySettings['share']
   notify?: DirectorySettings['notify']
+  plans?: Plan[]
+  pricingUrl?: string
 }
 
 /** Turn the directory on for this site with its own addresses, categories, wording and layout. */
@@ -308,13 +362,43 @@ export function setDirectory(opts: DirectoryOptions): void {
     locale: opts.locale ?? current.locale,
     sample: opts.sample ?? current.sample,
     share: opts.share ?? current.share,
-    notify: opts.notify ?? current.notify
+    notify: opts.notify ?? current.notify,
+    plans: opts.plans ?? current.plans,
+    pricingUrl: opts.pricingUrl ?? current.pricingUrl
   }
 }
 export const directorySettings = (): DirectorySettings => current
 /** Runs the site's notify hook without ever failing the caller. */
 export async function notifyDirectory(event: DirectoryEvent): Promise<void> {
   try { await current.notify?.(event) } catch (e) { console.error('directory notify', event.type, e) }
+}
+
+// ---------------------------------------------------------------- plans
+
+const today = () => new Date().toISOString().slice(0, 10)
+const yes = (v: unknown) => v === true || v === 1 || v === 'true' || v === 'on' || v === '1'
+
+/**
+ * A company's plan now: its `plan` field (or, without one, the first booking plan when it is a paid member), and
+ * the free plan once `paidUntil` has passed. Undefined when the site has no plans.
+ */
+export function planOf(data: Record<string, unknown>): Plan | undefined {
+  const plans = current.plans
+  if (!plans.length) return undefined
+  const free = plans[0]
+  const key = typeof data.plan === 'string' && data.plan ? data.plan : yes(data.paidMember) ? plans.find(p => p.booking)?.key : free.key
+  const plan = plans.find(p => p.key === key) ?? free
+  const until = typeof data.paidUntil === 'string' ? data.paidUntil : ''
+  return plan !== free && until && until < today() ? free : plan
+}
+
+/** SQL (on documents.data) that is true for companies with "request a date" now; binds one value, today's date. */
+export function bookingSql(): string {
+  const J = (f: string) => `json_extract(data, '$.${f}')`
+  const paid = `${J('paidMember')} IN (1, 'true', 'on', '1')`
+  const keys = current.plans.filter(p => p.booking).map(p => `'${p.key.replace(/'/g, "''")}'`)
+  const has = keys.length ? `(CASE WHEN COALESCE(${J('plan')}, '') != '' THEN ${J('plan')} IN (${keys.join(', ')}) ELSE ${paid} END)` : paid
+  return `(${has} AND (COALESCE(${J('paidUntil')}, '') = '' OR ${J('paidUntil')} >= ?))`
 }
 
 // ---------------------------------------------------------------- taxonomy helpers
