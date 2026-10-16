@@ -24,7 +24,7 @@ export function directoryCollections(): CollectionConfig[] {
         county: { type: 'select', title: 'Region', ...pairs([['', '—'], ...T.regions]) },
         city: { type: 'string', title: 'City', maxLength: 120 },
         summary: { type: 'textarea', title: 'Short summary (listing card)', maxLength: 300 },
-        description: { type: 'textarea', title: 'Description', helpText: 'Plain text. Blank lines start new paragraphs.' },
+        description: { type: 'textarea', title: 'Description', helpText: 'Plain text. Blank lines start new paragraphs; **words** between double asterisks are shown bold.' },
         coverImage: { type: 'media', title: 'Cover image' },
         // `multiple` is read by the admin media picker but missing from the typings.
         gallery: { type: 'media', title: 'Gallery', multiple: true } as { type: 'media'; title: string },

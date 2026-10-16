@@ -267,7 +267,7 @@ export const DEFAULT_PORTAL = {
   fieldCity: 'City / place',
   fieldSummary: 'Short description (shown in the directory)',
   fieldDescription: 'Description',
-  fieldDescriptionHint: 'An empty line starts a new paragraph.',
+  fieldDescriptionHint: 'An empty line starts a new paragraph. **Words** between double asterisks are shown bold.',
   fieldPrice: 'Price',
   fieldPriceFrom: 'Price from (€)',
   fieldPriceUnit: 'Price unit',

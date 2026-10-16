@@ -511,6 +511,13 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
     const keys = [...p.keys()]
     if (keys.length === 1 && keys[0] === P.category) return categoryUrl(p.get(P.category)!)
     if (keys.length === 1 && keys[0] === P.city) return cityUrl(p.get(P.city)!)
+    // Without a search the directory would only 301 these to the category / city page (see the top of the handler):
+    // link there directly, so pager, view and sort links cost no redirect.
+    if (!p.has(P.q)) {
+      const cat = p.get(P.category), city = p.get(P.city)
+      if (cat) { p.delete(P.category); return `${categoryUrl(cat)}?${p}` }
+      if (city) { p.delete(P.city); p.delete(P.region); return `${cityUrl(city)}${p.toString() ? `?${p}` : ''}` }
+    }
     const s = p.toString()
     return `${DIR}${s ? `?${s}` : ''}`
   }
@@ -614,7 +621,9 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
   const v = state.values ?? {}
   const parent = taxonomy.categories.find(c => c.slug === p.category)
   const sub = subcategories().find(s => s.slug === p.subcategory)
-  const paragraphs = (p.description ?? '').split(/\n\s*\n/).filter(Boolean).map(t => `<p>${esc(t).replace(/\n/g, '<br>')}</p>`).join('')
+  // Plain text; **words** are shown bold (after escaping, so nothing else can become markup).
+  const paragraphs = (p.description ?? '').split(/\n\s*\n/).filter(Boolean)
+    .map(t => `<p>${esc(t).replace(/\*\*([^*\n]{1,120}?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')}</p>`).join('')
   // Photos and YouTube videos: mosaic on top, gallery section, full-screen viewer (media.ts).
   const media = mediaItems(p.cover ?? p.image, p.gallery, p.videos)
   const mt = { showAll: text.showAllMedia, photos: text.gallery, videos: text.videos, video: text.video, close: text.close, previous: text.previous, next: text.next, photoAlt: text.photoAlt }
