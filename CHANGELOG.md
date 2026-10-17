@@ -4,6 +4,10 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Security
+- **Engine 3.0.0-beta.28-bizzcms.1** (from BizzCMS/bizzcms-core): seed-admin only in development/test, production refuses to run without `JWT_SECRET`, OAuth never links an account by e-mail alone, escaped admin user and form pages, sandboxed SVG/HTML uploads with `nosniff`, admin-only `/api/system/info|stats|env`, admin permission check fails closed, admin scripts pinned with integrity hashes.
+- **Better Auth 1.6.33** (latest 1.6), pinned with `overrides` (`better-auth`, `@better-auth/core`, `@better-auth/drizzle-adapter`, `@better-auth/telemetry`). Sites copy the same overrides.
+
 ### Added
 - **Directory plugin: `notify` hook**: `setDirectory({ notify })` is called after a date request, a profile claim or a new company profile is saved (`DirectoryEvent`), e.g. to send e-mail; errors never fail the save.
 - **Directory plugin: region (county) pages**: optional `routes.region` (e.g. `/companies/region/{slug}/`) gives each region a clean, indexable page in the sitemap; a region chosen in the filter redirects there; `regionUrl()`.

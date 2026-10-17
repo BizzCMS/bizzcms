@@ -22,7 +22,7 @@
     "release:minor": "npm version minor -m \"Release %s\" && git push --follow-tags"
   },
   "dependencies": {
-    "bizzcms-core": "file:vendor/bizzcms-core-3.0.0-beta.28.tgz"
+    "bizzcms-core": "file:vendor/bizzcms-core-3.0.0-beta.28-bizzcms.1.tgz"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260724.1",
@@ -31,11 +31,12 @@
     "wrangler": "^4.52.1"
   },
   "overrides": {
-    "better-auth": "1.6.23",
-    "@better-auth/drizzle-adapter": "1.6.23",
-    "@better-auth/telemetry": "1.6.23",
+    "better-auth": "1.6.33",
+    "@better-auth/drizzle-adapter": "1.6.33",
+    "@better-auth/telemetry": "1.6.33",
     "drizzle-orm": "0.45.2",
-    "csv-parse": "7.0.2"
+    "csv-parse": "7.0.2",
+    "@better-auth/core": "1.6.33"
   },
   "engines": {
     "node": ">=24"
