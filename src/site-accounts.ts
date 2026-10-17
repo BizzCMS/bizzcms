@@ -341,6 +341,9 @@ export async function createAccount(request: Request, url: URL, cms: Cms, v: { f
   const session = await signIn(request, url, cms, v.email.toLowerCase(), v.password)
   return session.ok ? { session } : {}
 }
+/** Signs in with e-mail and password; the response carries the session cookies when `ok` (use with redirectWithSession). */
+export const signInSession = (request: Request, url: URL, cms: Cms, email: string, password: string) => signIn(request, url, cms, email, password)
+
 /** True when the e-mail and password sign in (used to confirm the current password before a change). */
 export async function verifyPassword(request: Request, url: URL, cms: Cms, email: string, password: string): Promise<boolean> {
   return !!password && (await signIn(request, url, cms, email, password)).ok

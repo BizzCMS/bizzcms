@@ -11,7 +11,7 @@
 import { DocumentsService } from 'bizzcms-core'
 import {
   accountPaths, accountRoute, type Audience, type Cms, createAccount, crossOrigin, currentUser, galleryAction, galleryEditor, loginRedirect,
-  accountText, portalPage, readForm, redirectWithSession, type User
+  accountText, portalPage, readForm, redirectWithSession, setPassword, signInSession, type User
 } from '../../site-accounts'
 import { alphabetical, directorySettings, listingUrl, notifyDirectory, planOf, type Plan, slugify, subcategories } from './config'
 import { esc, fold, html, mediaList, str, truthy, validEmail, validPhone, validTaxId } from './util'
@@ -256,17 +256,20 @@ async function activate(request: Request, db: D1Database, url: URL, cms: Cms): P
   const linkTo = async (userEmail: string) => {
     // Owner set, invitation used up; both on the current draft and (when live) the published version.
     const svc = new DocumentsService(db)
-    const draft = await svc.saveDraft(listing.rootId, { data: { ownerEmail: userEmail, inviteHash: '' } } as unknown as Parameters<DocumentsService['saveDraft']>[1])
+    const draft = await svc.saveDraft(listing.rootId, { data: { ownerEmail: userEmail, ownerPending: '', inviteHash: '' } } as unknown as Parameters<DocumentsService['saveDraft']>[1])
     if (listing.live && !draft.isPublished) await svc.publish(draft.id)
     await notifyDirectory({ type: 'activated', listing: { title: listing.title, url: `${url.origin}${listingUrl({ slug: listing.slug, legacyId: Number(listing.data.legacyId) || undefined, legacySlug: str(listing.data.legacySlug) })}` }, userEmail })
   }
-  // Already has an account with this e-mail: link the profile and ask to sign in.
-  const existing = await db.prepare(`SELECT 1 FROM auth_user WHERE lower(email) = ? LIMIT 1`).bind(email).first()
-  if (existing) {
+  // Already has an account with this e-mail. An account imported from an old site (no password yet) sets its password
+  // here; any other account gets the profile linked and signs in as usual.
+  const existing = await db.prepare(`SELECT u.id, COALESCE(u.first_name, '') AS firstName, COALESCE(u.last_name, '') AS lastName,
+      EXISTS (SELECT 1 FROM auth_account a WHERE a.user_id = u.id AND (a.provider_id != 'credential' OR COALESCE(a.password, '') != '')) AS canSignIn
+    FROM auth_user u WHERE lower(u.email) = ? LIMIT 1`).bind(email).first<{ id: string; firstName: string; lastName: string; canSignIn: number }>()
+  if (existing?.canSignIn) {
     await linkTo(email)
     return Response.redirect(`${url.origin}${P.base}/${A.login}?${A.next}=${encodeURIComponent(P.base)}&${A.notice}=${P.noticeActivated}`, 303)
   }
-  const page = (error?: string, v: Record<string, string> = {}) => portalPage(P.activateTitle, `<div class="auth box"><h1>${esc(P.activateTitle)}</h1>
+  const page = (error?: string, v: Record<string, string> = existing ? { firstName: existing.firstName, lastName: existing.lastName } : {}) => portalPage(P.activateTitle, `<div class="auth box"><h1>${esc(P.activateTitle)}</h1>
     <p class="lead"><strong>${esc(listing.title)}</strong></p><p class="muted">${esc(P.activateLead(listing.title))} <strong>${esc(email)}</strong></p>${error ? `<p class="err">${esc(error)}</p>` : ''}
     <form method="post" action="${P.base}/${P.activate}?t=${esc(token)}" class="stack">
       <div class="two"><label>${esc(accountText('firstName'))}<input name="firstName" autocomplete="given-name" required maxlength="80" value="${esc(v.firstName ?? '')}"></label>
@@ -281,6 +284,16 @@ async function activate(request: Request, db: D1Database, url: URL, cms: Cms): P
   if (!v.firstName || !v.lastName) return html(page(accountText('enterName'), v), 400)
   if (password.length < 8) return html(page(accountText('passwordShort'), v), 400)
   if (form.get(A.terms) !== '1') return html(page(accountText('acceptTerms'), v), 400)
+  if (existing) {
+    // Imported account: the link reached this inbox, so the address is confirmed; the password is set now.
+    await setPassword(db, existing.id, password)
+    await db.prepare(`UPDATE auth_user SET first_name = ?, last_name = ?, name = ?, email_verified = 1, updated_at = ? WHERE id = ?`)
+      .bind(v.firstName, v.lastName, `${v.firstName} ${v.lastName}`, Date.now(), existing.id).run()
+    await linkTo(email)
+    const session = await signInSession(request, url, cms, email, password)
+    const target = `${P.base}?${A.notice}=${P.noticeActivated}`
+    return session.ok ? redirectWithSession(target, session) : Response.redirect(`${url.origin}${P.base}/${A.login}`, 303)
+  }
   const created = await createAccount(request, url, cms, { ...v, email, password })
   if ('error' in created) return html(page(created.error, v), created.status)
   // The link reached this inbox, so the e-mail address is confirmed.
