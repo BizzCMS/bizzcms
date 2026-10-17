@@ -307,6 +307,9 @@ export interface SitemapRoutes {
   extra?: string[]
   /** Other collections with public pages, by collection name, e.g. { portfolio: (d, slug) => `/portfolio/${slug}/` }. */
   collections?: Record<string, (data: Record<string, unknown>, slug: string) => string | null>
+  /** Collections whose pages only the admin's View on site eye links to (e.g. private wedding pages): never in
+   *  sitemaps, feeds or IndexNow. */
+  viewOnly?: Record<string, (data: Record<string, unknown>, slug: string) => string | null>
 }
 
 const XML_HEAD = '<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -323,7 +326,7 @@ export function publicPath(type: string, data: Record<string, unknown>, slug: st
   if (type === 'posts') return r?.posts ? r.posts(data, slug) : `/blog/${encodeURIComponent(slug)}`
   if (type === 'categories') return r?.categories ? r.categories(data, slug) : null
   // Extra collections a site describes (e.g. portfolio): their own URL rule.
-  const own = r?.collections?.[type]
+  const own = r?.collections?.[type] ?? r?.viewOnly?.[type]
   return own ? own(data, slug) : null
 }
 
@@ -476,7 +479,7 @@ export async function seoIndexNowChanged(request: Request, status: number, db: D
   const urls: string[] = []
   for (const r of results) {
     let d: Record<string, unknown> = {}; try { d = JSON.parse(r.data) } catch { /* empty */ }
-    if (d.noindex === true || d.noindex === 'true') continue
+    if (d.noindex === true || d.noindex === 'true' || publicRoutes?.viewOnly?.[r.type_id]) continue
     const p = publicPath(r.type_id, d, r.slug ?? ''); if (!p) continue
     const u = abs(url.origin, p)
     if (!u || indexNowSent.get(u) === r.updated_at) continue
