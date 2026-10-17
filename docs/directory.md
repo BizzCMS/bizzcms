@@ -89,7 +89,9 @@ Everything you don't set keeps an English default (`src/plugins/directory/config
 Admin menu: register `directoryPlugin()` (after `setDirectory`) in `createSonicJSApp({ plugins: { register: [...] } })`. It adds Directory, booking requests and listing claims to the plugin menu once a plugin row `directory` is active (Admin › Plugins, or the same insert as for Social Share).
 
 Sorting: **Recommended** is Premium first, then most visited (the optional `views` field, e.g. carried over from an
-old site), then name. Visitors can also sort by name, newest, most visited and (venues) capacity. A company without
+old site), then name. Visitors can also sort by name, newest, most visited and (venues) capacity. `params.defaultSort`
+sets the order used when the address has no sort (e.g. the `sortNewest` value); that order needs no parameter, and
+Recommended then uses `params.sortRecommended`. A company without
 a photo shows its category's photo when the site gives one.
 
 Visitor accounts have their own wording and URL words (login, register, photos …):

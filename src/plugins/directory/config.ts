@@ -61,7 +61,12 @@ export const DEFAULT_ROUTES: DirectoryRoutes = {
 export const DEFAULT_PARAMS = {
   q: 'q', category: 'category', region: 'region', city: 'city', guests: 'guests', price: 'price', setting: 'setting',
   premium: 'premium', favorites: 'favorites', priceMin: 'price_from', priceMax: 'price_to', sort: 'sort', view: 'view', page: 'page', sent: 'sent', requestAnchor: 'request',
-  sortName: 'name', sortNewest: 'newest', sortCapacity: 'capacity', sortPopular: 'popular', viewList: 'list'
+  sortName: 'name', sortNewest: 'newest', sortCapacity: 'capacity', sortPopular: 'popular', viewList: 'list',
+  /** Value of the "Recommended" order when it is not the default (e.g. `?sort=recommended`). */
+  sortRecommended: 'recommended',
+  /** Order used when the address has no sort parameter: '' (Recommended) or one of the sort values above, e.g. the
+   *  sortNewest value. That order then needs no parameter, so default links stay clean. */
+  defaultSort: ''
 }
 
 export const DEFAULT_TAXONOMY = {

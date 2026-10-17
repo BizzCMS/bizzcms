@@ -152,7 +152,7 @@ function readFilters(p: URLSearchParams): Filters {
   const get = (k: string) => (p.get(k) ?? '').trim().slice(0, 100)
   return {
     q: get(params.q), category: get(params.category), region: get(params.region), city: get(params.city), guests: get(params.guests),
-    price: get(params.price), setting: get(params.setting), premium: get(params.premium), sort: get(params.sort), view: get(params.view),
+    price: get(params.price), setting: get(params.setting), premium: get(params.premium), sort: get(params.sort) === params.defaultSort ? '' : get(params.sort), view: get(params.view),
     page: Math.min(10000, Math.max(1, Number.parseInt(get(params.page), 10) || 1)),
     amenities: taxonomy.amenities.map(([k]) => k).filter(k => p.get(k) === '1'),
     priceMin: /^\d{1,7}$/.test(get(params.priceMin)) ? String(Number(get(params.priceMin))) : '',
@@ -202,6 +202,7 @@ function where(f: Filters, cityNames: string[], today: string, skip: Facet[] = [
 
 function orderBy(sort: string): string {
   const { params } = directorySettings()
+  if (!sort) sort = params.defaultSort
   if (sort === params.sortName) return 'title COLLATE NOCASE'
   if (sort === params.sortNewest) return 'created_at DESC'
   if (sort === params.sortCapacity) return `CAST(${J('capacity')} AS INTEGER) IS NULL, CAST(${J('capacity')} AS INTEGER) DESC, title COLLATE NOCASE`
@@ -606,7 +607,7 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
       ${Object.entries({ category: f.category, region: f.region, city: f.city, guests: f.guests, price: f.price, setting: f.setting, premium: f.premium, favorites: f.favorites?.join(',') ?? '', priceMin: f.priceMin, priceMax: f.priceMax, view: f.view }).map(([k, v]) => hidden((P as Record<string, string>)[k], v)).join('')}
       ${f.amenities.map(a => hidden(a, '1')).join('')}
       <label class="search">${icon('search')}<input type="search" name="${P.q}" value="${esc(f.q)}" placeholder="${esc(text.searchPlaceholder)}" aria-label="${esc(text.searchLabel)}" data-suggest="${esc(DIR)}"></label>
-      <select name="${P.sort}" aria-label="${esc(text.sortLabel)}" data-auto-submit>${option('', text.sortRecommended, f.sort)}${alphabetical([[P.sortName, text.sortName], [P.sortNewest, text.sortNewest], [P.sortPopular, text.sortPopular], ...(isVenue ? [[P.sortCapacity, text.sortCapacity]] : [])] as [string, string][], o => o[1]).map(([k, t]) => option(k, t, f.sort)).join('')}</select>
+      <select name="${P.sort}" aria-label="${esc(text.sortLabel)}" data-auto-submit>${option(P.defaultSort ? P.sortRecommended : '', text.sortRecommended, f.sort)}${alphabetical([[P.sortName, text.sortName], [P.sortNewest, text.sortNewest], [P.sortPopular, text.sortPopular], ...(isVenue ? [[P.sortCapacity, text.sortCapacity]] : [])] as [string, string][], o => o[1]).map(([k, t]) => option(k === P.defaultSort ? '' : k, t, f.sort)).join('')}</select>
       <span class="views"><a class="${f.view === P.viewList ? '' : 'on'}" href="${params({ view: null })}" title="${esc(text.viewGrid)}" aria-label="${esc(text.viewGridLabel)}">${icon('grid')}</a><a class="${f.view === P.viewList ? 'on' : ''}" href="${params({ view: P.viewList })}" title="${esc(text.viewList)}" aria-label="${esc(text.viewListLabel)}">${icon('list')}</a></span>
     </form></div></div>`
 
