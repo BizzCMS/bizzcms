@@ -326,7 +326,7 @@ export interface Listing extends Card {
   /** The company's package now (undefined when the site has no packages). */
   plan?: Plan
   /** Social network links shown on the profile: [label, url]. */
-  socials: [string, string][]
+  socials: [name: string, url: string, key: string][]
   /** Couples can send an inquiry (the package has inquiries, or the company has "request a date"). */
   requests: boolean
 }
@@ -351,7 +351,7 @@ export async function findListing(db: D1Database, by: { slug: string } | { legac
     ...toCard({ ...d, slug: row.slug, title: str(d.title) ?? row.title, cover: d.coverImage, premium: row.premium }),
     description: str(d.description), gallery, cover, videos: videoIds(d.videos).slice(0, plan ? plan.videos : undefined),
     website: safeUrl(str(d.website)), plan, requests: premium || !!plan?.requests,
-    socials: links ? directorySettings().taxonomy.socials.flatMap(([k, name]) => { const u = safeUrl(str(d[k])); return u ? [[name, u] as [string, string]] : [] }) : [],
+    socials: links ? directorySettings().taxonomy.socials.flatMap(([k, name]) => { const u = safeUrl(str(d[k])); return u ? [[name, u, k] as [string, string, string]] : [] }) : [],
     phone: str(d.phone), email: str(d.email), setting: str(d.setting),
     amenities: directorySettings().taxonomy.amenities.filter(([k]) => truthy(d[k])).map(([, v]) => v),
     seoTitle: str(d.seoTitle), seoDescription: str(d.seoDescription), seoImage: str(d.seoImage), canonical: str(d.canonical), noindex: truthy(d.noindex)
@@ -415,6 +415,23 @@ function priceSlider(f: Filters, bounds: { lo: number; hi: number } | null): str
  *  unless it is already in use (e.g. a shared link). */
 function memberOnly(inUse: boolean): string {
   return directorySettings().memberFilters ? ` data-member-only${inUse ? '' : ' hidden'}` : ''
+}
+
+// Profile contact and social icons (single colour, currentColor; the site sets the colour).
+const svg = (body: string, stroke = false) => `<svg viewBox="0 0 24 24" width="18" height="18" ${stroke ? 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"' : 'fill="currentColor"'} aria-hidden="true">${body}</svg>`
+const CONTACT_SVG = {
+  web: svg('<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>', true),
+  phone: svg('<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8.1 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/>', true),
+  mail: svg('<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/>', true)
+}
+const SOCIAL_SVG: Record<string, string> = {
+  facebook: svg('<path d="M13.5 22v-8.2h2.8l.4-3.2h-3.2V8.5c0-.9.3-1.6 1.6-1.6h1.7V4.1c-.3 0-1.3-.1-2.5-.1-2.5 0-4.2 1.5-4.2 4.3v2.4H7.3v3.2h2.8V22h3.4z"/>'),
+  instagram: svg('<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>', true),
+  tiktok: svg('<path d="M16.6 5.8A4.3 4.3 0 0 1 15.5 3h-3.1v12.4a2.6 2.6 0 1 1-2.6-2.6c.3 0 .5 0 .8.1V9.7a5.8 5.8 0 1 0 4.9 5.7V9.1a7.3 7.3 0 0 0 4.3 1.4V7.4a4.3 4.3 0 0 1-3.2-1.6z"/>'),
+  youtube: svg('<path d="M21.6 7.2a2.5 2.5 0 0 0-1.8-1.8C18.2 5 12 5 12 5s-6.2 0-7.8.4A2.5 2.5 0 0 0 2.4 7.2 26 26 0 0 0 2 12a26 26 0 0 0 .4 4.8 2.5 2.5 0 0 0 1.8 1.8C5.8 19 12 19 12 19s6.2 0 7.8-.4a2.5 2.5 0 0 0 1.8-1.8A26 26 0 0 0 22 12a26 26 0 0 0-.4-4.8zM10 15V9l5.2 3L10 15z"/>'),
+  pinterest: svg('<path d="M12 2a10 10 0 0 0-3.6 19.3c-.1-.8-.2-2 0-2.9l1.3-5.4s-.3-.7-.3-1.6c0-1.5.9-2.6 1.9-2.6.9 0 1.4.7 1.4 1.5 0 .9-.6 2.3-.9 3.6-.3 1.1.5 2 1.6 2 1.9 0 3.4-2 3.4-5 0-2.6-1.9-4.4-4.5-4.4-3.1 0-4.9 2.3-4.9 4.7 0 .9.4 1.9.8 2.5.1.1.1.2.1.3l-.3 1.2c0 .2-.2.3-.4.2-1.4-.6-2.2-2.6-2.2-4.2 0-3.4 2.5-6.5 7.1-6.5 3.7 0 6.6 2.7 6.6 6.2 0 3.7-2.3 6.7-5.6 6.7-1.1 0-2.1-.6-2.5-1.2l-.7 2.6c-.2 1-.9 2.2-1.4 2.9A10 10 0 1 0 12 2z"/>'),
+  linkedin: svg('<path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM9 9h3.8v1.7h.1c.5-1 1.8-2 3.8-2 4 0 4.8 2.7 4.8 6.1V21h-4v-5.4c0-1.3 0-3-1.8-3s-2.1 1.4-2.1 2.9V21H9z"/>'),
+  x: svg('<path d="M17.8 3h3.1l-6.8 7.7 8 10.3h-6.2l-4.9-6.3L5.4 21H2.3l7.2-8.3L1.8 3h6.4l4.4 5.8L17.8 3zm-1.1 16.2h1.7L7.4 4.7H5.5l11.2 14.5z"/>')
 }
 
 /** Heart button (the site's script saves the profile and marks it); empty when favourites are off. */
@@ -642,9 +659,9 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
     [text.amenities, p.amenities.join(', ')]
   ].filter(([, val]) => val)
   const contact = [
-    p.website && `<a href="${esc(p.website)}" rel="noopener" target="_blank">${esc(text.website)}</a>`,
-    p.phone && `<a href="tel:${esc(p.phone.replace(/[^\d+]/g, ''))}">${esc(p.phone)}</a>`,
-    p.email && `<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>`
+    p.website && `<a class="contact-line" href="${esc(p.website)}" rel="noopener" target="_blank">${CONTACT_SVG.web}<span>${esc(text.website)}</span></a>`,
+    p.phone && `<a class="contact-line" href="tel:${esc(p.phone.replace(/[^\d+]/g, ''))}">${CONTACT_SVG.phone}<span>${esc(p.phone)}</span></a>`,
+    p.email && `<a class="contact-line" href="mailto:${esc(p.email)}">${CONTACT_SVG.mail}<span>${esc(p.email)}</span></a>`
   ].filter(Boolean)
   const requestForm = `<h2>${esc(p.premium ? text.requestTitle : text.inquiryTitle)}</h2>${state.error ? `<p class="err">${esc(state.error)}</p>` : ''}
       <form class="request" method="post" action="${esc(listingUrl(p))}">
@@ -677,7 +694,7 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
     <div class="pcols"><div>${paragraphs}${gallery}${share}${form}</div>
     <aside class="box facts">${facts.map(([k, val]) => `<div><span>${esc(k)}</span>${esc(val)}</div>`).join('')}
       ${contact.length ? `<div><span>${esc(text.contact)}</span>${contact.join('<br>')}</div>` : ''}
-      ${p.socials.length ? `<div><span>${esc(text.socialTitle)}</span>${p.socials.map(([name, u]) => `<a href="${esc(u)}" rel="noopener" target="_blank">${esc(name)} ↗</a>`).join('<br>')}</div>` : ''}
+      ${p.socials.length ? `<div><span>${esc(text.socialTitle)}</span><span class="social-icons">${p.socials.map(([name, u, k]) => `<a class="social-icon" href="${esc(u)}" rel="noopener" target="_blank" aria-label="${esc(name)}" title="${esc(name)}">${SOCIAL_SVG[k] ?? esc(name)}</a>`).join('')}</span></div>` : ''}
       ${p.requests ? `<a class="btn" href="#${esc(P.requestAnchor)}" data-open-request>${esc(p.premium ? text.requestDate : text.inquiryTitle)}</a>` : ''}</aside></div></div>${mediaViewer(media, p.title, mt)}`,
     { description: p.seoDescription || p.summary, canonical: p.canonical && /^https?:\/\//.test(p.canonical) ? p.canonical : abs(origin, listingUrl(p)), index: !p.noindex,
       image: p.seoImage ?? p.cover ?? p.image ? abs(origin, (p.seoImage ?? p.cover ?? p.image)!) : undefined, head: jsonLd({ '@context': 'https://schema.org', '@graph': [
