@@ -496,6 +496,8 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
   const isVenue = !!parent?.venue
   const place = r.cityLabel ?? label(taxonomy.regions, f.region)
   const heading = [sub?.label ?? cat?.label ?? text.directoryTitle, place].filter(Boolean).join(' · ')
+  // The main directory page (no category, place or search) can carry its own H1, lead, SEO texts and company box.
+  const isMain = !f.q && !f.category && !f.city && !f.region
   const DIR = directoryUrl()
 
   // Links keep every current filter except the ones being changed. Keys are filter names; the URL uses the site's words.
@@ -582,7 +584,7 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
   const photo = parent?.image
   const header = `<div class="bar${photo ? ' photo' : ''}"${photo ? ` style="--bar-img:url('${esc(photo)}')"` : ''}><div class="wrap barin">
     <div><p class="crumbs"><a href="${esc(DIR)}">${esc(text.directoryTitle)}</a>${parent && sub ? ` › <a href="${esc(categoryUrl(parent.slug))}">${esc(parent.label)}</a>` : ''}</p>
-      <h1>${f.q ? esc(text.resultsFor(f.q)) : esc(heading)}</h1></div>
+      <h1>${f.q ? esc(text.resultsFor(f.q)) : esc(isMain && text.directoryHeading ? text.directoryHeading : heading)}</h1>${isMain && text.directoryLead ? `<p class="lead">${esc(text.directoryLead)}</p>` : ''}</div>
     <form class="tools" method="get" action="${esc(DIR)}">
       ${Object.entries({ category: f.category, region: f.region, city: f.city, guests: f.guests, price: f.price, setting: f.setting, premium: f.premium, favorites: f.favorites?.join(',') ?? '', priceMin: f.priceMin, priceMax: f.priceMax, view: f.view }).map(([k, v]) => hidden((P as Record<string, string>)[k], v)).join('')}
       ${f.amenities.map(a => hidden(a, '1')).join('')}
@@ -602,7 +604,7 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
   const body = `${header}<div class="wrap layout"><aside>${sidebar}</aside><section>
     ${pillBar}
     <div class="results ${f.view === P.viewList ? 'list' : 'grid'}">${cards || `<div class="empty"><h2>${esc(text.noResults)}</h2><p>${esc(text.noResultsText)}</p><p><a class="btn ghost" href="${esc(DIR)}">${esc(text.clearFilters)}</a></p></div>`}</div>
-    ${pager}</section></div>`
+    ${pager}${isMain && f.page === 1 && text.directoryJoinTitle ? `<div class="box join-box"><h2>${esc(text.directoryJoinTitle)}</h2><p>${esc(text.directoryJoinText)}</p>${text.directoryJoinHref ? `<p><a class="btn ghost" href="${esc(text.directoryJoinHref)}">${esc(text.directoryJoinCta)}</a></p>` : ''}</div>` : ''}</section></div>`
   // Unknown category/city landing pages are 404s (but still render the directory).
   const found = (!f.category || !!(cat || sub)) && (!f.city || !!r.cityLabel) && (!f.region || !!label(taxonomy.regions, f.region))
   const ld = jsonLd({ '@context': 'https://schema.org', '@graph': [
@@ -610,9 +612,9 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
       itemListElement: r.cards.map((c, i) => ({ '@type': 'ListItem', position: (f.page - 1) * PAGE_SIZE + i + 1, url: abs(url.origin, listingUrl(c)), name: c.title })) } },
     breadcrumbs(url.origin, [[text.directoryTitle, DIR], ...(parent && sub ? [[parent.label, categoryUrl(parent.slug)] as [string, string]] : []), ...(cat || sub ? [[(sub ?? cat)!.label, categoryUrl((sub ?? cat)!.slug)] as [string, string]] : [])])
   ] })
-  return { found, html: page(heading, body, { // no page numbers in titles (owner's rule, all BizzCMS sites)
+  return { found, html: page(isMain && text.directorySeoTitle ? text.directorySeoTitle : heading, body, { // no page numbers in titles (owner's rule, all BizzCMS sites)
     head: ld,
-    description: text.metaDescription(heading, text.results(r.total)),
+    description: isMain && text.directorySeoDescription ? text.directorySeoDescription : text.metaDescription(heading, text.results(r.total)),
     canonical: canonicalPath && found ? `${url.origin}${encodeURI(canonicalPath)}` : undefined, index: !!canonicalPath && found }) }
 }
 

@@ -85,6 +85,16 @@ export const DEFAULT_TAXONOMY = {
 
 export const DEFAULT_TEXT = {
   directoryTitle: 'Company directory',
+  // The main directory page only (no category, place or search): its own H1, a short line under it, SEO title and
+  // description, and a box for companies under the results. Empty = the plain directory title, no extras.
+  directoryHeading: '',
+  directoryLead: '',
+  directorySeoTitle: '',
+  directorySeoDescription: '',
+  directoryJoinTitle: '',
+  directoryJoinText: '',
+  directoryJoinCta: '',
+  directoryJoinHref: '',
   backToDirectory: '← Company directory',
   notFound: 'Company not found',
   requestsUnavailable: 'Requests are not available',
