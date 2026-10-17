@@ -14,7 +14,7 @@ import {
   accountText, portalPage, readForm, redirectWithSession, type User
 } from '../../site-accounts'
 import { alphabetical, directorySettings, listingUrl, notifyDirectory, planOf, type Plan, slugify, subcategories } from './config'
-import { esc, fold, html, mediaList, str, truthy, validEmail, validPhone } from './util'
+import { esc, fold, html, mediaList, str, truthy, validEmail, validPhone, validTaxId } from './util'
 import { videoIds } from './media'
 
 type Env = { DB: D1Database; MEDIA_BUCKET: R2Bucket; GOOGLE_CLIENT_ID?: string; GOOGLE_CLIENT_SECRET?: string }
@@ -161,6 +161,8 @@ function readListing(form: FormData): { title: string; data: Record<string, unkn
   if (email && !validEmail(email)) return { error: P.errEmail }
   const phone = get('phone', 60)
   if (phone && !validPhone(phone)) return { error: P.errPhone }
+  const taxId = get('taxId', 20).replace(/[\s.-]/g, '').toUpperCase()
+  if (taxId && !validTaxId(taxId)) return { error: P.errTaxId }
   const capacityRaw = get('capacity', 10)
   const capacity = capacityRaw ? Number.parseInt(capacityRaw, 10) : undefined
   if (capacityRaw && (!Number.isFinite(capacity) || capacity! < 1 || capacity! > 10000)) return { error: P.errCapacity }
@@ -179,7 +181,7 @@ function readListing(form: FormData): { title: string; data: Record<string, unkn
   return {
     title,
     data: {
-      title, category, subcategory, county, city: get('city', 120), address: get('address', 200), summary: get('summary', 300), description: get('description', 5000),
+      title, category, subcategory, county, city: get('city', 120), address: get('address', 200), taxId, summary: get('summary', 300), description: get('description', 5000),
       capacity: capacity ?? null,
       // With price units the portal asks for a 'price from' amount; the old price level stays as it was (not in the form).
       ...(T.priceUnits.length
@@ -457,6 +459,7 @@ function editPage(listing: Owned | null, v: Record<string, unknown>, error?: str
       <label>${esc(P.fieldSubcategory)}<select name="subcategory">${opt('', '—', v.subcategory)}${subOptions}</select></label>
       ${T.regions.length ? `<label>${esc(P.fieldRegion)}<select name="county">${opt('', '—', v.county)}${alphabetical(T.regions, c => c[1]).map(([k, t]) => opt(k, t, v.county)).join('')}</select></label>` : ''}
       <label>${esc(P.fieldAddress)}<input name="address" maxlength="200" value="${s('address')}"></label>
+      <label>${esc(P.fieldTaxId)}<input name="taxId" maxlength="20" value="${s('taxId')}"></label>
       <label>${esc(P.fieldCity)}<input name="city" maxlength="120" value="${s('city')}"></label>
       <label class="full">${esc(P.fieldSummary)}<textarea name="summary" rows="2" maxlength="300">${s('summary')}</textarea></label>
       <label class="full">${esc(P.fieldDescription)}<textarea name="description" rows="8" maxlength="5000">${s('description')}</textarea><small>${esc(P.fieldDescriptionHint)}</small></label>

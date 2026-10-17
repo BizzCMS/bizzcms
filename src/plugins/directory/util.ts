@@ -100,4 +100,15 @@ export const DIRECTORY_CSS = `.req-dialog{width:min(560px,calc(100% - 32px));max
 /** A plain e-mail address: no spaces, quotes, angle brackets or other markup characters; a real domain. */
 export const validEmail = (v: string) => v.length <= 200 && /^[A-Za-z0-9._%+'-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/.test(v)
 /** One or more phone numbers: digits with the usual separators (+, spaces, dashes, dots, slashes, brackets, ",", "|"); no letters or markup. */
+/** A Croatian OIB (11 digits, ISO 7064 MOD 11,10 check digit), optionally with "HR", or another EU VAT number by format. */
+export function validTaxId(raw: string): boolean {
+  const v = raw.replace(/[\s.-]/g, '').toUpperCase()
+  const oib = v.replace(/^HR/, '')
+  if (/^\d{11}$/.test(oib)) {
+    let a = 10
+    for (const d of oib.slice(0, 10)) { a = (a + Number(d)) % 10; if (a === 0) a = 10; a = (a * 2) % 11 }
+    return (11 - a) % 10 === Number(oib[10])
+  }
+  return /^(AT|BE|BG|CY|CZ|DE|DK|EE|EL|ES|FI|FR|HU|IE|IT|LT|LU|LV|MT|NL|PL|PT|RO|SE|SI|SK)[A-Z0-9]{2,12}$/.test(v)
+}
 export const validPhone = (v: string) => /^[+(]?[0-9][0-9 ()./,|+-]{4,58}$/.test(v)
