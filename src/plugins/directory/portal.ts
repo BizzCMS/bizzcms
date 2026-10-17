@@ -179,7 +179,7 @@ function readListing(form: FormData): { title: string; data: Record<string, unkn
   return {
     title,
     data: {
-      title, category, subcategory, county, city: get('city', 120), summary: get('summary', 300), description: get('description', 5000),
+      title, category, subcategory, county, city: get('city', 120), address: get('address', 200), summary: get('summary', 300), description: get('description', 5000),
       capacity: capacity ?? null,
       // With price units the portal asks for a 'price from' amount; the old price level stays as it was (not in the form).
       ...(T.priceUnits.length
@@ -456,6 +456,7 @@ function editPage(listing: Owned | null, v: Record<string, unknown>, error?: str
       <label>${esc(P.fieldCategory)}<select name="category" required>${alphabetical(T.categories, c => c.label).map(c => opt(c.slug, c.label, v.category)).join('')}</select></label>
       <label>${esc(P.fieldSubcategory)}<select name="subcategory">${opt('', '—', v.subcategory)}${subOptions}</select></label>
       ${T.regions.length ? `<label>${esc(P.fieldRegion)}<select name="county">${opt('', '—', v.county)}${alphabetical(T.regions, c => c[1]).map(([k, t]) => opt(k, t, v.county)).join('')}</select></label>` : ''}
+      <label>${esc(P.fieldAddress)}<input name="address" maxlength="200" value="${s('address')}"></label>
       <label>${esc(P.fieldCity)}<input name="city" maxlength="120" value="${s('city')}"></label>
       <label class="full">${esc(P.fieldSummary)}<textarea name="summary" rows="2" maxlength="300">${s('summary')}</textarea></label>
       <label class="full">${esc(P.fieldDescription)}<textarea name="description" rows="8" maxlength="5000">${s('description')}</textarea><small>${esc(P.fieldDescriptionHint)}</small></label>

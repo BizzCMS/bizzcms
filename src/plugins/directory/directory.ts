@@ -321,7 +321,7 @@ function toCard(r: Row): Card {
 }
 
 export interface Listing extends Card {
-  description?: string; gallery: string[]; website?: string; phone?: string; email?: string; setting?: string
+  description?: string; gallery: string[]; website?: string; phone?: string; email?: string; setting?: string; address?: string
   amenities: string[]; seoTitle?: string; seoDescription?: string; seoImage?: string; canonical?: string; noindex?: boolean; cover?: string; videos: string[]
   /** The company's package now (undefined when the site has no packages). */
   plan?: Plan
@@ -350,7 +350,7 @@ export async function findListing(db: D1Database, by: { slug: string } | { legac
   return {
     ...toCard({ ...d, slug: row.slug, title: str(d.title) ?? row.title, cover: d.coverImage, premium: row.premium }),
     description: str(d.description), gallery, cover, videos: videoIds(d.videos).slice(0, plan ? plan.videos : undefined),
-    website: safeUrl(str(d.website)), plan, requests: premium || !!plan?.requests,
+    website: safeUrl(str(d.website)), address: str(d.address), plan, requests: premium || !!plan?.requests,
     socials: links ? directorySettings().taxonomy.socials.flatMap(([k, name]) => { const u = safeUrl(str(d[k])); return u ? [[name, u, k] as [string, string, string]] : [] }) : [],
     phone: str(d.phone), email: str(d.email), setting: str(d.setting),
     amenities: directorySettings().taxonomy.amenities.filter(([k]) => truthy(d[k])).map(([, v]) => v),
@@ -652,7 +652,7 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
   const mt = { showAll: text.showAllMedia, photos: text.gallery, videos: text.videos, video: text.video, close: text.close, previous: text.previous, next: text.next, photoAlt: text.photoAlt }
   const gallery = mediaGallery(media, p.title, mt, p.videos.length && !p.gallery.length ? text.videos : text.gallery)
   const facts = [
-    [text.location, [p.city, label(taxonomy.regions, p.county)].filter(Boolean).join(', ')],
+    [text.location, [p.address, p.city, label(taxonomy.regions, p.county)].filter(Boolean).join(', ')],
     [text.capacity, p.capacity ? text.capacityValue(p.capacity) : ''],
     [text.price, priceText(p)],
     [text.setting, label(taxonomy.settings, p.setting) ?? ''],

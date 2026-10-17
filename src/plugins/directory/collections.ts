@@ -23,6 +23,7 @@ export function directoryCollections(): CollectionConfig[] {
         subcategory: { type: 'select', title: 'Subcategory (optional)', ...pairs([['', '—'], ...subcategories().map(s => [s.slug, `${T.categories.find(c => c.slug === s.parent)!.label} › ${s.label}`] as [string, string])]) },
         county: { type: 'select', title: 'Region', ...pairs([['', '—'], ...T.regions]) },
         city: { type: 'string', title: 'City', maxLength: 120 },
+        address: { type: 'string', title: 'Address', maxLength: 200 },
         summary: { type: 'textarea', title: 'Short summary (listing card)', maxLength: 300 },
         description: { type: 'textarea', title: 'Description', helpText: 'Plain text. Blank lines start new paragraphs; **words** between double asterisks are shown bold.' },
         coverImage: { type: 'media', title: 'Cover image' },

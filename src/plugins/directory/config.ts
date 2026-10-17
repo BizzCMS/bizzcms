@@ -279,6 +279,7 @@ export const DEFAULT_PORTAL = {
   fieldCategory: 'Category*',
   fieldSubcategory: 'Subcategory',
   fieldRegion: 'Region',
+  fieldAddress: 'Address',
   fieldCity: 'City / place',
   fieldSummary: 'Short description (shown in the directory)',
   fieldDescription: 'Description',
