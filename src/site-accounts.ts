@@ -305,8 +305,11 @@ export async function accountRoute(a: Audience, request: Request, url: URL, path
   if (path === `${a.base}/${paths.logout}` && post) {
     const res = await cms(new Request(`${url.origin}/auth/logout`, { headers: forwardHeaders(request, { cookie: request.headers.get('cookie') ?? '' }) }))
     const out = withCookies(a.base, res, false)
-    // Also expire the session cookie here in case the CMS did not.
+    // Also expire every session cookie here: the CMS clears only "better-auth.session_token", while on https the
+    // session lives in "__Secure-better-auth.session_token" (a leftover one kept visitors signed in after Odjava).
     out.headers.append('set-cookie', 'auth_token=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict')
+    out.headers.append('set-cookie', '__Secure-better-auth.session_token=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax')
+    out.headers.append('set-cookie', 'better-auth.session_token=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax')
     return out
   }
   return null
