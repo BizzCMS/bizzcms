@@ -163,6 +163,11 @@ function forwardHeaders(request: Request, extra: Record<string, string> = {}): H
 // for that request object only, so a slow session check costs one wait, not one per caller.
 const userChecks = new WeakMap<Request, Promise<User | null>>()
 
+// Requests whose session check got no answer in time (or a server error): "signed out" there is a guess, not a fact.
+const checksUnanswered = new WeakSet<Request>()
+/** True when currentUser() returned null only because the session check timed out (the visitor may be signed in). */
+export const sessionUnknown = (request: Request): boolean => checksUnanswered.has(request)
+
 export async function currentUser(request: Request, cms: Cms): Promise<User | null> {
   const cookie = request.headers.get('cookie')
   if (!cookie) return null
@@ -178,6 +183,7 @@ async function checkUser(request: Request, cms: Cms, cookie: string): Promise<Us
   const timeout = new Promise<null>(resolve => setTimeout(() => resolve(null), 4000))
   const res = await Promise.race([cms(new Request(new URL('/auth/me', request.url), { headers: forwardHeaders(request, { cookie }) })), timeout])
   const ms = Date.now() - started
+  if (!res || res.status >= 500) checksUnanswered.add(request)
   if (!res || ms > 1500) console.warn(`site-accounts: /auth/me ${res ? `took ${ms} ms (status ${res.status})` : 'timed out after 4 s'}; cookies: ${cookie.split(';').map(c => c.split('=')[0].trim()).join(', ')}`)
   if (!res || !res.ok) return null
   const body = await res.json().catch(() => null) as { user?: { id?: string; email?: string; first_name?: string } } | null
