@@ -178,8 +178,12 @@ function readListing(form: FormData): { title: string; data: Record<string, unkn
     if (value && !/^https:\/\/[^\s]+\.[^\s]+$/i.test(value)) return { error: P.errSocial(name) }
     socials[k] = value
   }
+  // The site's own rules (required fields, its city list, phone format…) may clean values or refuse the form.
+  const own = directorySettings().validateListing?.(Object.fromEntries([...form.entries()].filter(([, v]) => typeof v === 'string')) as Record<string, string>)
+  if (own && 'error' in own) return { error: own.error }
+  const extra = own?.data ?? {}
   return {
-    title,
+    title: typeof extra.title === 'string' && extra.title ? extra.title : title,
     data: {
       title, category, subcategory, county, city: get('city', 120), address: get('address', 200), taxId, summary: get('summary', 300), description: get('description', 5000),
       capacity: capacity ?? null,
@@ -191,7 +195,8 @@ function readListing(form: FormData): { title: string; data: Record<string, unkn
       ...Object.fromEntries(T.amenities.map(([k]) => [k, form.get(k) === '1'])),
       website, phone, email, ...socials,
       // YouTube links only (one per line); anything else is dropped.
-      videos: videoIds(String(form.get('videos') ?? '').slice(0, 3000)).map(id => `https://www.youtube.com/watch?v=${id}`).join('\n')
+      videos: videoIds(String(form.get('videos') ?? '').slice(0, 3000)).map(id => `https://www.youtube.com/watch?v=${id}`).join('\n'),
+      ...extra
     }
   }
 }

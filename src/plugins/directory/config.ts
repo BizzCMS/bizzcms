@@ -370,6 +370,8 @@ export interface DirectorySettings {
   /** Called after a date request, a profile claim or a new company profile is saved (e.g. to send e-mail).
    *  Errors are caught and logged; they never fail the save. */
   notify?: (event: DirectoryEvent) => Promise<void>
+  /** The site's own rules for a company's profile form (after the plugin's checks): cleaned values to keep, or an error. */
+  validateListing?: (values: Record<string, string>) => { data: Record<string, unknown> } | { error: string }
 }
 
 /** What happened in the directory, for setDirectory({ notify }). URLs are absolute. */
@@ -400,6 +402,7 @@ export interface DirectoryOptions {
   sample?: DirectorySettings['sample']
   share?: DirectorySettings['share']
   notify?: DirectorySettings['notify']
+  validateListing?: DirectorySettings['validateListing']
   plans?: Plan[]
   pricingUrl?: string
   favorites?: boolean
@@ -422,6 +425,7 @@ export function setDirectory(opts: DirectoryOptions): void {
     sample: opts.sample ?? current.sample,
     share: opts.share ?? current.share,
     notify: opts.notify ?? current.notify,
+    validateListing: opts.validateListing ?? current.validateListing,
     plans: opts.plans ?? current.plans,
     pricingUrl: opts.pricingUrl ?? current.pricingUrl,
     favorites: opts.favorites ?? current.favorites,
