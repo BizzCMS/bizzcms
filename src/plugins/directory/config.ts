@@ -95,6 +95,11 @@ export const DEFAULT_TEXT = {
   directoryJoinText: '',
   directoryJoinCta: '',
   directoryJoinHref: '',
+  /** '' = a box under the results; 'band' = a full-width band after the directory (site styles .directory-join-band). */
+  directoryJoinLayout: '',
+  directoryJoinEyebrow: '',
+  /** Trusted HTML from the site's settings (an icon), shown in the band. */
+  directoryJoinIcon: '',
   backToDirectory: '← Company directory',
   notFound: 'Company not found',
   requestsUnavailable: 'Requests are not available',

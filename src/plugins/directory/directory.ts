@@ -601,10 +601,14 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
     : f.city && !f.category && !f.region ? cityUrl(f.city)
     : f.region && hasRegionPage && !f.category && !f.city ? regionUrl(f.region)
     : !f.category && !f.city && !f.region ? DIR : null
+  // "Join the directory" (main page, first page only): a box under the results, or with directoryJoinLayout 'band' a
+  // full-width band after the layout (optional eyebrow and icon HTML from the site's settings).
+  const joinOn = isMain && f.page === 1 && !!text.directoryJoinTitle
+  const joinBand = joinOn && text.directoryJoinLayout === 'band' ? `<section class="directory-join-band"><div class="wrap directory-join-inner">${text.directoryJoinIcon ? `<span class="directory-join-icon" aria-hidden="true">${text.directoryJoinIcon}</span>` : ''}<div>${text.directoryJoinEyebrow ? `<p class="eyebrow">${esc(text.directoryJoinEyebrow)}</p>` : ''}<h2>${esc(text.directoryJoinTitle)}</h2><p>${esc(text.directoryJoinText)}</p></div>${text.directoryJoinHref ? `<div class="directory-join-actions"><a class="btn" href="${esc(text.directoryJoinHref)}">${esc(text.directoryJoinCta)}</a></div>` : ''}</div></section>` : ''
   const body = `${header}<div class="wrap layout"><aside>${sidebar}</aside><section>
     ${pillBar}
     <div class="results ${f.view === P.viewList ? 'list' : 'grid'}">${cards || `<div class="empty"><h2>${esc(text.noResults)}</h2><p>${esc(text.noResultsText)}</p><p><a class="btn ghost" href="${esc(DIR)}">${esc(text.clearFilters)}</a></p></div>`}</div>
-    ${pager}${isMain && f.page === 1 && text.directoryJoinTitle ? `<div class="box join-box"><h2>${esc(text.directoryJoinTitle)}</h2><p>${esc(text.directoryJoinText)}</p>${text.directoryJoinHref ? `<p><a class="btn ghost" href="${esc(text.directoryJoinHref)}">${esc(text.directoryJoinCta)}</a></p>` : ''}</div>` : ''}</section></div>`
+    ${pager}${joinOn && text.directoryJoinLayout !== 'band' ? `<div class="box join-box"><h2>${esc(text.directoryJoinTitle)}</h2><p>${esc(text.directoryJoinText)}</p>${text.directoryJoinHref ? `<p><a class="btn ghost" href="${esc(text.directoryJoinHref)}">${esc(text.directoryJoinCta)}</a></p>` : ''}</div>` : ''}</section></div>${joinBand}`
   // Unknown category/city landing pages are 404s (but still render the directory).
   const found = (!f.category || !!(cat || sub)) && (!f.city || !!r.cityLabel) && (!f.region || !!label(taxonomy.regions, f.region))
   const ld = jsonLd({ '@context': 'https://schema.org', '@graph': [
