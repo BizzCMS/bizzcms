@@ -2,7 +2,7 @@
 
 ## bizzcms-core
 
-`bizzcms-core` (in `vendor/`) is derived from the SonicJS core package (https://github.com/SonicJs-Org/sonicjs), used under the MIT licence. Copyright (c) 2024 Lane Campbell and SonicJS contributors; the packaged licence reads Copyright (c) 2025 SonicJS Team. The licence text ships inside the package (`LICENSE`) and is kept in [licenses/sonicjs-MIT.txt](licenses/sonicjs-MIT.txt).
+`bizzcms-core` (in `vendor/`) is derived from the SonicJS core package (https://github.com/SonicJs-Org/sonicjs), used under the MIT licence. Its source is maintained in https://github.com/BizzCMS/bizzcms-core (docs/core-engine.md). Copyright (c) 2024 Lane Campbell and SonicJS contributors; the packaged licence reads Copyright (c) 2025 SonicJS Team. The licence text ships inside the package (`LICENSE`) and is kept in [licenses/sonicjs-MIT.txt](licenses/sonicjs-MIT.txt).
 
 ## Lucide icons
 
