@@ -168,9 +168,13 @@ const checksUnanswered = new WeakSet<Request>()
 /** True when currentUser() returned null only because the session check timed out (the visitor may be signed in). */
 export const sessionUnknown = (request: Request): boolean => checksUnanswered.has(request)
 
+const SESSION_COOKIES = /(^|;\s*)(__Secure-better-auth\.session_token|better-auth\.session_token|auth_token)=[^;]/
+
 export async function currentUser(request: Request, cms: Cms): Promise<User | null> {
   const cookie = request.headers.get('cookie')
-  if (!cookie) return null
+  // Only a session cookie can make a visitor signed in; analytics or consent cookies alone never ask the CMS (that
+  // check is the slowest part of a page, up to seconds on a fresh server instance).
+  if (!cookie || !SESSION_COOKIES.test(cookie)) return null
   let user = userChecks.get(request)
   if (!user) { user = checkUser(request, cms, cookie); userChecks.set(request, user) }
   return user
