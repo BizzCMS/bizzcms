@@ -159,9 +159,19 @@ function forwardHeaders(request: Request, extra: Record<string, string> = {}): H
   return h
 }
 
+// One request asks several times who is signed in (abuse guard, onboarding, the page itself): the answer is shared
+// for that request object only, so a slow session check costs one wait, not one per caller.
+const userChecks = new WeakMap<Request, Promise<User | null>>()
+
 export async function currentUser(request: Request, cms: Cms): Promise<User | null> {
   const cookie = request.headers.get('cookie')
   if (!cookie) return null
+  let user = userChecks.get(request)
+  if (!user) { user = checkUser(request, cms, cookie); userChecks.set(request, user) }
+  return user
+}
+
+async function checkUser(request: Request, cms: Cms, cookie: string): Promise<User | null> {
   // Never let a slow session check hang the page: after 4 s the visitor is treated as signed out (and it is logged,
   // with the cookie names only, so the cause can be found).
   const started = Date.now()
