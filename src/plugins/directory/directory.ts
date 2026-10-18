@@ -143,9 +143,11 @@ const J = (field: string) => `json_extract(data, '$.${field}')`
 const TRUE = (field: string) => `${J(field)} IN (1, 'true', 'on', '1')`
 const PUBLISHED = `type_id = 'partners' AND is_published = 1 AND (deleted_at IS NULL OR deleted_at = '')`
 const PREMIUM = () => bookingSql()
+// Featured while `featuredUntil` (YYYY-MM-DD) is today or later; first in the default and Recommended order.
+const FEATURED = `(COALESCE(${J('featuredUntil')}, '') >= date('now'))`
 const CARD_FIELDS = () => `slug, title, ${J('category')} AS category, ${J('subcategory')} AS subcategory, ${J('county')} AS county,
   ${J('city')} AS city, ${J('summary')} AS summary, ${J('coverImage')} AS cover, ${J('gallery')} AS gallery,
-  ${J('capacity')} AS capacity, ${J('priceLevel')} AS priceLevel, ${J('priceFrom')} AS priceFrom, ${J('priceUnit')} AS priceUnit, ${J('legacyId')} AS legacyId, ${J('legacySlug')} AS legacySlug, ${PREMIUM()} AS premium`
+  ${J('capacity')} AS capacity, ${J('priceLevel')} AS priceLevel, ${J('priceFrom')} AS priceFrom, ${J('priceUnit')} AS priceUnit, ${J('legacyId')} AS legacyId, ${J('legacySlug')} AS legacySlug, ${PREMIUM()} AS premium, ${FEATURED} AS featured`
 
 function readFilters(p: URLSearchParams): Filters {
   const { params, taxonomy } = directorySettings()
@@ -202,13 +204,15 @@ function where(f: Filters, cityNames: string[], today: string, skip: Facet[] = [
 
 function orderBy(sort: string): string {
   const { params } = directorySettings()
+  // Featured profiles come first in the default order and in Recommended; a sort the visitor picks is followed as is.
+  const lead = !sort || sort === params.sortRecommended ? 'featured DESC, ' : ''
   if (!sort) sort = params.defaultSort
-  if (sort === params.sortName) return 'title COLLATE NOCASE'
-  if (sort === params.sortNewest) return 'created_at DESC'
-  if (sort === params.sortCapacity) return `CAST(${J('capacity')} AS INTEGER) IS NULL, CAST(${J('capacity')} AS INTEGER) DESC, title COLLATE NOCASE`
+  if (sort === params.sortName) return lead + 'title COLLATE NOCASE'
+  if (sort === params.sortNewest) return lead + 'created_at DESC'
+  if (sort === params.sortCapacity) return lead + `CAST(${J('capacity')} AS INTEGER) IS NULL, CAST(${J('capacity')} AS INTEGER) DESC, title COLLATE NOCASE`
   // Visits: the optional `views` field (e.g. carried over from an old site).
-  if (sort === params.sortPopular) return `CAST(${J('views')} AS INTEGER) DESC, title COLLATE NOCASE`
-  return `premium DESC, CAST(${J('views')} AS INTEGER) DESC, title COLLATE NOCASE`
+  if (sort === params.sortPopular) return lead + `CAST(${J('views')} AS INTEGER) DESC, title COLLATE NOCASE`
+  return lead + `premium DESC, CAST(${J('views')} AS INTEGER) DESC, title COLLATE NOCASE`
 }
 
 // Cities that have published companies (name + slug), cached briefly per isolate.
@@ -246,14 +250,14 @@ async function suggestions(db: D1Database, raw: string) {
     .sort((a, b) => b.n - a.n).slice(0, 5)
     .map(c => ({ kind: 'city', label: c.name, count: c.n, url: cityUrl(c.slug) }))
   const today = new Date().toISOString().slice(0, 10)
-  const rows = (await db.prepare(`SELECT ${CARD_FIELDS()} FROM documents WHERE ${PUBLISHED} AND ${fold('title')} LIKE ? ORDER BY premium DESC, CAST(${J('views')} AS INTEGER) DESC, title COLLATE NOCASE LIMIT 6`)
+  const rows = (await db.prepare(`SELECT ${CARD_FIELDS()} FROM documents WHERE ${PUBLISHED} AND ${fold('title')} LIKE ? ORDER BY featured DESC, premium DESC, CAST(${J('views')} AS INTEGER) DESC, title COLLATE NOCASE LIMIT 6`)
     .bind(today, `%${q}%`).all<Row>()).results.map(toCard)
   return [...cities, ...rows.map(c => ({ kind: 'company', label: c.title, city: c.city ?? '', url: listingUrl(c) }))]
 }
 
 export interface Card {
   slug: string; title: string; category?: string; subcategory?: string; county?: string; city?: string; summary?: string
-  image?: string; capacity?: number; priceLevel?: string; priceFrom?: number; priceUnit?: string; premium: boolean; legacyId?: number; legacySlug?: string
+  image?: string; capacity?: number; priceLevel?: string; priceFrom?: number; priceUnit?: string; premium: boolean; featured?: boolean; legacyId?: number; legacySlug?: string
 }
 
 async function search(db: D1Database, f: Filters) {
@@ -316,7 +320,7 @@ function toCard(r: Row): Card {
     capacity: Number(r.capacity) || undefined,
     priceLevel: r.priceLevel === null || r.priceLevel === undefined || r.priceLevel === '' ? undefined : String(r.priceLevel),
     priceFrom: Number(r.priceFrom) > 0 ? Number(r.priceFrom) : undefined, priceUnit: str(r.priceUnit),
-    premium: Number(r.premium) === 1,
+    premium: Number(r.premium) === 1, featured: Number(r.featured) === 1,
     legacyId: Number(r.legacyId) > 0 ? Number(r.legacyId) : undefined, legacySlug: str(r.legacySlug)
   }
 }
@@ -449,7 +453,7 @@ export function listingCardHtml(c: Card): string {
   const href = esc(listingUrl(c))
   return `<article class="card${c.premium ? ' is-premium' : ''}">${favButton(c.slug)}
       <a class="media" href="${href}" tabindex="-1" aria-hidden="true">${c.image ? `<img src="${esc(c.image)}" alt="" loading="lazy">` : '<span class="ph"></span>'}
-        ${c.premium ? `<span class="pill premium">${esc(text.premium)}</span>` : ''}</a>
+        ${c.premium ? `<span class="pill premium">${esc(text.premium)}</span>` : c.featured ? `<span class="pill premium featured">${esc(text.featured)}</span>` : ''}</a>
       <div class="body">
         <span class="cat">${esc(catLabel)}${isSample ? ` · ${esc(sample!.label)}` : ''}</span>
         <h2><a href="${href}">${esc(c.title)}</a></h2>
@@ -459,12 +463,12 @@ export function listingCardHtml(c: Card): string {
       </div></article>`
 }
 
-/** Premium companies first (with a photo preferred), optionally from one category. */
+/** Featured, then premium companies first (with a photo preferred), optionally from one category. */
 export async function featuredListings(db: D1Database, limit: number, category?: string): Promise<Card[]> {
   const today = new Date().toISOString().slice(0, 10)
   const where = category ? `AND (${J('category')} = ? OR ${J('subcategory')} = ?)` : ''
   const rows = await db.prepare(`SELECT ${CARD_FIELDS()} FROM documents WHERE ${PUBLISHED} ${where}
-    ORDER BY premium DESC, (COALESCE(${J('coverImage')}, '') != '' OR COALESCE(${J('gallery')}, '[]') != '[]') DESC, created_at DESC LIMIT ?`)
+    ORDER BY featured DESC, premium DESC, (COALESCE(${J('coverImage')}, '') != '' OR COALESCE(${J('gallery')}, '[]') != '[]') DESC, created_at DESC LIMIT ?`)
     .bind(today, ...(category ? [category, category] : []), limit).all<Row>()
   return rows.results.map(toCard)
 }

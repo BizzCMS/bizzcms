@@ -31,6 +31,10 @@ export interface Plan {
   requests: boolean
   /** "Request a date", the ★ badge and first place in lists (what used to be Premium). */
   booking: boolean
+  /** Months of featuring that come with the plan (shown on the price list). The profile is featured (first in the
+   *  default and Recommended order, "Featured" label) while its `featuredUntil` date has not passed; set that date
+   *  when the plan starts: start + featureMonths. */
+  featureMonths?: number
   /** Price per year in euros and the lines the price list shows (used on the company's "change package" page). */
   price?: number
   items?: string[]
@@ -114,6 +118,7 @@ export const DEFAULT_TEXT = {
   errTooLong: 'The message is too long.',
   companyFallback: 'Company',
   premium: '★ Premium',
+  featured: 'Featured',
   requestDate: 'Request a date',
   details: 'Details',
   view: 'View',

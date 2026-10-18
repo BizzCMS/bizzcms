@@ -45,6 +45,7 @@ export function directoryCollections(): CollectionConfig[] {
         ...Object.fromEntries(T.socials.map(([key, name]) => [key, { type: 'url' as const, title: name }])),
         paidMember: { type: 'checkbox', title: directorySettings().plans.length ? 'Paid member (old Premium; used only when no package is chosen)' : 'Paid member (Premium: listed first, booking requests)', default: false },
         paidUntil: { type: 'date', title: 'Paid until', helpText: 'Leave empty for no expiry.' },
+        featuredUntil: { type: 'date', title: 'Featured until', helpText: 'First in the directory and marked "Featured" until this date. Set it when a package starts: start + the package\'s featuring months.' },
         ownerEmail: { type: 'email', title: 'Owner account email', helpText: 'The company account that may edit this listing (set it to approve a claim).' },
         legacyId: { type: 'number', title: 'Old site ID', helpText: 'From the old site\'s profile address. Keeps old links working.' },
         legacySlug: { type: 'string', title: 'Old URL name', helpText: 'The name part of the old site\'s profile address, spelled exactly as there (accents included). Empty = the URL slug.', maxLength: 200 },

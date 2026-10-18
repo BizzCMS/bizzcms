@@ -30,6 +30,10 @@ manage their own profiles. Code: `src/plugins/directory/`, with visitor accounts
   an account with the profile's e-mail and owns the profile at once; an existing account gets the profile linked. An
   account imported from an old site without a password (profile `ownerPending`) sets its password on the activation page
   and is signed in; `ownerPending` is cleared on activation.
+- **Featuring:** a profile with `featuredUntil` (date, Admin › Featured until) on or after today comes first in the default
+  order and in Recommended, in search suggestions and on featured lists, with a "Featured" label on its card (Premium
+  cards keep the ★ badge). A sort the visitor picks is followed as is. `Plan.featureMonths` documents how many months a
+  package includes; set `featuredUntil` = start + those months when the package starts.
 - **Packages** (setDirectory({ plans, pricingUrl })): the first plan is free. Each plan sets the photos shown and allowed,
   the YouTube videos shown, social links (taxonomy.socials; the website shows on every profile), inquiries from couples and booking ("request a
   date", badge, first in lists). A profile's plan is its `plan` field; without one, paidMember means the first booking
