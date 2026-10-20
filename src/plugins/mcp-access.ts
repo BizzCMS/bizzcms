@@ -3,6 +3,7 @@
 // Injects an access control section into the Admin › MCP Server page.
 // Also puts "MCP Server" into the sidebar (the engine leaves its MCP plugin out of the menu).
 import { getPluginMenu, setPluginMenu, PluginServiceClass as PluginService } from 'bizzcms-core'
+import { schemaOnce } from '../schema-once'
 
 type Fetcher = (request: Request) => Promise<Response>
 
@@ -22,9 +23,9 @@ export type McpOptions = {
 let cache: { settings: AccessSettings; at: number } | null = null
 
 async function ensureTable(db: D1Database) {
-  await db.prepare(
+  await schemaOnce('bizz_settings', () => db.prepare(
     'CREATE TABLE IF NOT EXISTS bizz_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL)'
-  ).run()
+  ).run())
 }
 
 export async function getMcpAccessSettings(db: D1Database): Promise<AccessSettings> {
@@ -62,14 +63,18 @@ export function addMcpMenu(): void {
 
 let pluginEnsured = false
 /** Installs and activates the MCP plugin record once, so its card says Active and the sidebar entry shows. */
-async function ensureMcpPlugin(db: D1Database) {
-  if (pluginEnsured) return
+async function ensureMcpPlugin(db: D1Database, force = false) {
+  if (pluginEnsured && !force) return
   try {
-    const svc = new PluginService(db)
-    if (!(await svc.getPlugin(MCP_PLUGIN_ID))) {
-      await svc.ensurePlugin(MCP_PLUGIN_ID, { displayName: 'MCP Server', version: '1.0.0', description: 'Exposes BizzCMS content as Model Context Protocol tools for AI agents (Claude Code, Cursor, VS Code)', author: 'BizzCMS' })
-      await svc.activatePlugin(MCP_PLUGIN_ID).catch(() => null)
+    const install = async () => {
+      const svc = new PluginService(db)
+      if (!(await svc.getPlugin(MCP_PLUGIN_ID))) {
+        await svc.ensurePlugin(MCP_PLUGIN_ID, { displayName: 'MCP Server', version: '1.0.0', description: 'Exposes BizzCMS content as Model Context Protocol tools for AI agents (Claude Code, Cursor, VS Code)', author: 'BizzCMS' })
+        await svc.activatePlugin(MCP_PLUGIN_ID).catch(() => null)
+      }
     }
+    // Once per deploy (src/schema-once.ts); force (the Install button) checks again.
+    await (force ? install() : schemaOnce('plugin_mcp', install))
     pluginEnsured = true
   } catch { /* try again on a later request */ }
 }

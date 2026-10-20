@@ -10,6 +10,7 @@ import { aiDiscoveryTab } from './ai-discovery'
 import { aiRobotsBlock, contentSignal, AI_BOTS, AI_BOTS_VERSION, type AiPolicy } from './ai-crawlers'
 import { definePlugin, PluginServiceClass as PluginService } from 'bizzcms-core'
 import { SEO_ANALYSE_CORE } from '../seo-editor'
+import { schemaOnce } from '../schema-once'
 
 export const SEO_PLUGIN_ID = 'seo'
 
@@ -45,11 +46,11 @@ export interface SeoSettings {
 const DEFAULTS: SeoSettings = { siteName: '', tagline: '', language: 'en', defaultDescription: '', defaultImage: '', orgType: 'Organization', orgName: '', orgLogo: '', sameAs: '', xHandle: '', hideFromSearch: false, robotsExtra: '', llmsText: '', sitemapOff: [], feedEnabled: true, feedItems: 20, feedFullText: true, indexNowEnabled: true, indexNowKey: '', aiSearch: true, aiAgents: true, aiTraining: false }
 
 async function ensureTables(db: D1Database) {
-  await db.batch([
+  await schemaOnce('seo_tables', () => db.batch([
     db.prepare('CREATE TABLE IF NOT EXISTS bizz_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL)'),
     db.prepare('CREATE TABLE IF NOT EXISTS bizz_redirects (id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT NOT NULL UNIQUE, target TEXT NOT NULL, status INTEGER NOT NULL DEFAULT 301, hits INTEGER NOT NULL DEFAULT 0, last_hit INTEGER, note TEXT, created_at INTEGER NOT NULL)'),
     db.prepare('CREATE TABLE IF NOT EXISTS bizz_not_found (path TEXT PRIMARY KEY, hits INTEGER NOT NULL DEFAULT 0, first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL, referrer TEXT)')
-  ])
+  ]))
 }
 
 let settingsCache: { at: number; value: SeoSettings } | null = null
@@ -590,15 +591,19 @@ async function me(request: Request, fetcher: Fetcher): Promise<{ role?: string }
 
 let pluginEnsured = false
 /** Installs and activates the SEO plugin record once, so it shows under Plugins and in the sidebar. */
-async function ensureSeoPlugin(db: D1Database) {
-  if (pluginEnsured) return
+async function ensureSeoPlugin(db: D1Database, force = false) {
+  if (pluginEnsured && !force) return
   try {
-    const svc = new PluginService(db)
-    const existing = await svc.getPlugin(SEO_PLUGIN_ID)
-    if (!existing) {
-      await svc.ensurePlugin(SEO_PLUGIN_ID, { displayName: 'SEO', version: '1.0.0', description: seoPlugin.description, author: 'BizzCMS' })
-      await svc.activatePlugin(SEO_PLUGIN_ID).catch(() => null)
+    const install = async () => {
+      const svc = new PluginService(db)
+      const existing = await svc.getPlugin(SEO_PLUGIN_ID)
+      if (!existing) {
+        await svc.ensurePlugin(SEO_PLUGIN_ID, { displayName: 'SEO', version: '1.0.0', description: seoPlugin.description, author: 'BizzCMS' })
+        await svc.activatePlugin(SEO_PLUGIN_ID).catch(() => null)
+      }
     }
+    // Once per deploy (src/schema-once.ts); force (the Install button) checks again.
+    await (force ? install() : schemaOnce('plugin_seo', install))
     pluginEnsured = true
   } catch { /* try again on a later request */ }
 }
@@ -611,7 +616,7 @@ export async function seoAdminRoute(request: Request, path: string, db: D1Databa
     const body = await request.clone().json().catch(() => null) as { name?: string; id?: string } | null
     if (body?.name !== SEO_PLUGIN_ID && body?.id !== SEO_PLUGIN_ID) return null
     if ((await me(request, fetcher))?.role !== 'admin') return Response.json({ error: 'Access denied' }, { status: 403 })
-    pluginEnsured = false; await ensureSeoPlugin(db)
+    await ensureSeoPlugin(db, true)
     return Response.json({ success: true })
   }
   // "Calculate missing scores" (SEO › Check): pages of 40 items by id for the browser to analyse, and the

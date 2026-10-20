@@ -41,3 +41,18 @@ return safeHandle(request, db, ctx, () => edgeCached(request, db, env.CACHE_KV, 
 ```
 
 and add the settings page next to the other settings pages: `cacheSettingsPage(request, path, db, env.CACHE_KV, upstream)` and `withCacheTab(...)` around the settings responses. The content version is kept in KV (`CACHE_KV`). On a local computer pages are not stored (add `?bizz-cache-test` to try it).
+
+## Table setup once per deploy (2026-10-20)
+
+The shared files create their own tables (`CREATE TABLE IF NOT EXISTS`) and plugin records. Before, some did it on every
+request or every 15–30 s on every isolate. Now `src/schema-once.ts` runs each step at most once per isolate. With the
+deploy id it also runs once per deploy: new isolates skip what this deploy already did.
+
+To turn it on in a site:
+- `wrangler.toml`: add `[version_metadata] binding = "CF_VERSION_METADATA"`, and `[env.production.version_metadata]` too
+  (bindings are not inherited).
+- At the start of the site's `fetch`, call
+  `configureSchemaOnce({ kv: env.CACHE_KV, deployId: env.CF_VERSION_METADATA?.id })`.
+
+Without the binding it still works, once per isolate. A failing step is not remembered, so it runs again. The KV keys are
+`bizz:schema:<name>:<deployId>` (120 days). The engine does the same for its own bootstrap (`bizz:once:…`).

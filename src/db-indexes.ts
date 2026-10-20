@@ -4,6 +4,8 @@
 // its CPU limit under load. Created once per isolate (IF NOT EXISTS: a no-op after the first time, < 50 ms
 // on a 6,000-document database). The expressions match the sites' queries exactly; keep the names.
 
+import { schemaOnce } from './schema-once'
+
 const INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_site_live ON documents(type_id, is_published, published_at)',
   'CREATE INDEX IF NOT EXISTS idx_site_slug ON documents(type_id, lower(slug))',
@@ -21,7 +23,10 @@ let done = false
 export async function ensureSiteIndexes(db: D1Database): Promise<void> {
   if (done) return
   done = true
-  let missing = false
-  for (const sql of INDEXES) await db.prepare(sql).run().catch(() => { missing = true })
-  if (missing) done = false
+  // Once per deploy too (src/schema-once.ts): a missing table throws, so the step is not remembered.
+  await schemaOnce('site_indexes', async () => {
+    let missing = false
+    for (const sql of INDEXES) await db.prepare(sql).run().catch(() => { missing = true })
+    if (missing) throw new Error('index table missing')
+  }).catch(() => { done = false })
 }

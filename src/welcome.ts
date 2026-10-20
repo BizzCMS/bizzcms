@@ -4,6 +4,8 @@
 // the old slug, so upstream never brings its own version back. Idempotent and cheap: once
 // done, an isolate skips it.
 
+import { schemaOnce } from './schema-once'
+
 const OLD_SLUG = 'welcome-to-sonicjs'
 const NEW_SLUG = 'welcome-to-bizzcms'
 const TITLE = 'Welcome to BizzCMS'
@@ -11,8 +13,17 @@ const CONTENT = '<p>Welcome to BizzCMS. This first post shows that your blog is 
 
 let done = false
 
+const NOT_YET = new Error('upstream types not seeded yet')
+
+/** Once per isolate and once per deploy (src/schema-once.ts; an upstream upgrade is a new deploy, so it runs again). */
 export async function ensureBizzWelcome(db: D1Database): Promise<void> {
   if (done) return
+  await schemaOnce('bizz_welcome', async () => { if (!(await replaceWelcome(db))) throw NOT_YET })
+    .then(() => { done = true }, e => { if (e !== NOT_YET) throw e })
+}
+
+/** False when upstream has not seeded its types yet (try again on a later request). */
+async function replaceWelcome(db: D1Database): Promise<boolean> {
   const live = await db.prepare(
     `SELECT id, data FROM documents WHERE type_id = 'blog_post' AND slug = ? AND deleted_at IS NULL AND title LIKE '%SonicJS%'`
   ).bind(OLD_SLUG).all<{ id: string; data: string }>()
@@ -30,7 +41,7 @@ export async function ensureBizzWelcome(db: D1Database): Promise<void> {
   ).bind(OLD_SLUG).first()
   if (!placeholder) {
     const typeExists = await db.prepare(`SELECT id FROM document_types WHERE id = 'blog_post' LIMIT 1`).first()
-    if (!typeExists) return // upstream has not seeded its types yet; try again on a later request
+    if (!typeExists) return false // upstream has not seeded its types yet; try again on a later request
     const now = Math.floor(Date.now() / 1000)
     const id = 'bizzcms-welcome-placeholder'
     await db.prepare(
@@ -39,7 +50,7 @@ export async function ensureBizzWelcome(db: D1Database): Promise<void> {
        VALUES (?, ?, 1, 'blog_post', 'default', 'default', ?, 'Upstream welcome post (replaced by BizzCMS)', '{}', 0, 0, 1, 0, 'draft', ?, ?, ?)`
     ).bind(id, id, OLD_SLUG, now, now, now).run()
   }
-  done = true
+  return true
 }
 
 function safeJson(value: string): Record<string, unknown> {

@@ -18,6 +18,7 @@
 //   return withAbuseGuard(request, env.DB, req => cms.fetch(req, env, ctx), () => handle(request, env, ctx))
 import { definePlugin, PluginServiceClass as PluginService } from 'bizzcms-core'
 import { currentUser, html, portalPage, readForm, signedInCookie, type Cms, type User } from '../site-accounts'
+import { schemaOnce } from '../schema-once'
 
 export const ABUSE_GUARD_PLUGIN_ID = 'abuse-guard'
 
@@ -103,11 +104,11 @@ let logReady = false
 
 async function ensureLog(db: D1Database) {
   if (logReady) return
-  await db.batch([
+  await schemaOnce('bizz_abuse_log', () => db.batch([
     db.prepare(`CREATE TABLE IF NOT EXISTS bizz_abuse_log (id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, email TEXT NOT NULL DEFAULT '',
       path TEXT NOT NULL DEFAULT '', field TEXT NOT NULL DEFAULT '', ip TEXT NOT NULL DEFAULT '', value TEXT NOT NULL DEFAULT '', action TEXT NOT NULL)`),
     db.prepare('CREATE INDEX IF NOT EXISTS idx_bizz_abuse_log_email ON bizz_abuse_log (email)')
-  ])
+  ]))
   logReady = true
 }
 
@@ -164,14 +165,18 @@ const when = (ms: number) => new Date(ms).toISOString().slice(0, 16).replace('T'
 
 let pluginEnsured = false
 /** Installs and activates the plugin record once, so it shows under Plugins and in the sidebar (like the SEO plugin). */
-async function ensureAbuseGuardPlugin(db: D1Database) {
-  if (pluginEnsured) return
+async function ensureAbuseGuardPlugin(db: D1Database, force = false) {
+  if (pluginEnsured && !force) return
   try {
-    const svc = new PluginService(db)
-    if (!(await svc.getPlugin(ABUSE_GUARD_PLUGIN_ID))) {
-      await svc.ensurePlugin(ABUSE_GUARD_PLUGIN_ID, { displayName: 'Security', version: '1.0.0', description: abuseGuardPlugin.description, author: 'BizzCMS' })
-      await svc.activatePlugin(ABUSE_GUARD_PLUGIN_ID).catch(() => null)
+    const install = async () => {
+      const svc = new PluginService(db)
+      if (!(await svc.getPlugin(ABUSE_GUARD_PLUGIN_ID))) {
+        await svc.ensurePlugin(ABUSE_GUARD_PLUGIN_ID, { displayName: 'Security', version: '1.0.0', description: abuseGuardPlugin.description, author: 'BizzCMS' })
+        await svc.activatePlugin(ABUSE_GUARD_PLUGIN_ID).catch(() => null)
+      }
     }
+    // Once per deploy (src/schema-once.ts); force (the Install button) checks again.
+    await (force ? install() : schemaOnce('plugin_abuse_guard', install))
     pluginEnsured = true
   } catch { /* try again on a later request */ }
 }

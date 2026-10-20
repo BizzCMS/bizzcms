@@ -7,6 +7,8 @@
 //   route:  const img = await imageUploadRoute(request, path, db, upstream); if (img) return applyBranding(img, path)
 //   pages:  addImageUpload(rewriter, path) inside applyBranding (script on admin pages, Settings tab)
 
+import { schemaOnce } from './schema-once'
+
 type Fetcher = (request: Request) => Promise<Response>
 
 export interface ImageSettings { resize: boolean; maxWidth: number; quality: number }
@@ -67,7 +69,7 @@ export async function imageUploadRoute(request: Request, path: string, db: D1Dat
     const f = await request.formData()
     const num = (k: string, d: number, min: number, max: number) => { const n = Math.round(Number(f.get(k))); return Number.isFinite(n) && n ? Math.min(Math.max(n, min), max) : d }
     const value: ImageSettings = { resize: f.get('resize') === 'on', maxWidth: num('maxWidth', DEFAULTS.maxWidth, 400, 6000), quality: num('quality', DEFAULTS.quality, 40, 100) }
-    await db.prepare('CREATE TABLE IF NOT EXISTS bizz_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL)').run()
+    await schemaOnce('bizz_settings', () => db.prepare('CREATE TABLE IF NOT EXISTS bizz_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL)').run())
     await db.prepare("INSERT INTO bizz_settings (key, value, updated_at) VALUES ('media.settings', ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at").bind(JSON.stringify(value), Date.now()).run()
     cache = null
     return Response.redirect(new URL('/admin/settings/images?saved=1', url).toString(), 303)

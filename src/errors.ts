@@ -7,6 +7,7 @@
 // Sites can give the friendly page their own design with setErrorPage().
 
 import { ensureSiteIndexes } from './db-indexes'
+import { schemaOnce } from './schema-once'
 
 type Ctx = { waitUntil(p: Promise<unknown>): void }
 type Fetcher = (request: Request) => Promise<Response>
@@ -19,7 +20,7 @@ const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&a
 const newReference = () => Math.random().toString(36).slice(2, 8).toUpperCase()
 
 async function ensureTable(db: D1Database) {
-  await db.prepare('CREATE TABLE IF NOT EXISTS bizz_error_log (id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, reference TEXT NOT NULL, method TEXT, path TEXT, status INTEGER, message TEXT, detail TEXT, user_agent TEXT)').run()
+  await schemaOnce('bizz_error_log', () => db.prepare('CREATE TABLE IF NOT EXISTS bizz_error_log (id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, reference TEXT NOT NULL, method TEXT, path TEXT, status INTEGER, message TEXT, detail TEXT, user_agent TEXT)').run())
 }
 
 function record(db: D1Database, ctx: Ctx | undefined, request: Request, reference: string, status: number, message: string, detail: string) {

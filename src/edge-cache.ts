@@ -9,6 +9,8 @@
 // - The numbers live in Admin › Settings › Cache (bizz_settings 'cache.settings'): on/off, minutes for
 //   pages, minutes for sitemaps, feeds and robots.txt; "Clear the cache now" bumps the version.
 
+import { schemaOnce } from './schema-once'
+
 type Ctx = { waitUntil(p: Promise<unknown>): void }
 type Fetcher = (request: Request) => Promise<Response>
 
@@ -29,7 +31,7 @@ export async function cacheSettings(db: D1Database): Promise<CacheSettings> {
   if (settingsCache && Date.now() - settingsCache.at < 30_000) return settingsCache.value
   let value = { ...DEFAULTS }
   try {
-    await db.prepare('CREATE TABLE IF NOT EXISTS bizz_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL)').run()
+    await schemaOnce('bizz_settings', () => db.prepare('CREATE TABLE IF NOT EXISTS bizz_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL)').run())
     const row = await db.prepare("SELECT value FROM bizz_settings WHERE key = 'cache.settings'").first<{ value: string }>()
     if (row) value = { ...DEFAULTS, ...JSON.parse(row.value) }
   } catch { /* defaults */ }

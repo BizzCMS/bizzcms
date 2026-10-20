@@ -4,13 +4,15 @@
 // Health checks stay open either way (they reveal nothing).
 // Stored in our own bizz_settings table; upstream's settings are left untouched.
 
+import { schemaOnce } from './schema-once'
+
 type Fetcher = (request: Request) => Promise<Response>
 
 const OPEN_ALWAYS = new Set(['/api/health', '/api/system/health'])
 let cache: { open: boolean; at: number } | null = null
 
 async function ensureTable(db: D1Database) {
-  await db.prepare('CREATE TABLE IF NOT EXISTS bizz_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL)').run()
+  await schemaOnce('bizz_settings', () => db.prepare('CREATE TABLE IF NOT EXISTS bizz_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL)').run())
 }
 
 export async function apiIsOpen(db: D1Database): Promise<boolean> {

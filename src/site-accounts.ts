@@ -3,6 +3,10 @@
 // its own base URL and wording; the account itself is the same, so one login can use several areas.
 // Never grants admin. Wording and URL words default to English; a site sets its own with
 // configureAccounts({ text, paths, page }).
+// E-mail confirmation (configureAccounts({ confirmSince })): an account opened from that moment on, by any route,
+// must confirm its e-mail before it can be used, unless the address is already proven (Google, an invitation link).
+
+import { schemaOnce } from './schema-once'
 
 export type Cms = (request: Request) => Promise<Response>
 export interface User { id: string; email: string; firstName?: string }
@@ -65,7 +69,16 @@ export const ACCOUNT_TEXT = {
   removeConfirm: 'Remove this photo?',
   remove: 'Remove',
   addPhotos: (max: number) => `Add photos (JPG, PNG or WebP, up to 8 MB, at most ${max})`,
-  upload: 'Upload'
+  upload: 'Upload',
+  // E-mail confirmation
+  confirmHeading: 'Confirm your e-mail',
+  confirmSent: (email: string) => `We have sent a confirmation link to ${email}. Open it to start using your account. The link is valid for 7 days.`,
+  confirmNeeded: 'Your e-mail address is not confirmed yet. Open the link we sent you, or ask for a new one.',
+  confirmSpam: 'Nothing arrived? Check the spam folder, or send the link again.',
+  confirmResend: 'Send the link again',
+  confirmResent: 'If this account still needs confirming, we have sent a new link.',
+  confirmDone: 'Your e-mail is confirmed. Please sign in.',
+  confirmInvalid: 'This confirmation link is not valid any more. Enter your e-mail and we will send a new one.'
 }
 export type AccountText = typeof ACCOUNT_TEXT
 
@@ -73,6 +86,7 @@ export type AccountText = typeof ACCOUNT_TEXT
 export const ACCOUNT_PATHS = {
   login: 'login', register: 'register', logout: 'logout', forgot: 'forgot-password', reset: 'new-password',
   next: 'next', terms: 'terms', notice: 'notice', registered: 'registered', passwordChanged: 'password',
+  confirm: 'confirm-email', confirmed: 'confirmed',
   photos: 'photos', photoRemove: 'remove', photoCover: 'cover',
   noticeSaved: 'saved', noticePhotos: 'photos', noticeRemoved: 'removed', noticeCover: 'cover'
 }
@@ -84,8 +98,11 @@ export interface AccountMail { to: string; subject: string; text: string; html?:
 export interface AccountEmails {
   passwordReset: (a: Audience, link: string, name?: string) => Omit<AccountMail, 'to'>
   welcome?: (a: Audience, origin: string, name?: string) => Omit<AccountMail, 'to'>
+  confirmEmail: (a: Audience, link: string, name?: string) => Omit<AccountMail, 'to'>
 }
 const DEFAULT_EMAILS: AccountEmails = {
+  confirmEmail: (_a, link, name) => ({ subject: 'Confirm your e-mail',
+    text: `Hello${name ? ` ${name}` : ''},\n\nopen this link to confirm your e-mail and start using your account (valid for 7 days):\n${link}\n\nIf you did not open an account, ignore this e-mail.` }),
   passwordReset: (_a, link, name) => ({ subject: 'Set a new password',
     text: `Hello${name ? ` ${name}` : ''},\n\nopen this link to set a new password (valid for one hour):\n${link}\n\nIf you did not ask for it, ignore this e-mail; your password stays the same.` })
 }
@@ -98,6 +115,7 @@ let mailer: ((m: AccountMail) => Promise<boolean>) | undefined
 let emails: AccountEmails = DEFAULT_EMAILS
 let returnPaths: RegExp | undefined
 let onRegistered: ((a: Audience, user: { email: string; firstName: string; lastName: string }, origin: string) => Promise<void>) | undefined
+let confirmSince = 0
 
 /**
  * The site's wording, URL words and page shell (its layout, noindex) for account pages; its mailer and account
@@ -109,6 +127,9 @@ export function configureAccounts(opts: {
   registered?: (a: Audience, user: { email: string; firstName: string; lastName: string }, origin: string) => Promise<void>
   /** Other site paths an account page may return to after sign-in or sign-up (e.g. a company profile). */
   returnPaths?: RegExp
+  /** Accounts opened from this moment (ms) must confirm their e-mail before they can be used (needs `mail`).
+   *  Older accounts are not affected. 0 = off. */
+  confirmSince?: number
 }) {
   if (opts.text) text = { ...ACCOUNT_TEXT, ...opts.text }
   if (opts.paths) paths = { ...ACCOUNT_PATHS, ...opts.paths }
@@ -117,6 +138,7 @@ export function configureAccounts(opts: {
   if (opts.emails) emails = { ...DEFAULT_EMAILS, ...opts.emails }
   if (opts.registered) onRegistered = opts.registered
   if (opts.returnPaths) returnPaths = opts.returnPaths
+  if (opts.confirmSince !== undefined) confirmSince = opts.confirmSince
 }
 /** Sends through the site's mailer (false when none is configured). */
 export async function sendAccountMail(m: AccountMail): Promise<boolean> {
@@ -190,8 +212,10 @@ async function checkUser(request: Request, cms: Cms, cookie: string): Promise<Us
   if (!res || res.status >= 500) checksUnanswered.add(request)
   if (!res || ms > 1500) console.warn(`site-accounts: /auth/me ${res ? `took ${ms} ms (status ${res.status})` : 'timed out after 4 s'}; cookies: ${cookie.split(';').map(c => c.split('=')[0].trim()).join(', ')}`)
   if (!res || !res.ok) return null
-  const body = await res.json().catch(() => null) as { user?: { id?: string; email?: string; first_name?: string } } | null
+  const body = await res.json().catch(() => null) as { user?: { id?: string; email?: string; first_name?: string; role?: string; created_at?: number; email_verified?: number } } | null
   if (!body?.user?.id || !body.user.email) return null
+  // Not confirmed yet (also when signed in some other way, e.g. the CMS's own sign-in): treated as signed out.
+  if (mustConfirm(body.user)) return null
   return { id: body.user.id, email: body.user.email.toLowerCase(), firstName: body.user.first_name }
 }
 
@@ -240,7 +264,7 @@ export async function accountRoute(a: Audience, request: Request, url: URL, path
   }
   if (path === `${a.base}/${paths.login}`) {
     const code = url.searchParams.get(paths.notice) ?? ''
-    const notice = code === paths.passwordChanged ? text.passwordChanged : opts.notices?.[code]
+    const notice = code === paths.passwordChanged ? text.passwordChanged : code === paths.confirmed ? text.confirmDone : opts.notices?.[code]
     if (!post) return html(loginPage(a, undefined, '', nextPath(a, url.searchParams.get(paths.next)), google, forgot, notice))
     const form = await readForm(request)
     const email = String(form.get('email') ?? '').trim()
@@ -248,6 +272,10 @@ export async function accountRoute(a: Audience, request: Request, url: URL, path
     if (!res.ok) {
       const error = res.status === 429 ? text.tooManyAttempts : text.wrongLogin
       return html(loginPage(a, error, email, nextPath(a, form.get(paths.next)), google, forgot), res.status === 429 ? 429 : 401)
+    }
+    if (opts.db && confirmOn() && await unconfirmed(opts.db, email)) {
+      await dropSession(request, url, cms, res)
+      return html(confirmPage(a, email.toLowerCase(), text.confirmNeeded), 403)
     }
     const body = await res.clone().json().catch(() => ({})) as { twoFactorRequired?: boolean }
     return withCookies(body.twoFactorRequired ? '/auth/two-factor' : nextPath(a, form.get(paths.next)), res)
@@ -260,14 +288,36 @@ export async function accountRoute(a: Audience, request: Request, url: URL, path
     if (!v.firstName || !v.lastName) return html(registerPage(a, text.enterName, v, google), 400)
     if (password.length < 8) return html(registerPage(a, text.passwordShort, v, google), 400)
     if (form.get(paths.terms) !== '1') return html(registerPage(a, text.acceptTerms, v, google), 400)
-    const created = await createAccount(request, url, cms, { firstName: v.firstName, lastName: v.lastName, email: v.email, password })
+    const confirming = !!opts.db && confirmOn()
+    // An account that must confirm its e-mail gets no session yet (no sign-in at all).
+    const created = await createAccount(request, url, cms, { firstName: v.firstName, lastName: v.lastName, email: v.email, password }, { signIn: !confirming })
     if ('error' in created) return html(registerPage(a, created.error, v, google), created.status)
     const user = { firstName: v.firstName, lastName: v.lastName, email: v.email.toLowerCase() }
+    if (confirming) {
+      // The sign-up notice and the welcome e-mail follow the confirmation.
+      await sendConfirmation(opts.db!, a, url, user.email, v[paths.next] ? nextPath(a, v[paths.next]) : a.base)
+      return html(confirmPage(a, user.email))
+    }
     if (onRegistered) await onRegistered(a, user, url.origin).catch(e => console.error('site-accounts: registered hook', e))
     if (emails.welcome) await sendAccountMail({ to: user.email, ...emails.welcome(a, url.origin, v.firstName) })
     if (!created.session) return Response.redirect(`${url.origin}${a.base}/${paths.login}`, 303)
     const back = v[paths.next] ? nextPath(a, v[paths.next]) : a.base
     return withCookies(back === a.base ? `${a.base}?${paths.notice}=${paths.registered}` : back, created.session)
+  }
+  if (path === `${a.base}/${paths.confirm}` && opts.db && confirmOn()) {
+    if (post) {
+      // "Send the link again": the same answer whether or not the account exists or still needs confirming.
+      const email = String((await readForm(request)).get('email') ?? '').trim().toLowerCase()
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) return html(confirmPage(a, '', text.enterEmail), 400)
+      if (await unconfirmed(opts.db, email)) await sendConfirmation(opts.db, a, url, email, undefined, true)
+      return html(confirmPage(a, email, undefined, text.confirmResent))
+    }
+    const done = await confirmToken(opts.db, String(url.searchParams.get('token') ?? ''))
+    if (!done) return html(confirmPage(a, '', text.confirmInvalid), 400)
+    const user = { firstName: done.firstName, lastName: done.lastName, email: done.email }
+    if (onRegistered) await onRegistered(a, user, url.origin).catch(e => console.error('site-accounts: registered hook', e))
+    if (emails.welcome) await sendAccountMail({ to: user.email, ...emails.welcome(a, url.origin, user.firstName) })
+    return Response.redirect(`${url.origin}${a.base}/${paths.login}?${paths.notice}=${paths.confirmed}&${paths.next}=${encodeURIComponent(nextPath(a, done.next))}`, 303)
   }
   if (path === `${a.base}/google` && google) {
     // The CMS (Better Auth) starts the Google sign-in: it answers with Google's address and sets a state cookie.
@@ -323,8 +373,8 @@ export async function accountRoute(a: Audience, request: Request, url: URL, path
  * Opens an account through the CMS (role "viewer") and signs it in. Used by sign-up and by flows that create the
  * account themselves (e.g. a company activating an invitation). `session` carries the session cookies.
  */
-export async function createAccount(request: Request, url: URL, cms: Cms, v: { firstName: string; lastName: string; email: string; password: string }):
-  Promise<{ session?: Response } | { error: string; status: number }> {
+export async function createAccount(request: Request, url: URL, cms: Cms, v: { firstName: string; lastName: string; email: string; password: string },
+  opts: { signIn?: boolean } = {}): Promise<{ session?: Response } | { error: string; status: number }> {
   const res = await cms(new Request(`${url.origin}/auth/register`, {
     method: 'POST', headers: forwardHeaders(request, { 'content-type': 'application/json', origin: url.origin }),
     body: JSON.stringify({ firstName: v.firstName, lastName: v.lastName, email: v.email.toLowerCase(), password: v.password })
@@ -337,6 +387,7 @@ export async function createAccount(request: Request, url: URL, cms: Cms, v: { f
       : text.registrationFailed
     return { error, status: res.status === 429 ? 429 : 400 }
   }
+  if (opts.signIn === false) return {}
   // Registration only issues a legacy token; sign in to get the session /auth/me accepts.
   const session = await signIn(request, url, cms, v.email.toLowerCase(), v.password)
   return session.ok ? { session } : {}
@@ -392,6 +443,77 @@ export async function setPassword(db: D1Database, userId: string, password: stri
     .bind(crypto.randomUUID(), userId, userId, hash, now, now).run()
   await db.prepare(`UPDATE auth_user SET password_reset_token = NULL, password_reset_expires = NULL, failed_login_count = 0, locked_until = NULL, updated_at = ? WHERE id = ?`)
     .bind(Date.now(), userId).run()
+}
+
+// ---------------------------------------------------------------- e-mail confirmation
+// The pending link lives in bizz_email_confirm (token stored as a SHA-256 hash, 7 days). Whether an account must
+// confirm is decided by auth_user alone (email_verified = 0, opened after confirmSince, not an administrator), so an
+// account opened any other way (the CMS's own sign-up) cannot skip it.
+
+const CONFIRM_MS = 7 * 24 * 60 * 60 * 1000
+const RESEND_MS = 2 * 60 * 1000
+const confirmOn = () => confirmSince > 0 && !!mailer
+const sha256 = async (value: string) => hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)))
+const msOf = (t: unknown) => { const n = Number(t) || 0; return n < 1e12 ? n * 1000 : n }
+
+function mustConfirm(u: { role?: string; created_at?: unknown; email_verified?: unknown }): boolean {
+  return confirmOn() && u.role !== 'admin' && !Number(u.email_verified) && msOf(u.created_at) >= confirmSince
+}
+
+async function confirmTable(db: D1Database) {
+  await schemaOnce('bizz_email_confirm', () => db.prepare(`CREATE TABLE IF NOT EXISTS bizz_email_confirm (user_id TEXT PRIMARY KEY,
+    token_hash TEXT NOT NULL UNIQUE, expires INTEGER NOT NULL, sent_at INTEGER NOT NULL, next TEXT)`).run())
+}
+
+async function unconfirmed(db: D1Database, email: string): Promise<{ id: string; firstName: string } | null> {
+  const u = await db.prepare(`SELECT id, first_name, role, created_at, email_verified FROM auth_user WHERE lower(email) = ? AND is_active = 1`)
+    .bind(email.toLowerCase()).first<{ id: string; first_name: string | null; role: string; created_at: number; email_verified: number }>()
+  return u && mustConfirm(u) ? { id: u.id, firstName: u.first_name ?? '' } : null
+}
+
+/** Sends a new confirmation link (at most one every 2 minutes per account when `resend`). */
+async function sendConfirmation(db: D1Database, a: Audience, url: URL, email: string, next?: string, resend = false): Promise<void> {
+  const user = await unconfirmed(db, email)
+  if (!user) return
+  await confirmTable(db)
+  const old = await db.prepare('SELECT sent_at, next FROM bizz_email_confirm WHERE user_id = ?').bind(user.id).first<{ sent_at: number; next: string | null }>()
+  if (resend && old && old.sent_at > Date.now() - RESEND_MS) return
+  const token = hex(crypto.getRandomValues(new Uint8Array(32)))
+  await db.prepare(`INSERT INTO bizz_email_confirm (user_id, token_hash, expires, sent_at, next) VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET token_hash = excluded.token_hash, expires = excluded.expires, sent_at = excluded.sent_at, next = excluded.next`)
+    .bind(user.id, await sha256(token), Date.now() + CONFIRM_MS, Date.now(), next ?? old?.next ?? null).run()
+  await sendAccountMail({ to: email, ...emails.confirmEmail(a, `${url.origin}${a.base}/${paths.confirm}?token=${token}`, user.firstName || undefined) })
+}
+
+/** Confirms the account of a valid link; null when the link is unknown or expired. */
+async function confirmToken(db: D1Database, token: string): Promise<{ email: string; firstName: string; lastName: string; next: string } | null> {
+  if (!/^[a-f0-9]{64}$/.test(token)) return null
+  await confirmTable(db)
+  const row = await db.prepare(`SELECT c.user_id, c.expires, c.next, u.email, COALESCE(u.first_name, '') AS firstName, COALESCE(u.last_name, '') AS lastName
+    FROM bizz_email_confirm c JOIN auth_user u ON u.id = c.user_id WHERE c.token_hash = ?`).bind(await sha256(token))
+    .first<{ user_id: string; expires: number; next: string | null; email: string; firstName: string; lastName: string }>()
+  if (!row || row.expires < Date.now()) return null
+  await db.batch([
+    db.prepare('UPDATE auth_user SET email_verified = 1, updated_at = ? WHERE id = ?').bind(Date.now(), row.user_id),
+    db.prepare('DELETE FROM bizz_email_confirm WHERE user_id = ?').bind(row.user_id)
+  ])
+  return { email: row.email.toLowerCase(), firstName: row.firstName, lastName: row.lastName, next: row.next ?? '' }
+}
+
+/** Ends the session a sign-in just opened (its cookies are never handed to the browser). */
+async function dropSession(request: Request, url: URL, cms: Cms, session: Response): Promise<void> {
+  const cookie = (session.headers.getSetCookie?.() ?? []).map(c => c.split(';')[0]).join('; ')
+  if (cookie) await cms(new Request(`${url.origin}/auth/logout`, { headers: forwardHeaders(request, { cookie }) })).catch(() => null)
+}
+
+function confirmPage(a: Audience, email: string, error?: string, notice?: string): string {
+  return portalPage(text.confirmHeading, `<div class="auth box"><h1>${esc(text.confirmHeading)}</h1>${error ? `<p class="err">${esc(error)}</p>` : ''}${notice ? `<p class="notice">${esc(notice)}</p>` : ''}
+    ${email && !error && !notice ? `<p class="lead">${esc(text.confirmSent(email))}</p>` : ''}
+    <p class="muted">${esc(text.confirmSpam)}</p>
+    <form method="post" action="${a.base}/${paths.confirm}" class="stack">
+      <label>${esc(text.email)}<input name="email" type="email" autocomplete="email" required maxlength="200" value="${esc(email)}"></label>
+      <button type="submit" class="ghost">${esc(text.confirmResend)}</button></form>
+    <p class="muted"><a href="${a.base}/${paths.login}">${esc(text.backToLogin)}</a></p></div>`)
 }
 
 // ---------------------------------------------------------------- pages
