@@ -84,9 +84,13 @@ blog or the feeds.
 | `filename` | name in the library, e.g. `gradnja-kuce.jpg` |
 | `alt` | alt text in the site language |
 | `caption`, `tags` | optional |
-| `source` | origin and licence, e.g. `"Unsplash, Ana Horvat, Unsplash License"` or `"AI (Flux)"` |
+| `source` | https link to the page the image comes from (stored without query string and fragment; anything that is not an http(s) link is not stored) |
+| `credit` | author or photographer, e.g. `"Ana Horvat"` |
+| `license` | e.g. `"Unsplash License"`, `"Pexels License"`, `"Pixabay Content License"`, `"Own photo"`, `"Client supplied"`, `"AI (Flux)"` |
 
-Answer: `{ "id", "path": "/files/<site folder>/<id>.jpg", "mimeType", "size", "alt", "source" }`.
+`source`, `credit` and `license` are the image's source record. They are kept in the library (Admin > Media > file details) and are never shown on public pages.
+
+Answer: `{ "id", "path": "/files/<site folder>/<id>.jpg", "mimeType", "size", "alt", "source", "credit", "license" }` (plus a `note` when `source` was not stored).
 
 Rules: https only; no IP addresses or internal host names; at most 3 redirects, each checked; JPEG, PNG,
 WebP, GIF or AVIF only (no SVG); 10 MB at most. The link is never stored or returned, so a link with a

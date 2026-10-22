@@ -9,7 +9,9 @@
 //   folder, and returns the /files/... path for featuredImage. Only for callers that may write (the tool is
 //   listed when at least one create_ tool is). Safe fetch: https only, no IP addresses or internal host
 //   names, at most 3 redirects (each checked), JPEG/PNG/WebP/GIF/AVIF only, 10 MB at most. The link is
-//   never stored or echoed (Flux links carry a key in the query string); only `source` text is kept.
+//   never stored or echoed (Flux links carry a key in the query string). The image's source record is kept in the
+//   library and never shown publicly: `source` (link to the original page, http/https, query string dropped),
+//   `credit` (author) and `license` (engine 3.0.0-beta.28-bizzcms.10 shows them under Admin > Media).
 // - Successful writes answer with the CONTENT_CHANGED header, so edgeCached() renews the edge cache.
 //   if (path === '/mcp' && request.method === 'POST') return mcpWithExtras(request, db, upstream, { mediaFolder: 'marko' })
 import { CONTENT_CHANGED } from './edge-cache'
@@ -23,7 +25,7 @@ const IMAGE_TYPES: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 
 const DATE_DESCRIPTION = 'Optional publish date, for example 2016-03-15 or 2016-03-15T09:30:00Z (ISO 8601), or unix seconds. Not in the future. A date alone means 12:00 UTC. Leave it out to publish now (a re-publish keeps the original date).'
 const UPLOAD_TOOL = {
   name: 'upload_media',
-  description: 'Add an image to the media library and get its /files/... path (use it as featuredImage). Give an https image link or base64 data. JPEG, PNG, WebP, GIF or AVIF, up to 10 MB. The link itself is not stored.',
+  description: 'Add an image to the media library and get its /files/... path (use it as featuredImage). Give an https image link or base64 data. JPEG, PNG, WebP, GIF or AVIF, up to 10 MB. The link itself is not stored. Record where the image comes from with source, credit and license (kept in the library, never shown on the site).',
   inputSchema: {
     type: 'object',
     properties: {
@@ -34,7 +36,9 @@ const UPLOAD_TOOL = {
       alt: { type: 'string', description: 'Alt text in the site language.' },
       caption: { type: 'string', description: 'Optional caption.' },
       tags: { type: 'array', items: { type: 'string' }, description: 'Optional tags, e.g. the category slug.' },
-      source: { type: 'string', description: 'Where it comes from and the licence, e.g. "Unsplash, Ana Horvat, Unsplash License" or "AI (Flux)". Kept in the library.' }
+      source: { type: 'string', description: 'https link to the page the image comes from (not the image link itself if that carries a key). Kept in the library, never shown on the site.' },
+      credit: { type: 'string', description: 'Author or photographer, e.g. "Ana Horvat". Kept in the library.' },
+      license: { type: 'string', description: 'Licence, e.g. "Unsplash License", "Pexels License", "Pixabay Content License", "Own photo", "Client supplied", "AI (Flux)". Kept in the library.' }
     }
   }
 }
@@ -188,12 +192,25 @@ async function uploadMedia(rpc: Rpc, request: Request, db: D1Database, upstream:
   if (!res.ok || !json?.success || !json.file) return rpcText(id, `Upload failed${json?.error ? `: ${json.error}` : ''}`, true)
 
   const alt = typeof args.alt === 'string' ? args.alt.slice(0, 300) : ''
-  const source = typeof args.source === 'string' ? args.source.replace(/https?:\/\/\S+/g, m => m.split('?')[0]).slice(0, 300) : ''
-  const caption = [typeof args.caption === 'string' ? args.caption.slice(0, 300) : '', source ? `Izvor: ${source}` : ''].filter(Boolean).join(' · ')
+  // Source record (never shown publicly): a link to the original page, author and licence. The query string
+  // is dropped (links may carry a key). A source that is not a http(s) link is not stored (the reply says so; the
+  // image itself is already in the library).
+  const rawSource = typeof args.source === 'string' ? args.source.trim() : ''
+  let source = ''
+  if (rawSource) {
+    try {
+      const u = new URL(rawSource)
+      if (u.protocol === 'http:' || u.protocol === 'https:') { u.search = ''; u.hash = ''; source = u.toString().slice(0, 500) }
+    } catch { /* not a link */ }
+  }
+  const credit = typeof args.credit === 'string' ? args.credit.trim().slice(0, 200) : ''
+  const license = typeof args.license === 'string' ? args.license.trim().slice(0, 200) : ''
+  const caption = typeof args.caption === 'string' ? args.caption.slice(0, 300) : ''
   const tags = Array.isArray(args.tags) ? args.tags.filter((t): t is string => typeof t === 'string').map(t => t.slice(0, 60)).slice(0, 12) : []
-  await db.prepare("UPDATE documents SET data = json_set(data, '$.alt', ?, '$.caption', ?, '$.tags', json(?), '$.source', ?) WHERE root_id = ? AND type_id = 'media_asset'")
-    .bind(alt, caption, JSON.stringify(tags), source, json.file.id).run()
-  return rpcText(id, { id: json.file.id, path: `/files/${json.file.r2_key}`, mimeType: image.type, size: json.file.size ?? image.bytes.byteLength, width: json.file.width ?? null, height: json.file.height ?? null, alt, source }, false, true)
+  await db.prepare("UPDATE documents SET data = json_set(data, '$.alt', ?, '$.caption', ?, '$.tags', json(?), '$.source', ?, '$.credit', ?, '$.license', ?) WHERE root_id = ? AND type_id = 'media_asset'")
+    .bind(alt, caption, JSON.stringify(tags), source || null, credit || null, license || null, json.file.id).run()
+  const note = rawSource && !source ? 'source was not a http(s) link and was not stored' : undefined
+  return rpcText(id, { id: json.file.id, path: `/files/${json.file.r2_key}`, mimeType: image.type, size: json.file.size ?? image.bytes.byteLength, width: json.file.width ?? null, height: json.file.height ?? null, alt, source: source || null, credit: credit || null, license: license || null, ...(note ? { note } : {}) }, false, true)
 }
 
 export async function mcpWithExtras(request: Request, db: D1Database, upstream: Upstream, opts: McpExtrasOptions = {}): Promise<Response> {
