@@ -4,6 +4,12 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+## [0.2.11] - 2026-10-23
+
+### Changed
+- Cookie bar: its title is a styled paragraph (`.bz-title`, role heading) instead of an `<h2>`, so it never adds a heading to the page outline (search engines render the bar for every first-time visit).
+- Directory plugin: company card images use the company name as alt text.
+
 ## [0.2.10] - 2026-10-23
 
 ### Added

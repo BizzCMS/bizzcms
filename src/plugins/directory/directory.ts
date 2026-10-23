@@ -452,7 +452,7 @@ export function listingCardHtml(c: Card): string {
   const catLabel = subcategories().find(s => s.slug === c.subcategory)?.label ?? taxonomy.categories.find(x => x.slug === c.category)?.label ?? text.companyFallback
   const href = esc(listingUrl(c))
   return `<article class="card${c.premium ? ' is-premium' : ''}">${favButton(c.slug)}
-      <a class="media" href="${href}" tabindex="-1" aria-hidden="true">${c.image ? `<img src="${esc(c.image)}" alt="" loading="lazy">` : '<span class="ph"></span>'}
+      <a class="media" href="${href}" tabindex="-1" aria-hidden="true">${c.image ? `<img src="${esc(c.image)}" alt="${esc(c.title)}" loading="lazy">` : '<span class="ph"></span>'}
         ${c.premium ? `<span class="pill premium">${esc(text.premium)}</span>` : c.featured ? `<span class="pill premium featured">${esc(text.featured)}</span>` : ''}</a>
       <div class="body">
         <span class="cat">${esc(catLabel)}${isSample ? ` · ${esc(sample!.label)}` : ''}</span>
