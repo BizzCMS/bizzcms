@@ -202,6 +202,8 @@ export interface SeoHead {
   follow: boolean
   robots: string
   ogType: 'website' | 'article'
+  /** Posts only: dates, main category and tags for the article:* social tags. */
+  article?: { published?: string; modified?: string; section?: string; tags: string[] }
   jsonLd: unknown
 }
 
@@ -224,7 +226,9 @@ export function seoHead(input: SeoInput, settings: SeoSettings): SeoHead {
   const index = !settings.hideFromSearch && d.noindex !== true && d.noindex !== 'true'
   const follow = d.nofollow !== true && d.nofollow !== 'true'
   const robots = `${index ? 'index' : 'noindex'},${follow ? 'follow' : 'nofollow'}${index ? ',max-image-preview:large' : ''}`
-  return { title, shortTitle: str(d.socialTitle) || seoTitle, description, canonical, image, index, follow, robots, ogType: input.kind === 'post' ? 'article' : 'website', jsonLd: seoGraph(input, settings, { title: seoTitle, description, canonical, image }) }
+  const when = (t?: number | null) => (t ? new Date(t > 1e11 ? t : t * 1000).toISOString() : undefined)
+  const article = input.kind === 'post' ? { published: when(input.publishedAt), modified: when(input.modifiedAt ?? input.publishedAt), section: input.sections?.find(Boolean), tags: [...new Set((input.tags ?? []).map(x => x.trim()).filter(Boolean))].slice(0, 6) } : undefined
+  return { title, shortTitle: str(d.socialTitle) || seoTitle, description, canonical, image, index, follow, robots, ogType: input.kind === 'post' ? 'article' : 'website', article, jsonLd: seoGraph(input, settings, { title: seoTitle, description, canonical, image }) }
 }
 
 /** Social tags (Open Graph and X) for sites that print their own head. */
@@ -236,6 +240,11 @@ export function socialTags(head: SeoHead, data: Record<string, unknown> | undefi
     `<meta property="og:site_name" content="${e(siteName)}">`, `<meta property="og:type" content="${head.ogType}">`,
     `<meta property="og:title" content="${e(t)}">`, desc ? `<meta property="og:description" content="${e(desc)}">` : '',
     `<meta property="og:url" content="${e(head.canonical)}">`, head.image ? `<meta property="og:image" content="${e(head.image)}">` : '',
+    // Posts: publish and update dates, main category and tags (LinkedIn, Facebook and others show the date).
+    head.article?.published ? `<meta property="article:published_time" content="${head.article.published}">` : '',
+    head.article?.modified ? `<meta property="article:modified_time" content="${head.article.modified}">` : '',
+    head.article?.section ? `<meta property="article:section" content="${e(head.article.section)}">` : '',
+    ...(head.article?.tags ?? []).map(tag => `<meta property="article:tag" content="${e(tag)}">`),
     `<meta name="twitter:card" content="${head.image ? 'summary_large_image' : 'summary'}">`, `<meta name="twitter:title" content="${e(t)}">`,
     desc ? `<meta name="twitter:description" content="${e(desc)}">` : '', head.image ? `<meta name="twitter:image" content="${e(head.image)}">` : '',
     // The site's X account (SEO › General); the settings are already loaded by the caller's seoSettings().
@@ -267,7 +276,8 @@ function seoGraph(input: SeoInput, s: SeoSettings, page: { title: string; descri
       ...(page.description ? { description: page.description } : {}), ...(page.image ? { image: [page.image] } : {}),
       ...(iso(input.publishedAt) ? { datePublished: iso(input.publishedAt) } : {}), ...(iso(input.modifiedAt ?? input.publishedAt) ? { dateModified: iso(input.modifiedAt ?? input.publishedAt) } : {}),
       ...(input.author?.name ? { author: { '@type': 'Person', name: input.author.name, ...(input.author.url ? { url: abs(o, input.author.url) } : {}) } } : orgName ? { author: { '@id': orgId } } : {}),
-      ...(input.sections?.filter(Boolean).length ? { articleSection: input.sections.filter(Boolean).length === 1 ? input.sections.filter(Boolean)[0] : input.sections.filter(Boolean) } : {}),
+      // articleSection: the main category first, at most two (a long list of loosely related sections blurs the topic).
+      ...(input.sections?.filter(Boolean).length ? { articleSection: input.sections.filter(Boolean).length === 1 ? input.sections.filter(Boolean)[0] : input.sections.filter(Boolean).slice(0, 2) } : {}),
       // "keywords" = the post's visible tags only (a topic hint for AI assistants and other engines; Google
       // ignores it). The focus and related keyphrases stay editor-only, so competitors don't see what you target.
       ...(input.tags?.filter(Boolean).length ? { keywords: [...new Set(input.tags.map(t => t.trim()).filter(Boolean))].slice(0, 15).join(', ') } : {}),

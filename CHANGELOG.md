@@ -4,6 +4,14 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+## [0.2.10] - 2026-10-23
+
+### Added
+- **Article social tags**: posts get `article:published_time`, `article:modified_time`, `article:section` (main category) and up to six `article:tag` from `seoHead()`/`socialTags()` (`SeoHead.article`), so LinkedIn, Facebook and others show the date and topic.
+
+### Changed
+- Structured data: `articleSection` lists the main category first and at most two (a long list of loosely related categories blurs the topic).
+
 ## [0.2.9] - 2026-10-23
 
 ### Security
