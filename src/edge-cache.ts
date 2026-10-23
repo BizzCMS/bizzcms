@@ -24,7 +24,7 @@ const VERSION_KEY = 'bizz:content-version'
 export const CONTENT_CHANGED = 'x-bizz-content-changed'
 const SKIP = /^\/(admin|auth|api|files|mcp|cdn-cgi)(\/|$)/
 const SESSION_COOKIE = /(^|;\s*)(better-auth\.session_token|__Secure-better-auth\.session_token|auth_token|session)=/i
-const FEEDLIKE = /^\/(sitemap[^/]*\.xml|robots\.txt|llms\.txt|feed\/?|rss(\.xml|\/)?|(blog|news)\/feed\/?)$/
+const FEEDLIKE = /^\/(sitemap[^/]*\.xml|schemamap\.xml|schema\/[a-z0-9_-]+\.ndjson|robots\.txt|llms\.txt|feed\/?|rss(\.xml|\/)?|(blog|news)\/feed\/?)$/
 
 let settingsCache: { at: number; value: CacheSettings } | null = null
 export async function cacheSettings(db: D1Database): Promise<CacheSettings> {

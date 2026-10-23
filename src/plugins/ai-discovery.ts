@@ -9,7 +9,7 @@ import { AI_BOTS, AI_BOTS_VERSION, aiRobotsBlock, type AiPolicy } from './ai-cra
 
 interface SiteFacts {
   policy: AiPolicy; hideFromSearch: boolean; orgName: string; orgLogo: string; sameAs: string
-  defaultImage: string; defaultDescription: string; llmsText: string; indexNowEnabled: boolean
+  defaultImage: string; defaultDescription: string; llmsText: string; indexNowEnabled: boolean; schemaMap: boolean
 }
 
 const e = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
@@ -30,6 +30,7 @@ export function aiDiscoveryTab(s: SiteFacts): string {
     row(s.defaultImage ? true : 'warn', 'Default share image', s.defaultImage ? 'Set: pages without their own image still show a picture when shared or cited.' : 'Not set (SEO › General): pages without an image share without a picture.'),
     row(s.defaultDescription ? true : 'warn', 'Default description', s.defaultDescription ? 'Set.' : 'Not set (SEO › General).'),
     row(s.indexNowEnabled ? true : 'warn', 'IndexNow', s.indexNowEnabled ? 'On: Bing and others hear about new and changed pages at once.' : 'Off (SEO › Indexing).'),
+    row(s.schemaMap ? true : 'warn', 'Schema map', s.schemaMap ? 'On: <a href="/schemamap.xml" target="_blank">/schemamap.xml</a> gives AI agents the structured data of the whole site in one place.' : 'Off (SEO › Indexing).'),
     row('warn', 'llms.txt', 'Optional. Some assistants read it; Google does not use it. <span data-ai-llms>Checking…</span>')
   ].join('')
   return `<style>

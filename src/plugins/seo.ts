@@ -42,8 +42,10 @@ export interface SeoSettings {
   indexNowEnabled: boolean; indexNowKey: string
   /** AI crawlers by purpose (robots.txt): search answers, assistants a person asked, model training. */
   aiSearch: boolean; aiAgents: boolean; aiTraining: boolean
+  /** Schema map for AI agents: /schemamap.xml and one structured-data feed per content type. */
+  schemaMap: boolean
 }
-const DEFAULTS: SeoSettings = { siteName: '', tagline: '', language: 'en', defaultDescription: '', defaultImage: '', orgType: 'Organization', orgName: '', orgLogo: '', sameAs: '', xHandle: '', hideFromSearch: false, robotsExtra: '', llmsText: '', sitemapOff: [], feedEnabled: true, feedItems: 20, feedFullText: true, indexNowEnabled: true, indexNowKey: '', aiSearch: true, aiAgents: true, aiTraining: false }
+const DEFAULTS: SeoSettings = { siteName: '', tagline: '', language: 'en', defaultDescription: '', defaultImage: '', orgType: 'Organization', orgName: '', orgLogo: '', sameAs: '', xHandle: '', hideFromSearch: false, robotsExtra: '', llmsText: '', sitemapOff: [], feedEnabled: true, feedItems: 20, feedFullText: true, indexNowEnabled: true, indexNowKey: '', aiSearch: true, aiAgents: true, aiTraining: false, schemaMap: true }
 
 async function ensureTables(db: D1Database) {
   await schemaOnce('seo_tables', () => db.batch([
@@ -287,7 +289,7 @@ export async function seoRobots(url: URL, db: D1Database, siteRules: string[] = 
   const s = await seoSettings(db)
   const lines = s.hideFromSearch
     ? ['User-agent: *', 'Disallow: /']
-    : [...aiRobotsBlock(aiPolicyOf(s)), 'User-agent: *', contentSignal(aiPolicyOf(s)), 'Allow: /', 'Disallow: /admin', 'Disallow: /auth', 'Disallow: /api/', ...siteRules, ...s.robotsExtra.split('\n').map(l => l.trim()).filter(Boolean), `Sitemap: ${url.origin}/sitemap.xml`, `# AI assistants: ${url.origin}/llms.txt`]
+    : [...aiRobotsBlock(aiPolicyOf(s)), 'User-agent: *', contentSignal(aiPolicyOf(s)), 'Allow: /', 'Disallow: /admin', 'Disallow: /auth', 'Disallow: /api/', ...siteRules, ...s.robotsExtra.split('\n').map(l => l.trim()).filter(Boolean), `Sitemap: ${url.origin}/sitemap.xml`, ...(s.schemaMap !== false && publicRoutes ? [`Schemamap: ${url.origin}/schemamap.xml`] : []), `# AI assistants: ${url.origin}/llms.txt`]
   return new Response(lines.join('\n') + '\n', { headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=3600' } })
 }
 
@@ -360,6 +362,8 @@ export function sitemapParts(routes: SitemapRoutes | null = publicRoutes, sectio
 }
 
 export async function seoSitemap(url: URL, db: D1Database, routes: SitemapRoutes): Promise<Response | null> {
+  // The schema map (/schemamap.xml, /schema/<part>.ndjson) follows the same parts and rules.
+  if (url.pathname === '/schemamap.xml' || url.pathname.startsWith('/schema/')) return seoSchemaMap(url, db, routes)
   // Names other systems use (Yoast/WordPress), which crawlers and sitemap checkers try: the real index.
   if (/^\/(sitemap_index|sitemap-index|wp-sitemap|sitemap\.xml\.gz|sitemap1)\.xml$|^\/sitemap\.xml\.gz$/.test(url.pathname)) return Response.redirect(new URL('/sitemap.xml', url).href, 301)
   const m = url.pathname.match(/^\/sitemap(?:-([a-z0-9_-]+))?\.xml$/)
@@ -406,6 +410,96 @@ export async function seoSitemap(url: URL, db: D1Database, routes: SitemapRoutes
   const seen = new Set<string>()
   const body = urls.filter(u => u.loc && !seen.has(u.loc) && seen.add(u.loc)).map(u => `<url><loc>${xesc(u.loc)}</loc>${u.lastmod ? `<lastmod>${u.lastmod}</lastmod>` : ''}</url>`).join('\n')
   return xml(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`)
+}
+
+// ---------- schema map (structured data of the whole site for AI agents) ----------
+// /schemamap.xml lists one feed per content type (/schema/<part>.ndjson); each feed is the site's structured
+// data as newline-delimited JSON, one entity per line: the organisation and website once, then every published,
+// indexable item (pages and collections as WebPage, posts as Article). Same layout as NLWeb schema maps
+// (Yoast's "Schema aggregation"), so agents can read a whole site in one request instead of crawling it.
+// Follows the sitemap rules: hidden site, noindex, canonical elsewhere and sitemap parts switched off are left out.
+
+const iso = (t?: number | null) => (t ? new Date(t > 1e11 ? t : t * 1000).toISOString() : undefined)
+
+function schemaSite(origin: string, s: SeoSettings): Record<string, unknown>[] {
+  const out: Record<string, unknown>[] = []
+  const orgId = `${origin}/#${s.orgType === 'Person' ? 'person' : 'organization'}`
+  if (s.orgName) out.push({ '@context': 'https://schema.org', '@type': s.orgType, '@id': orgId, name: s.orgName, url: `${origin}/`,
+    ...(s.orgLogo ? { [s.orgType === 'Person' ? 'image' : 'logo']: abs(origin, s.orgLogo) } : {}),
+    ...(s.sameAs.trim() ? { sameAs: s.sameAs.split(/\s+/).filter(u => /^https?:\/\//.test(u)) } : {}) })
+  out.push({ '@context': 'https://schema.org', '@type': 'WebSite', '@id': `${origin}/#website`, url: `${origin}/`, name: s.siteName || s.orgName || new URL(origin).hostname,
+    ...(s.tagline ? { description: s.tagline } : {}), inLanguage: siteLanguage(s), ...(s.orgName ? { publisher: { '@id': orgId } } : {}) })
+  return out
+}
+
+/** The schema map parts: the sitemap parts that hold content items (pages, post sections, collections). */
+function schemaParts(routes: SitemapRoutes, sections: string[], s: SeoSettings) {
+  return sitemapParts(routes, sections).filter(p => p.key !== 'categories' && p.key !== 'tags' && p.key !== 'other'
+    && !s.sitemapOff.includes(p.key) && !(p.section && s.sitemapOff.includes('posts')))
+}
+
+/** /schemamap.xml and /schema/<part>.ndjson; null for other paths, when switched off (SEO › Indexing) or when the site is hidden. */
+export async function seoSchemaMap(url: URL, db: D1Database, routes: SitemapRoutes | null = publicRoutes): Promise<Response | null> {
+  const feed = url.pathname.match(/^\/schema\/([a-z0-9_-]+)\.ndjson$/)
+  if (url.pathname !== '/schemamap.xml' && !feed) return null
+  if (!routes) return null
+  const s = await seoSettings(db)
+  if (s.schemaMap === false || s.hideFromSearch) return null
+  const parts = schemaParts(routes, await postSections(db), s)
+  const cache = { 'cache-control': 'public, max-age=3600', 'x-robots-tag': 'noindex' }
+  if (!feed) {
+    const latest = async (p: { key: string; section?: string }) => {
+      const type = p.section ? 'posts' : p.key
+      const r = await db.prepare(`SELECT MAX(COALESCE(updated_at, published_at)) AS t FROM documents WHERE type_id = ? AND ${PUBLISHED}${p.section ? ` AND COALESCE(NULLIF(json_extract(data, '$.section'), ''), 'blog') = ?` : ''}`)
+        .bind(...(p.section ? [type, p.section] : [type])).first<{ t: number | null }>().catch(() => null)
+      return r?.t ? iso(Number(r.t)) : undefined
+    }
+    const rows: string[] = []
+    for (const p of parts) {
+      const t = await latest(p)
+      rows.push(`<url contentType="structuredData/schema.org"><loc>${xesc(`${url.origin}/schema/${p.key}.ndjson`)}</loc>${t ? `<lastmod>${t}</lastmod>` : ''}</url>`)
+    }
+    return new Response(`${XML_HEAD}<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${rows.join('\n')}\n</urlset>\n`, { headers: { 'content-type': 'application/xml; charset=utf-8', ...cache } })
+  }
+  const part = parts.find(p => p.key === feed[1])
+  if (!part) return null
+  const isPost = Boolean(part.section)
+  const route = isPost ? routes.posts : part.key === 'pages' ? routes.pages : routes.collections?.[part.key]
+  if (!route) return null
+  const o = url.origin
+  const orgId = `${o}/#${s.orgType === 'Person' ? 'person' : 'organization'}`
+  const { results } = await db.prepare(`SELECT slug, data, published_at, updated_at FROM documents WHERE type_id = ? AND ${PUBLISHED}${isPost ? ` AND COALESCE(NULLIF(json_extract(data, '$.section'), ''), 'blog') = ?` : ''} ORDER BY COALESCE(published_at, updated_at) DESC LIMIT 5000`)
+    .bind(...(isPost ? ['posts', part.section!] : [part.key])).all<{ slug: string; data: string; published_at: number | null; updated_at: number | null }>()
+  const lines = schemaSite(o, s).map(x => JSON.stringify(x))
+  const seen = new Set<string>()
+  for (const r of results) {
+    let d: Record<string, unknown> = {}; try { d = JSON.parse(r.data) } catch { /* empty */ }
+    if (d.noindex === true || d.noindex === 'true' || str(d.canonical)) continue
+    const path = route(d, r.slug); if (!path) continue
+    const pageUrl = abs(o, path); if (!pageUrl || seen.has(pageUrl)) continue
+    seen.add(pageUrl)
+    const name = str(d.title) || r.slug
+    const description = str(d.seoDescription) || str(d.excerpt) || str(d.description) || undefined
+    const image = abs(o, str(d.seoImage) || str(d.featuredImage) || str(d.image)) || undefined
+    const published = iso(r.published_at), modified = iso(r.updated_at ?? r.published_at)
+    const lang = str(d.language) || siteLanguage(s)
+    if (isPost) {
+      const tags = Array.isArray(d.tags) ? [...new Set(d.tags.filter((t): t is string => typeof t === 'string').map(t => t.trim()).filter(Boolean))].slice(0, 15) : []
+      const author = str(d.author)
+      lines.push(JSON.stringify({ '@context': 'https://schema.org', '@type': 'Article', '@id': `${pageUrl}#article`, url: pageUrl, headline: name.slice(0, 110),
+        ...(description ? { description } : {}), ...(image ? { image: [image] } : {}),
+        ...(published ? { datePublished: published } : {}), ...(modified ? { dateModified: modified } : {}),
+        ...(author ? { author: { '@type': 'Person', name: author } } : s.orgName ? { author: { '@id': orgId } } : {}),
+        ...(tags.length ? { keywords: tags.join(', ') } : {}), inLanguage: lang,
+        isPartOf: { '@id': `${o}/#website` }, ...(s.orgName ? { publisher: { '@id': orgId } } : {}) }))
+    } else {
+      lines.push(JSON.stringify({ '@context': 'https://schema.org', '@type': 'WebPage', '@id': `${pageUrl}#webpage`, url: pageUrl, name,
+        ...(description ? { description } : {}), ...(image ? { primaryImageOfPage: { '@type': 'ImageObject', url: image } } : {}),
+        ...(published ? { datePublished: published } : {}), ...(modified ? { dateModified: modified } : {}),
+        inLanguage: lang, isPartOf: { '@id': `${o}/#website` } }))
+    }
+  }
+  return new Response(lines.join('\n') + '\n', { headers: { 'content-type': 'application/x-ndjson; charset=utf-8', ...cache } })
 }
 
 // ---------- IndexNow ----------
@@ -700,7 +794,7 @@ export async function seoAdminRoute(request: Request, path: string, db: D1Databa
         hideFromSearch: f.get('hideFromSearch') === 'on', robotsExtra: g('robotsExtra'), llmsText: g('llmsText'),
         sitemapOff: g('sitemap_parts').split(',').filter(k => k && f.get(`sitemap_${k}`) !== 'on'),
         feedEnabled: f.get('feedEnabled') === 'on', feedItems: Math.min(Math.max(Number(g('feedItems')) || 20, 5), 100), feedFullText: g('feedFullText') !== 'summary',
-        aiSearch: f.get('aiSearch') === 'on', aiAgents: f.get('aiAgents') === 'on', aiTraining: f.get('aiTraining') === 'on',
+        aiSearch: f.get('aiSearch') === 'on', aiAgents: f.get('aiAgents') === 'on', aiTraining: f.get('aiTraining') === 'on', schemaMap: f.get('schemaMap') === 'on',
         indexNowEnabled: f.get('indexNowEnabled') === 'on', indexNowKey: /^[a-zA-Z0-9-]{8,128}$/.test(g('indexNowKey')) ? g('indexNowKey') : next.indexNowKey
       })
       await saveSettings(db, next)
@@ -788,6 +882,7 @@ async function adminPage(tab: string, s: SeoSettings, db: D1Database, url: URL, 
         <small>Written into <a href="/robots.txt" target="_blank" rel="noopener">robots.txt</a> as a marked block plus a Content-Signal line (list version ${AI_BOTS_VERSION}). robots.txt is a request, not a lock; operators apply changes within about a day. Your Cloudflare AI bot settings can also block crawlers before they reach the site.</small></fieldset>
       ${field('robotsExtra', 'Extra robots.txt lines', 'Added to the default rules, e.g. "Disallow: /private/". Sitemap and llms.txt lines are added automatically.', 'textarea')}
       ${field('llmsText', 'llms.txt (instructions for AI assistants)', 'Plain text or Markdown at /llms.txt. Empty = the site\'s built-in text, if it has one.', 'textarea')}
+      ${publicRoutes ? `<label class="bizz-seo-check"><input type="checkbox" name="schemaMap"${s.schemaMap !== false ? ' checked' : ''}${ro}><span><strong>Schema map for AI agents</strong><small>Publishes the structured data of every published page and post in one place: <a href="/schemamap.xml" target="_blank">/schemamap.xml</a> lists one feed per content type, so AI agents and NLWeb tools can read the whole site in one request. Follows the sitemap settings below and is listed in robots.txt.</small></span></label>` : ''}
       ${parts.length ? `<fieldset class="bizz-seo-group"><legend>Include in sitemap</legend><input type="hidden" name="sitemap_parts" value="${e(parts.map(p => p.key).join(','))}">
         ${parts.map(p => `<label class="bizz-seo-check"><input type="checkbox" name="sitemap_${e(p.key)}"${s.sitemapOff.includes(p.key) || (p.section && s.sitemapOff.includes('posts')) ? '' : ' checked'}${ro}><span>${e(p.label)}</span></label>`).join('')}
         <small>Unticked parts are left out of /sitemap.xml. The pages themselves stay online.</small></fieldset>` : ''}
@@ -822,7 +917,7 @@ async function adminPage(tab: string, s: SeoSettings, db: D1Database, url: URL, 
       </tbody></table>
       ${isAdmin ? `<form method="post" class="bizz-seo-form"><input type="hidden" name="action" value="import-redirects"><label class="bizz-seo-field"><span>Import redirects</span><textarea name="csv" rows="5" placeholder="/old-url/,/new-url/,301"></textarea><small>One per line: old URL, new URL, optional 301 or 302. An old URL ending in * matches everything that starts with it.</small></label><div><button type="submit" class="bg-zinc-950">Import</button></div></form>` : ''}`
   } else if (tab === 'ai') {
-    content = aiDiscoveryTab({ policy: aiPolicyOf(s), hideFromSearch: s.hideFromSearch, orgName: s.orgName, orgLogo: s.orgLogo, sameAs: s.sameAs, defaultImage: s.defaultImage, defaultDescription: s.defaultDescription, llmsText: s.llmsText, indexNowEnabled: s.indexNowEnabled })
+    content = aiDiscoveryTab({ policy: aiPolicyOf(s), hideFromSearch: s.hideFromSearch, orgName: s.orgName, orgLogo: s.orgLogo, sameAs: s.sameAs, defaultImage: s.defaultImage, defaultDescription: s.defaultDescription, llmsText: s.llmsText, indexNowEnabled: s.indexNowEnabled, schemaMap: s.schemaMap !== false && Boolean(publicRoutes) })
   } else {
     content = await checkTab(db)
   }

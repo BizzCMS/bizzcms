@@ -22,13 +22,15 @@ The scores are saved with the item; the **Content** list shows them as two dots 
 | Tab | |
 |---|---|
 | General | Site name (added as "Title \| Site name"), home page tagline ("Site name - tagline"), default meta description, default social image, company or person behind the site, logo, social profiles, X (Twitter) username (twitter:site and twitter:creator on every page). |
-| Indexing | Hide the whole site from search engines (staging), extra robots.txt lines, llms.txt text, what goes into the sitemap, RSS feed, **IndexNow**. |
+| Indexing | Hide the whole site from search engines (staging), extra robots.txt lines, llms.txt text, **schema map for AI agents**, what goes into the sitemap, RSS feed, **IndexNow**. |
 | Redirects | Old URL → new URL (301 or 302), search, delete, CSV import, hit counter. An old URL ending in `*` matches everything that starts with it (`/old/*` → `/new/*` keeps the rest of the path). |
 | Check | Pages, posts and categories that need attention (no keyphrase, no or long description, long or duplicate title, no featured image or category, images without alt text, noindex), Key content first. |
 
 Only administrators change settings and redirects; editors can see them.
 
 **IndexNow** (SEO › Indexing, on by default). When you publish, change, unpublish or delete something, its public address goes to Bing, Yandex, Seznam, Naver and the other [IndexNow](https://www.indexnow.org) engines within seconds, so they don't wait for their next crawl. This is what Bing Webmaster Tools asks for under "Set up IndexNow". The key is created for you and served at `/<key>.txt`; you can paste an existing key instead. **Send all addresses to IndexNow now** sends everything in the sitemap once (after going live or big changes). The last results are listed (Accepted, or the reason). Nothing is sent from a local address, while IndexNow is off, or while the site is hidden from search engines. Google does not use IndexNow; it reads the sitemap.
+
+**Schema map for AI agents** (SEO › Indexing, on by default). `/schemamap.xml` lists one feed per content type (`/schema/pages.ndjson`, `/schema/blog.ndjson`, one per collection with public pages). Each feed is the site's structured data as newline-delimited JSON, one entity per line: the organisation and the website once, then every published, indexable item (posts as `Article`, pages and collections as `WebPage`) with its address, title, description, image, dates, author and tags. AI agents and [NLWeb](https://github.com/nlweb-ai/NLWeb) tools can read the whole site in one request instead of crawling every page; the format matches other CMSs' schema maps. It follows the sitemap: hidden sites, noindex items, items with a canonical elsewhere and sitemap parts you switched off are left out. robots.txt gets a `Schemamap:` line. The feeds carry `X-Robots-Tag: noindex`, so they never show in search results themselves.
 
 ## For site code
 
@@ -37,7 +39,7 @@ Everything lives in `src/plugins/seo.ts`, `src/seo-editor.ts` and `src/seo-field
 1. Registers the plugin: `plugins: { register: [..., seoPlugin] }`.
 2. Spreads `...SEO_FIELDS` into its pages collection (posts and categories already have them).
 3. Calls `seoRedirect(request, db, ctx)` before rendering public pages, and `seoAdminRoute(request, path, db, upstream)` next to the other admin routes (wrap the result in `applyBranding`).
-4. Serves `seoRobots(url, db)`, `seoSitemap(url, db, routes)` (routes map pages, posts, categories and tags to their URL paths; `extra` adds fixed URLs) and `seoLlms(db)` (null when no llms.txt text is set, so the site's own one stays).
+4. Serves `seoRobots(url, db)`, `seoSitemap(url, db, routes)` (also answers `/schemamap.xml` and `/schema/<part>.ndjson`; a site with its own sitemap calls `seoSchemaMap(url, db)` instead) (routes map pages, posts, categories and tags to their URL paths; `extra` adds fixed URLs) and `seoLlms(db)` (null when no llms.txt text is set, so the site's own one stays).
 5. Builds each page head with `seoHead({ origin, path, kind, title, data, excerpt, image, publishedAt, modifiedAt, author, breadcrumbs, extraGraph }, settings)` and `socialTags(head, data, siteName)`. It returns the full title, description, canonical, robots (`index,follow,max-image-preview:large` or noindex/nofollow), image and the structured data graph (Organization or Person once set, WebSite, WebPage or CollectionPage, Article for posts, BreadcrumbList).
 
 **View on site.** `setPublicRoutes(routes)` (call once with the same routes object as `seoSitemap`) tells the admin where each page, post and category lives: the Content list then shows an eye before the edit button for published items, and the editor's View on Website opens the same address (`GET /admin/bizz/seo/urls?ids=…`). Without it: pages by `path`, posts under `/blog/<slug>`, categories none. Drafts get no eye (no preview of unpublished changes yet).
