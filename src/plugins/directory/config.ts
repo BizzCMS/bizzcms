@@ -369,6 +369,11 @@ export interface DirectorySettings {
   /** Only signed-in visitors send inquiries: the popup shows sign-in / sign-up links instead of the form when the
    *  `signed_in` cookie is missing ({return} = the profile's address). The site must also refuse signed-out posts. */
   requestLogin?: { login: string; register: string }
+  /** Contacts only for some visitors (e.g. signed-in couples): the profile shows a locked box instead of phone and
+   *  e-mail, and they are left out of the page's structured data, so no cached or crawled copy contains them. The site
+   *  answers `path?s=<slug>` with JSON {phone, email} for visitors allowed to see them (401 signed out, 403 not allowed);
+   *  the box's script asks for them when the `signed_in` cookie is set. */
+  contactsGate?: { path: string; locked: string; denied: string; signIn: string; signUp: string; login: string; register: string }
   /** Filter by the companies' "price from" amount (from - to €); only companies with an amount match. */
   priceRange?: boolean
   /** Show the favourites and price filters only to signed-in visitors (the site's script reveals them). */
@@ -419,6 +424,7 @@ export interface DirectoryOptions {
   requestLogin?: { login: string; register: string }
   priceRange?: boolean
   memberFilters?: boolean
+  contactsGate?: DirectorySettings['contactsGate']
 }
 
 /** Turn the directory on for this site with its own addresses, categories, wording and layout. */
@@ -441,7 +447,8 @@ export function setDirectory(opts: DirectoryOptions): void {
     favorites: opts.favorites ?? current.favorites,
     requestLogin: opts.requestLogin ?? current.requestLogin,
     priceRange: opts.priceRange ?? current.priceRange,
-    memberFilters: opts.memberFilters ?? current.memberFilters
+    memberFilters: opts.memberFilters ?? current.memberFilters,
+    contactsGate: opts.contactsGate ?? current.contactsGate
   }
 }
 export const directorySettings = (): DirectorySettings => current

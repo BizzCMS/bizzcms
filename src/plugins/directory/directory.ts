@@ -8,7 +8,7 @@
 import { DocumentsService } from 'bizzcms-core'
 import { readForm } from '../../site-accounts'
 import {
-  alphabetical, bookingSql, categoryUrl, cityUrl, regionUrl, directorySettings, notifyDirectory, directoryUrl, label, listingUrl, matchRoute, planOf, type Plan, slugify, subcategories
+  alphabetical, bookingSql, categoryUrl, cityUrl, regionUrl, directorySettings, notifyDirectory, directoryUrl, label, listingUrl, matchRoute, planOf, type Plan, type DirectorySettings, slugify, subcategories
 } from './config'
 import { esc, fold, html, icon, mediaList, pageWindow, safeDecode, safeUrl, str, truthy, validEmail } from './util'
 import { mediaGallery, mediaHero, mediaItems, mediaViewer, videoIds } from './media'
@@ -644,8 +644,24 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
     canonical: canonicalPath && found ? `${url.origin}${encodeURI(canonicalPath)}` : undefined, index: !!canonicalPath && found }) }
 }
 
+// Contacts for some visitors only (DirectorySettings.contactsGate): the page (cached, crawled) never contains them; the
+// script asks the site's address for them when the visitor is signed in and fills them in, or shows why not.
+function contactGateBox(p: Listing, gate: NonNullable<DirectorySettings['contactsGate']>): string {
+  const back = encodeURIComponent(listingUrl(p))
+  const svg = JSON.stringify({ phone: CONTACT_SVG.phone, mail: CONTACT_SVG.mail })
+  return `<div class="contact-gate" data-contacts="${esc(p.slug)}"><p class="muted">${esc(gate.locked)}</p>
+    <p class="contact-gate-actions"><a href="${esc(gate.register)}${gate.register.includes('?') ? '&' : '?'}dalje=${back}">${esc(gate.signUp)}</a> · <a href="${esc(gate.login)}${gate.login.includes('?') ? '&' : '?'}dalje=${back}">${esc(gate.signIn)}</a></p></div>
+    <script>(function(){var b=document.querySelector('[data-contacts]');if(!b||(' '+document.cookie).indexOf(' signed_in=1')<0)return;
+    var s=${svg},e=function(t){return String(t).replace(/[&<>"']/g,function(c){return'&#'+c.charCodeAt(0)+';'})};
+    fetch(${JSON.stringify(gate.path)}+'?s='+encodeURIComponent(b.getAttribute('data-contacts')),{credentials:'same-origin',headers:{accept:'application/json'}})
+    .then(function(r){return r.json().then(function(j){return[r.status,j]})}).then(function(x){var j=x[1];
+    if(x[0]===200){var h='';if(j.phone)h+='<a class="contact-line" href="tel:'+e(j.phone.replace(/[^0-9+]/g,''))+'">'+s.phone+'<span>'+e(j.phone)+'</span></a>';
+    if(j.email)h+=(h?'<br>':'')+'<a class="contact-line" href="mailto:'+e(j.email)+'">'+s.mail+'<span>'+e(j.email)+'</span></a>';b.innerHTML=h;}
+    else if(x[0]===403){b.innerHTML='<p class="muted">'+e(${JSON.stringify(gate.denied)})+'</p>';}}).catch(function(){});})();</script>`
+}
+
 function profilePage(p: Listing, state: { sent?: boolean; error?: string; values?: Record<string, string> }, origin: string, share = ''): string {
-  const { taxonomy, text, params: P } = directorySettings()
+  const { taxonomy, text, params: P, contactsGate: gate } = directorySettings()
   const v = state.values ?? {}
   const parent = taxonomy.categories.find(c => c.slug === p.category)
   const sub = subcategories().find(s => s.slug === p.subcategory)
@@ -665,8 +681,9 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
   ].filter(([, val]) => val)
   const contact = [
     p.website && `<a class="contact-line" href="${esc(p.website)}" rel="noopener" target="_blank">${CONTACT_SVG.web}<span>${esc(text.website)}</span></a>`,
-    p.phone && `<a class="contact-line" href="tel:${esc(p.phone.replace(/[^\d+]/g, ''))}">${CONTACT_SVG.phone}<span>${esc(p.phone)}</span></a>`,
-    p.email && `<a class="contact-line" href="mailto:${esc(p.email)}">${CONTACT_SVG.mail}<span>${esc(p.email)}</span></a>`
+    ...(gate ? [(p.phone || p.email) && contactGateBox(p, gate)] : [
+      p.phone && `<a class="contact-line" href="tel:${esc(p.phone.replace(/[^\d+]/g, ''))}">${CONTACT_SVG.phone}<span>${esc(p.phone)}</span></a>`,
+      p.email && `<a class="contact-line" href="mailto:${esc(p.email)}">${CONTACT_SVG.mail}<span>${esc(p.email)}</span></a>`])
   ].filter(Boolean)
   const requestForm = `<h2>${esc(p.premium ? text.requestTitle : text.inquiryTitle)}</h2>${state.error ? `<p class="err">${esc(state.error)}</p>` : ''}
       <form class="request" method="post" action="${esc(listingUrl(p))}">
@@ -707,7 +724,7 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
         '@type': 'LocalBusiness', '@id': `${abs(origin, listingUrl(p))}#business`, name: p.title, url: abs(origin, listingUrl(p)),
         description: p.seoDescription || p.summary || undefined,
         image: media.filter(m => m.kind === 'photo').slice(0, 6).map(m => abs(origin, m.src)),
-        telephone: p.phone || undefined,
+        telephone: gate ? undefined : p.phone || undefined,
         address: { '@type': 'PostalAddress', addressLocality: p.city || undefined, addressRegion: label(taxonomy.regions, p.county) || undefined, addressCountry: 'HR' },
         sameAs: [p.website, ...p.socials.map(([, u]) => u)].filter(Boolean).length ? [p.website, ...p.socials.map(([, u]) => u)].filter(Boolean) : undefined,
         subjectOf: p.videos.length ? p.videos.map(id => ({ '@type': 'VideoObject', name: `${p.title} - ${text.video}`, embedUrl: `https://www.youtube-nocookie.com/embed/${id}`, thumbnailUrl: `https://i.ytimg.com/vi/${id}/hqdefault.jpg` })) : undefined,
