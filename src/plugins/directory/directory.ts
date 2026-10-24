@@ -650,7 +650,7 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
 function contactGateBox(p: Listing, gate: NonNullable<DirectorySettings['contactsGate']>): string {
   const svg = JSON.stringify({ phone: CONTACT_SVG.phone, mail: CONTACT_SVG.mail, web: CONTACT_SVG.web, social: SOCIAL_SVG, website: directorySettings().text.website, socialTitle: directorySettings().text.socialTitle })
   return `<div class="contact-gate" data-contacts="${esc(p.slug)}"><p class="muted">${esc(gate.locked)}</p>
-    ${p.requests ? '' : `<p class="contact-gate-actions"><a class="btn" href="#${esc(directorySettings().params.requestAnchor)}" data-open-request>${esc(directorySettings().text.inquiryTitle)}</a></p>`}</div>
+</div>
     <script>(function(){var b=document.querySelector('[data-contacts]');if(!b||(' '+document.cookie).indexOf(' signed_in=1')<0)return;
     var s=${svg},e=function(t){return String(t).replace(/[&<>"']/g,function(c){return'&#'+c.charCodeAt(0)+';'})};
     fetch(${JSON.stringify(gate.path)}+'?s='+encodeURIComponent(b.getAttribute('data-contacts')),{credentials:'same-origin',headers:{accept:'application/json'}})
@@ -661,8 +661,8 @@ function contactGateBox(p: Listing, gate: NonNullable<DirectorySettings['contact
     if(ok(j.website))h+=(h?'<br>':'')+'<a class="contact-line" href="'+e(j.website)+'" rel="noopener" target="_blank">'+s.web+'<span>'+e(s.website)+'</span></a>';
     var so=(j.socials||[]).filter(function(x){return ok(x[1])});
     if(so.length)h+='<div class="contact-gate-social"><span>'+e(s.socialTitle)+'</span><span class="social-icons">'+so.map(function(x){return'<a class="social-icon" href="'+e(x[1])+'" rel="noopener" target="_blank" aria-label="'+e(x[0])+'" title="'+e(x[0])+'">'+(s.social[x[2]]||e(x[0]))+'</a>'}).join('')+'</span></div>';
-    b.innerHTML=h;}
-    else if(x[0]===403){b.innerHTML='<p class="muted">'+e(${JSON.stringify(gate.denied)})+'</p>';}}).catch(function(){});})();</script>`
+    b.innerHTML=h;document.querySelectorAll('[data-gate-cta]').forEach(function(a){a.remove()});}
+    else if(x[0]===403){b.innerHTML='<p class="muted">'+e(${JSON.stringify(gate.denied)})+'</p>';document.querySelectorAll('[data-gate-cta]').forEach(function(a){a.remove()});}}).catch(function(){});})();</script>`
 }
 
 function profilePage(p: Listing, state: { sent?: boolean; error?: string; values?: Record<string, string> }, origin: string, share = ''): string {
@@ -724,7 +724,8 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
     <aside class="box facts">${facts.map(([k, val]) => `<div><span>${esc(k)}</span>${esc(val)}</div>`).join('')}
       ${contact.length ? `<div><span>${esc(text.contact)}</span>${contact.join('<br>')}</div>` : ''}
       ${p.socials.length && !gate ? `<div><span>${esc(text.socialTitle)}</span><span class="social-icons">${p.socials.map(([name, u, k]) => `<a class="social-icon" href="${esc(u)}" rel="noopener" target="_blank" aria-label="${esc(name)}" title="${esc(name)}">${SOCIAL_SVG[k] ?? esc(name)}</a>`).join('')}</span></div>` : ''}
-      ${p.requests ? `<a class="btn" href="#${esc(P.requestAnchor)}" data-open-request>${esc(p.premium ? text.requestDate : text.inquiryTitle)}</a>` : ''}</aside></div></div>${mediaViewer(media, p.title, mt)}`,
+      ${p.requests ? `<a class="btn" href="#${esc(P.requestAnchor)}" data-open-request>${esc(p.premium ? text.requestDate : text.inquiryTitle)}</a>`
+        : gate && directorySettings().requestLogin ? `<a class="btn" href="#${esc(P.requestAnchor)}" data-open-request data-gate-cta>${esc(text.inquiryTitle)}</a>` : ''}</aside></div></div>${mediaViewer(media, p.title, mt)}`,
     { description: p.seoDescription || p.summary, canonical: p.canonical && /^https?:\/\//.test(p.canonical) ? p.canonical : abs(origin, listingUrl(p)), index: !p.noindex,
       image: p.seoImage ?? p.cover ?? p.image ? abs(origin, (p.seoImage ?? p.cover ?? p.image)!) : undefined, head: jsonLd({ '@context': 'https://schema.org', '@graph': [
       {
