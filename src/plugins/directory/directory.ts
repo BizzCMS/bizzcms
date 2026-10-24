@@ -648,10 +648,9 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
 // script asks the site's address for them when the visitor is signed in and fills them in, or shows why not. One
 // sign-in call only: a profile with the inquiry button (which sends signed-out visitors to sign-in) gets no own button.
 function contactGateBox(p: Listing, gate: NonNullable<DirectorySettings['contactsGate']>): string {
-  const back = encodeURIComponent(listingUrl(p))
   const svg = JSON.stringify({ phone: CONTACT_SVG.phone, mail: CONTACT_SVG.mail, web: CONTACT_SVG.web, social: SOCIAL_SVG, website: directorySettings().text.website, socialTitle: directorySettings().text.socialTitle })
   return `<div class="contact-gate" data-contacts="${esc(p.slug)}"><p class="muted">${esc(gate.locked)}</p>
-    ${p.requests ? '' : `<p class="contact-gate-actions"><a class="btn" href="${esc(gate.login)}${gate.login.includes('?') ? '&' : '?'}dalje=${back}">${esc(gate.signIn)}</a></p>`}</div>
+    ${p.requests ? '' : `<p class="contact-gate-actions"><a class="btn" href="#${esc(directorySettings().params.requestAnchor)}" data-open-request>${esc(directorySettings().text.inquiryTitle)}</a></p>`}</div>
     <script>(function(){var b=document.querySelector('[data-contacts]');if(!b||(' '+document.cookie).indexOf(' signed_in=1')<0)return;
     var s=${svg},e=function(t){return String(t).replace(/[&<>"']/g,function(c){return'&#'+c.charCodeAt(0)+';'})};
     fetch(${JSON.stringify(gate.path)}+'?s='+encodeURIComponent(b.getAttribute('data-contacts')),{credentials:'same-origin',headers:{accept:'application/json'}})
@@ -705,12 +704,14 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
   // The request form opens as a popup (the profile's button, "Request a date" on cards: #<anchor> or ?<anchor>=1).
   // With requestLogin, signed-out visitors see sign-in / sign-up links in it instead (the site refuses their posts).
   const login = directorySettings().requestLogin
-  const back = encodeURIComponent(`${listingUrl(p)}?${P.requestAnchor}=1`)
+  // A profile without inquiries (contacts gate only) returns to the profile itself: signed in, its contacts show.
+  const back = encodeURIComponent(p.requests ? `${listingUrl(p)}?${P.requestAnchor}=1` : listingUrl(p))
   const loginBox = login ? `<div class="req-login" data-req-login hidden><h2>${esc(text.requestLoginTitle)}</h2><p>${esc(text.requestLoginText)}</p>
       <p class="actions"><a class="btn" href="${esc(login.login.replace('{return}', back))}">${esc(text.requestLoginButton)}</a><a class="btn ghost" href="${esc(login.register.replace('{return}', back))}">${esc(text.requestRegisterButton)}</a></p></div>` : ''
-  const form = !p.requests ? '' : `<dialog id="${esc(P.requestAnchor)}" class="req-dialog" data-request${login ? ' data-needs-login' : ''}${state.sent || state.error ? ' data-open' : ''}>
+  // Contacts gate on a profile without inquiries: the same popup, sign-in box only (its button sits in the contacts box).
+  const form = !p.requests && !(gate && login) ? '' : `<dialog id="${esc(P.requestAnchor)}" class="req-dialog" data-request${login ? ' data-needs-login' : ''}${state.sent || state.error ? ' data-open' : ''}>
       <button type="button" class="req-close" data-close aria-label="${esc(text.close)}">×</button>${state.sent ? '' : loginBox}
-      <div data-req-form>${state.sent ? `<div class="req-thanks"><h2>${esc(text.thanksTitle)}</h2><p>${esc(text.thanksText)}</p></div>` : requestForm}</div></dialog>`
+      <div data-req-form>${!p.requests ? '' : state.sent ? `<div class="req-thanks"><h2>${esc(text.thanksTitle)}</h2><p>${esc(text.thanksText)}</p></div>` : requestForm}</div></dialog>`
   // Title: the company's own SEO title, else name - (sub)category, city, so companies with the same name in
   // different towns or categories never share a <title> (old directories have many: "Ana", "Simple", "Croata").
   const where = [sub?.label ?? parent?.label, p.city].filter(Boolean).join(', ')
