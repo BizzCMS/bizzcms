@@ -651,7 +651,7 @@ function contactGateBox(p: Listing, gate: NonNullable<DirectorySettings['contact
   const back = encodeURIComponent(listingUrl(p))
   const svg = JSON.stringify({ phone: CONTACT_SVG.phone, mail: CONTACT_SVG.mail, web: CONTACT_SVG.web, social: SOCIAL_SVG, website: directorySettings().text.website, socialTitle: directorySettings().text.socialTitle })
   return `<div class="contact-gate" data-contacts="${esc(p.slug)}"><p class="muted">${esc(gate.locked)}</p>
-    ${p.requests ? '' : `<p class="contact-gate-actions"><a class="btn ghost" href="${esc(gate.login)}${gate.login.includes('?') ? '&' : '?'}dalje=${back}">${esc(gate.signIn)}</a></p>`}</div>
+    ${p.requests ? '' : `<p class="contact-gate-actions"><a class="btn" href="${esc(gate.login)}${gate.login.includes('?') ? '&' : '?'}dalje=${back}">${esc(gate.signIn)}</a></p>`}</div>
     <script>(function(){var b=document.querySelector('[data-contacts]');if(!b||(' '+document.cookie).indexOf(' signed_in=1')<0)return;
     var s=${svg},e=function(t){return String(t).replace(/[&<>"']/g,function(c){return'&#'+c.charCodeAt(0)+';'})};
     fetch(${JSON.stringify(gate.path)}+'?s='+encodeURIComponent(b.getAttribute('data-contacts')),{credentials:'same-origin',headers:{accept:'application/json'}})
