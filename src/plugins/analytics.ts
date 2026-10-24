@@ -44,7 +44,9 @@ async function tables(db: D1Database) {
   await schemaOnce('bizz_stats', () => db.batch([
     db.prepare(`CREATE TABLE IF NOT EXISTS bizz_stats (day TEXT NOT NULL, kind TEXT NOT NULL, key TEXT NOT NULL,
       views INTEGER NOT NULL DEFAULT 0, visitors INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, kind, key))`),
-    db.prepare('CREATE TABLE IF NOT EXISTS bizz_stats_seen (day TEXT NOT NULL, scope TEXT NOT NULL, hash TEXT NOT NULL, PRIMARY KEY (day, scope, hash))')
+    db.prepare('CREATE TABLE IF NOT EXISTS bizz_stats_seen (day TEXT NOT NULL, scope TEXT NOT NULL, hash TEXT NOT NULL, PRIMARY KEY (day, scope, hash))'),
+    // Visitors right now: the last page of each visitor hash with its time (rows older than 30 minutes are removed).
+    db.prepare('CREATE TABLE IF NOT EXISTS bizz_stats_live (hash TEXT PRIMARY KEY, path TEXT NOT NULL, at INTEGER NOT NULL)')
   ]))
 }
 
@@ -124,7 +126,9 @@ export async function analyticsHit(request: Request, db: D1Database, kv: KVNames
     const rows = [add('total', '', 1, newVisitor), add('page', path, 1, newOnPage), add('country', country, 1, newVisitor), add('device', device, 1, newVisitor)]
     if (ref) rows.push(add('ref', ref, 1, newVisitor)) // entries only (pages of this site are not a source)
     if (utm) rows.push(add('utm', utm, 1, newVisitor))
+    rows.push(db.prepare('INSERT INTO bizz_stats_live (hash, path, at) VALUES (?, ?, ?) ON CONFLICT (hash) DO UPDATE SET path = excluded.path, at = excluded.at').bind(hash, path, Date.now()))
     await db.batch(rows)
+    if (Math.random() < 0.05) await db.prepare('DELETE FROM bizz_stats_live WHERE at < ?').bind(Date.now() - 30 * 60000).run()
     // The visitor hashes are only needed for the current day.
     if (Math.random() < 0.02) await db.prepare("DELETE FROM bizz_stats_seen WHERE day < date('now', '-2 days')").run()
   })().catch(e => console.error('analytics: hit not stored', e))
@@ -176,6 +180,8 @@ const STYLE = `<style>.bizz-stats-cards{display:grid;grid-template-columns:repea
 .bizz-stats-box h2{font-size:15px;font-weight:600;margin:0 0 8px}.bizz-stats-box td.n,.bizz-stats-box th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .bizz-stats-box td{overflow-wrap:anywhere}.bizz-stats-box td.bar{width:22%}.bizz-stats-box td.bar span{display:block;height:6px;border-radius:3px;background:#90a4ae}
 .bizz-stats-ranges{display:flex;flex-wrap:wrap;gap:6px}.bizz-stats-ranges a{padding:5px 11px;border-radius:999px;border:1px solid rgba(0,0,0,.12);font-size:13px;text-decoration:none;color:inherit}
+.bizz-stats-live ul{list-style:none;margin:8px 0 0;padding:0;font-size:12.5px}.bizz-stats-live li{display:flex;justify-content:space-between;gap:8px;padding:2px 0;overflow-wrap:anywhere}.bizz-stats-live li b{font-size:12.5px;display:inline}
+.bizz-stats-live .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#2f9e5a;margin-right:6px;animation:bzpulse 1.6s infinite}@keyframes bzpulse{50%{opacity:.35}}
 .bizz-stats-ranges a[aria-current]{background:#18181b;color:#fff;border-color:#18181b}.bizz-stats-note{font-size:13px;opacity:.7;margin-top:14px}</style>`
 
 /** Admin › Analytics, and the Install button on Admin › Plugins; null when the path is not ours. */
@@ -189,12 +195,18 @@ export async function analyticsAdminRoute(request: Request, path: string, db: D1
     return Response.json({ success: true, plugin })
   }
   if (path.startsWith(`/admin/plugins/${ANALYTICS_PLUGIN_ID}`)) activeCache = null // activate / deactivate shows at once
-  if (path !== '/admin/analytics' || request.method !== 'GET') return null
+  if ((path !== '/admin/analytics' && path !== '/admin/analytics/live') || request.method !== 'GET') return null
   const url = new URL(request.url)
   const user = await me(request, fetcher)
   if (!user) return Response.redirect(new URL('/auth/login?redirect=/admin/analytics', url).toString(), 302)
   if (user.role !== 'admin') return new Response('Only administrators can open Analytics.', { status: 403 })
   await tables(db)
+  const live = async () => {
+    const rows = (await db.prepare('SELECT path, COUNT(*) AS n FROM bizz_stats_live WHERE at > ? GROUP BY path ORDER BY n DESC LIMIT 10').bind(Date.now() - 5 * 60000).all<{ path: string; n: number }>()).results
+    return { now: rows.reduce((a, r) => a + r.n, 0), pages: rows }
+  }
+  // Visitors right now (last 5 minutes), for the page's own refresh every 15 seconds.
+  if (path === '/admin/analytics/live') return Response.json(await live(), { headers: { 'cache-control': 'no-store' } })
   const tz = opts.timeZone ?? 'UTC'
   const range = RANGES.find(r => r[0] === url.searchParams.get('d')) ?? RANGES[2]
   const to = dayOf(new Date(), tz), from = shift(to, 1 - range[2]), pTo = shift(from, -1), pFrom = shift(pTo, 1 - range[2])
@@ -208,18 +220,22 @@ export async function analyticsAdminRoute(request: Request, path: string, db: D1
   const byDay = new Map(daily.results.map(d => [d.day, d]))
   const days = range[2] > 1 ? Array.from({ length: range[2] }, (_, i) => shift(from, i)).map(d => byDay.get(d) ?? { day: d, views: 0, visitors: 0 }) : []
   const active = await isActive(db)
+  const rightNow = await live()
+  const livePages = (l: { pages: { path: string; n: number }[] }) => l.pages.map(r => `<li><span>${esc(r.path)}</span><b>${r.n}</b></li>`).join('') || '<li class="muted">Nobody on the site right now.</li>'
   const ranges = RANGES.map(([k, l]) => `<a href="/admin/analytics?d=${k}"${k === range[0] ? ' aria-current="page"' : ''}>${l}</a>`).join('')
   const body = `${STYLE}<div class="bizz-seo-page"><div class="mb-6"><h1 class="text-2xl/8 font-semibold text-zinc-950 dark:text-white sm:text-xl/8">Analytics</h1>
     <p class="mt-2 text-sm/6 text-zinc-500 dark:text-zinc-400">Every visitor of the public pages, counted without cookies and without personal data. Bots are not counted. ${esc(from)} – ${esc(to)}.</p></div>
     ${active ? '' : `<p class="bizz-api-saved">The plugin is not active, so nothing is counted. Activate it in <a href="/admin/plugins/${ANALYTICS_PLUGIN_ID}">Plugins › Analytics</a>.</p>`}
     <nav class="bizz-stats-ranges" aria-label="Period">${ranges}</nav>
-    <div class="bizz-stats-cards"><div class="bizz-stats-card"><span>Visitors</span><b>${num(u)}${change(u, pu)}</b></div><div class="bizz-stats-card"><span>Page views</span><b>${num(v)}${change(v, pv)}</b></div>
+    <div class="bizz-stats-cards"><div class="bizz-stats-card bizz-stats-live"><span><i class="dot"></i>Right now</span><b data-live-now>${num(rightNow.now)}</b><ul data-live-pages>${livePages(rightNow)}</ul></div><div class="bizz-stats-card"><span>Visitors</span><b>${num(u)}${change(u, pu)}</b></div><div class="bizz-stats-card"><span>Page views</span><b>${num(v)}${change(v, pv)}</b></div>
     <div class="bizz-stats-card"><span>Views per visitor</span><b>${u ? (v / u).toFixed(1) : '0'}</b></div></div>
     ${chart(days)}
     <div class="bizz-stats-grid">${table('Pages', pages.results, k => `<a href="${esc(k)}" target="_blank" rel="noopener">${esc(k)}</a>`, v)}
     ${table('Referrers', refs.results, k => esc(k), v)}${table('Countries', countries.results, k => esc(country(k)), v)}
     ${table('Devices', devices.results, k => esc(k), v)}${table('Campaigns (utm_source / medium / campaign)', utms.results, k => esc(k), v)}</div>
-    <p class="bizz-stats-note">Referrers count entries from other sites ((direct): typed address, bookmarks, apps). The previous period is shown as the change in %.</p></div>`
+    <script>(function(){var n=document.querySelector('[data-live-now]'),u=document.querySelector('[data-live-pages]');function e(t){return String(t).replace(/[&<>"]/g,function(c){return'&#'+c.charCodeAt(0)+';'})}
+    setInterval(function(){fetch('/admin/analytics/live',{credentials:'same-origin'}).then(function(r){return r.json()}).then(function(j){n.textContent=j.now;u.innerHTML=j.pages.length?j.pages.map(function(p){return'<li><span>'+e(p.path)+'</span><b>'+p.n+'</b></li>'}).join(''):'<li class="muted">Nobody on the site right now.</li>'}).catch(function(){})},15000)})()</script>
+    <p class="bizz-stats-note">Right now: visitors with a page view in the last 5 minutes, refreshed every 15 seconds. Referrers count entries from other sites ((direct): typed address, bookmarks, apps). The previous period is shown as the change in %.</p></div>`
   const base = await fetcher(new Request(new URL('/admin/dashboard', url), { headers: request.headers }))
   if (!base.ok || !base.headers.get('content-type')?.includes('text/html')) return base
   return new HTMLRewriter()
