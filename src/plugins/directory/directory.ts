@@ -645,18 +645,24 @@ async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ ht
 }
 
 // Contacts for some visitors only (DirectorySettings.contactsGate): the page (cached, crawled) never contains them; the
-// script asks the site's address for them when the visitor is signed in and fills them in, or shows why not.
+// script asks the site's address for them when the visitor is signed in and fills them in, or shows why not. One
+// sign-in call only: a profile with the inquiry button (which sends signed-out visitors to sign-in) gets no own button.
 function contactGateBox(p: Listing, gate: NonNullable<DirectorySettings['contactsGate']>): string {
   const back = encodeURIComponent(listingUrl(p))
-  const svg = JSON.stringify({ phone: CONTACT_SVG.phone, mail: CONTACT_SVG.mail })
+  const svg = JSON.stringify({ phone: CONTACT_SVG.phone, mail: CONTACT_SVG.mail, web: CONTACT_SVG.web, social: SOCIAL_SVG, website: directorySettings().text.website, socialTitle: directorySettings().text.socialTitle })
   return `<div class="contact-gate" data-contacts="${esc(p.slug)}"><p class="muted">${esc(gate.locked)}</p>
-    <p class="contact-gate-actions"><a href="${esc(gate.register)}${gate.register.includes('?') ? '&' : '?'}dalje=${back}">${esc(gate.signUp)}</a> · <a href="${esc(gate.login)}${gate.login.includes('?') ? '&' : '?'}dalje=${back}">${esc(gate.signIn)}</a></p></div>
+    ${p.requests ? '' : `<p class="contact-gate-actions"><a class="btn ghost" href="${esc(gate.login)}${gate.login.includes('?') ? '&' : '?'}dalje=${back}">${esc(gate.signIn)}</a></p>`}</div>
     <script>(function(){var b=document.querySelector('[data-contacts]');if(!b||(' '+document.cookie).indexOf(' signed_in=1')<0)return;
     var s=${svg},e=function(t){return String(t).replace(/[&<>"']/g,function(c){return'&#'+c.charCodeAt(0)+';'})};
     fetch(${JSON.stringify(gate.path)}+'?s='+encodeURIComponent(b.getAttribute('data-contacts')),{credentials:'same-origin',headers:{accept:'application/json'}})
     .then(function(r){return r.json().then(function(j){return[r.status,j]})}).then(function(x){var j=x[1];
     if(x[0]===200){var h='';if(j.phone)h+='<a class="contact-line" href="tel:'+e(j.phone.replace(/[^0-9+]/g,''))+'">'+s.phone+'<span>'+e(j.phone)+'</span></a>';
-    if(j.email)h+=(h?'<br>':'')+'<a class="contact-line" href="mailto:'+e(j.email)+'">'+s.mail+'<span>'+e(j.email)+'</span></a>';b.innerHTML=h;}
+    if(j.email)h+=(h?'<br>':'')+'<a class="contact-line" href="mailto:'+e(j.email)+'">'+s.mail+'<span>'+e(j.email)+'</span></a>';
+    var ok=function(u){return /^https?:[/][/]/i.test(String(u||''))};
+    if(ok(j.website))h+=(h?'<br>':'')+'<a class="contact-line" href="'+e(j.website)+'" rel="noopener" target="_blank">'+s.web+'<span>'+e(s.website)+'</span></a>';
+    var so=(j.socials||[]).filter(function(x){return ok(x[1])});
+    if(so.length)h+='<div class="contact-gate-social"><span>'+e(s.socialTitle)+'</span><span class="social-icons">'+so.map(function(x){return'<a class="social-icon" href="'+e(x[1])+'" rel="noopener" target="_blank" aria-label="'+e(x[0])+'" title="'+e(x[0])+'">'+(s.social[x[2]]||e(x[0]))+'</a>'}).join('')+'</span></div>';
+    b.innerHTML=h;}
     else if(x[0]===403){b.innerHTML='<p class="muted">'+e(${JSON.stringify(gate.denied)})+'</p>';}}).catch(function(){});})();</script>`
 }
 
@@ -680,8 +686,8 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
     [text.amenities, p.amenities.join(', ')]
   ].filter(([, val]) => val)
   const contact = [
-    p.website && `<a class="contact-line" href="${esc(p.website)}" rel="noopener" target="_blank">${CONTACT_SVG.web}<span>${esc(text.website)}</span></a>`,
-    ...(gate ? [(p.phone || p.email) && contactGateBox(p, gate)] : [
+    ...(gate ? [(p.phone || p.email || p.website || p.socials.length) && contactGateBox(p, gate)] : [
+      p.website && `<a class="contact-line" href="${esc(p.website)}" rel="noopener" target="_blank">${CONTACT_SVG.web}<span>${esc(text.website)}</span></a>`,
       p.phone && `<a class="contact-line" href="tel:${esc(p.phone.replace(/[^\d+]/g, ''))}">${CONTACT_SVG.phone}<span>${esc(p.phone)}</span></a>`,
       p.email && `<a class="contact-line" href="mailto:${esc(p.email)}">${CONTACT_SVG.mail}<span>${esc(p.email)}</span></a>`])
   ].filter(Boolean)
@@ -716,7 +722,7 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
     <div class="pcols"><div>${paragraphs}${gallery}${share}${form}</div>
     <aside class="box facts">${facts.map(([k, val]) => `<div><span>${esc(k)}</span>${esc(val)}</div>`).join('')}
       ${contact.length ? `<div><span>${esc(text.contact)}</span>${contact.join('<br>')}</div>` : ''}
-      ${p.socials.length ? `<div><span>${esc(text.socialTitle)}</span><span class="social-icons">${p.socials.map(([name, u, k]) => `<a class="social-icon" href="${esc(u)}" rel="noopener" target="_blank" aria-label="${esc(name)}" title="${esc(name)}">${SOCIAL_SVG[k] ?? esc(name)}</a>`).join('')}</span></div>` : ''}
+      ${p.socials.length && !gate ? `<div><span>${esc(text.socialTitle)}</span><span class="social-icons">${p.socials.map(([name, u, k]) => `<a class="social-icon" href="${esc(u)}" rel="noopener" target="_blank" aria-label="${esc(name)}" title="${esc(name)}">${SOCIAL_SVG[k] ?? esc(name)}</a>`).join('')}</span></div>` : ''}
       ${p.requests ? `<a class="btn" href="#${esc(P.requestAnchor)}" data-open-request>${esc(p.premium ? text.requestDate : text.inquiryTitle)}</a>` : ''}</aside></div></div>${mediaViewer(media, p.title, mt)}`,
     { description: p.seoDescription || p.summary, canonical: p.canonical && /^https?:\/\//.test(p.canonical) ? p.canonical : abs(origin, listingUrl(p)), index: !p.noindex,
       image: p.seoImage ?? p.cover ?? p.image ? abs(origin, (p.seoImage ?? p.cover ?? p.image)!) : undefined, head: jsonLd({ '@context': 'https://schema.org', '@graph': [
@@ -726,7 +732,7 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
         image: media.filter(m => m.kind === 'photo').slice(0, 6).map(m => abs(origin, m.src)),
         telephone: gate ? undefined : p.phone || undefined,
         address: { '@type': 'PostalAddress', addressLocality: p.city || undefined, addressRegion: label(taxonomy.regions, p.county) || undefined, addressCountry: 'HR' },
-        sameAs: [p.website, ...p.socials.map(([, u]) => u)].filter(Boolean).length ? [p.website, ...p.socials.map(([, u]) => u)].filter(Boolean) : undefined,
+        sameAs: gate ? undefined : [p.website, ...p.socials.map(([, u]) => u)].filter(Boolean).length ? [p.website, ...p.socials.map(([, u]) => u)].filter(Boolean) : undefined,
         subjectOf: p.videos.length ? p.videos.map(id => ({ '@type': 'VideoObject', name: `${p.title} - ${text.video}`, embedUrl: `https://www.youtube-nocookie.com/embed/${id}`, thumbnailUrl: `https://i.ytimg.com/vi/${id}/hqdefault.jpg` })) : undefined,
         additionalType: sub?.label ?? parent?.label
       },

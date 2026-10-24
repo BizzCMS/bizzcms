@@ -5,7 +5,7 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 ## [Unreleased]
 
 ### Added
-- **Directory plugin: `contactsGate`**: phone and e-mail only for some visitors (e.g. signed-in couples). Profile pages and their structured data never contain them; a locked box with sign-up / sign-in links asks the site's address (`path?s=<slug>`, JSON, 401/403) when the visitor is signed in.
+- **Directory plugin: `contactsGate`**: phone and e-mail only for some visitors (e.g. signed-in couples). Profile pages and their structured data never contain them; a locked box asks the site's address (`path?s=<slug>`, JSON, 401/403) when the visitor is signed in. With the gate the website and social links are protected the same way (address stays public); the box has one sign-in button, and none when the profile has the inquiry button (that already sends signed-out visitors to sign-in).
 
 ## [0.2.11] - 2026-10-23
 
