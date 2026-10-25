@@ -4,6 +4,8 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+## [0.2.12] - 2026-10-25
+
 ### Added
 - **Analytics plugin** (`src/plugins/analytics.ts`, optional, Admin › Plugins › Analytics): the site's own visitor statistics without cookies or personal data (daily anonymous visitor hash, salt deleted after 2 days; bots left out). Admin › Analytics: visitors, page views, change vs the previous period, daily chart, pages, referrers, countries, devices and UTM campaigns. Can run alongside Google Analytics. Sites wire `analyticsHit` (POST `/_bz/hit`), `withAnalytics` and `analyticsAdminRoute`.
 - **Directory plugin: `contactsGate`**: phone and e-mail only for some visitors (e.g. signed-in couples). Profile pages and their structured data never contain them; a locked box asks the site's address (`path?s=<slug>`, JSON, 401/403) when the visitor is signed in. With the gate the website and social links are protected the same way (address stays public); the box has one sign-in button, and none when the profile has the inquiry button (that already sends signed-out visitors to sign-in).
