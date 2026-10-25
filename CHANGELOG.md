@@ -4,6 +4,9 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Changed
+- **Analytics page loads faster**: the page frame, the sign-in check and the numbers are fetched at the same time instead of one after another (three internal passes in a row made it the slowest admin page).
+
 ## [0.2.12] - 2026-10-25
 
 ### Added

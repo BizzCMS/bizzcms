@@ -224,10 +224,13 @@ export async function analyticsAdminRoute(request: Request, path: string, db: D1
   if (path.startsWith(`/admin/plugins/${ANALYTICS_PLUGIN_ID}`)) activeCache = null // activate / deactivate shows at once
   if ((path !== '/admin/analytics' && path !== '/admin/analytics/live') || request.method !== 'GET') return null
   const url = new URL(request.url)
-  const user = await me(request, fetcher)
+  // The page frame (the dashboard layout) is fetched while the sign-in is checked and the numbers are read, not
+  // after them: three internal passes in a row made Analytics the slowest admin page (2026-10-25).
+  const page = path === '/admin/analytics' ? fetcher(new Request(new URL('/admin/dashboard', url), { headers: request.headers })) : null
+  page?.catch(() => {}) // a signed-out or non-admin visitor returns before it is used
+  const [user] = await Promise.all([me(request, fetcher), tables(db)])
   if (!user) return Response.redirect(new URL('/auth/login?redirect=/admin/analytics', url).toString(), 302)
   if (user.role !== 'admin') return new Response('Only administrators can open Analytics.', { status: 403 })
-  await tables(db)
   const live = async () => {
     const rows = (await db.prepare('SELECT path, COUNT(*) AS n FROM bizz_stats_live WHERE at > ? GROUP BY path ORDER BY n DESC LIMIT 10').bind(Date.now() - 5 * 60000).all<{ path: string; n: number }>()).results
     return { now: rows.reduce((a, r) => a + r.n, 0), pages: rows }
@@ -239,15 +242,13 @@ export async function analyticsAdminRoute(request: Request, path: string, db: D1
   const to = dayOf(new Date(), tz), from = shift(to, 1 - range[2]), pTo = shift(from, -1), pFrom = shift(pTo, 1 - range[2])
   const sum = (a: string, b: string) => db.prepare("SELECT COALESCE(SUM(views), 0) AS v, COALESCE(SUM(visitors), 0) AS u FROM bizz_stats WHERE kind = 'total' AND day BETWEEN ? AND ?").bind(a, b).first<{ v: number; u: number }>()
   const top = (kind: string, limit = 15) => db.prepare('SELECT key, SUM(views) AS v, SUM(visitors) AS u FROM bizz_stats WHERE kind = ? AND day BETWEEN ? AND ? GROUP BY key ORDER BY v DESC LIMIT ?').bind(kind, from, to, limit).all<{ key: string; v: number; u: number }>()
-  const [now, before, daily, pages, refs, countries, devices, utms] = await Promise.all([
+  const [now, before, daily, pages, refs, countries, devices, utms, active, rightNow] = await Promise.all([
     sum(from, to), sum(pFrom, pTo),
     db.prepare("SELECT day, views, visitors FROM bizz_stats WHERE kind = 'total' AND day BETWEEN ? AND ? ORDER BY day").bind(from, to).all<{ day: string; views: number; visitors: number }>(),
-    top('page', 20), top('ref'), top('country'), top('device', 5), top('utm')])
+    top('page', 20), top('ref'), top('country'), top('device', 5), top('utm'), isActive(db), live()])
   const v = now?.v ?? 0, u = now?.u ?? 0, pv = before?.v ?? 0, pu = before?.u ?? 0
   const byDay = new Map(daily.results.map(d => [d.day, d]))
   const days = range[2] > 1 ? Array.from({ length: range[2] }, (_, i) => shift(from, i)).map(d => byDay.get(d) ?? { day: d, views: 0, visitors: 0 }) : []
-  const active = await isActive(db)
-  const rightNow = await live()
   const livePages = (l: { pages: { path: string; n: number }[] }) => l.pages.map(r => `<li><span>${esc(r.path)}</span><b>${r.n}</b></li>`).join('') || '<li class="muted">Nobody on the site right now.</li>'
   const ranges = RANGES.map(([k, l]) => `<a href="/admin/analytics?d=${k}"${k === range[0] ? ' aria-current="page"' : ''}>${l}</a>`).join('')
   const body = `${STYLE}<div class="bizz-seo-page"><div class="mb-6"><h1 class="text-2xl/8 font-semibold text-zinc-950 dark:text-white sm:text-xl/8">Analytics</h1>
@@ -263,7 +264,7 @@ export async function analyticsAdminRoute(request: Request, path: string, db: D1
     <script>(function(){var n=document.querySelector('[data-live-now]'),u=document.querySelector('[data-live-pages]');function e(t){return String(t).replace(/[&<>"]/g,function(c){return'&#'+c.charCodeAt(0)+';'})}
     setInterval(function(){fetch('/admin/analytics/live',{credentials:'same-origin'}).then(function(r){return r.json()}).then(function(j){n.textContent=j.now;u.innerHTML=j.pages.length?j.pages.map(function(p){return'<li><span>'+e(p.path)+'</span><b>'+p.n+'</b></li>'}).join(''):'<li class="muted">Nobody on the site right now.</li>'}).catch(function(){})},15000)})()</script>
     <p class="bizz-stats-note">Right now: visitors with a page view in the last 5 minutes, refreshed every 15 seconds. Referrers count entries from other sites ((direct): typed address, bookmarks, apps). The previous period is shown as the change in %.</p></div>`
-  const base = await fetcher(new Request(new URL('/admin/dashboard', url), { headers: request.headers }))
+  const base = await page!
   if (!base.ok || !base.headers.get('content-type')?.includes('text/html')) return base
   return new HTMLRewriter()
     .on('main > div.grow', { element: el => { el.setInnerContent(body, { html: true }) } })
