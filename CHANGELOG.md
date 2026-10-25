@@ -4,6 +4,9 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Changed (engine 3.0.0-beta.28-bizzcms.11)
+- **Faster admin**: fewer lookups on every admin request (permissions loaded once, active plugins cached, migrations status at most once per session, dashboard polling every 30 s while the tab is visible).
+
 ### Added
 - **`setCacheBypass(fn)`** (`src/edge-cache.ts`): a site can choose which public pages a session cookie keeps out of the edge cache. `fn(path, request)` returns true for the pages that are personal; only those skip the cache for people with a session cookie, every other public page is served from the cache for everybody. `/admin`, `/auth` and `/api` always skip it, and a page built for a signed-in person is never stored. Without it nothing changes: any session cookie skips the cache on every page.
 - **`src/session.ts`** (`sessionUser`, `sessionInfo`, `isSignedIn`, `isAdminSession`): the internal sign-in check is asked once per request, however many routes need it. Never shared between requests.
