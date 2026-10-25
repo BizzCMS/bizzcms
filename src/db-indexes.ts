@@ -11,6 +11,13 @@ const INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_site_slug ON documents(type_id, lower(slug))',
   "CREATE INDEX IF NOT EXISTS idx_site_page_path ON documents(json_extract(data, '$.path'))",
   'CREATE INDEX IF NOT EXISTS idx_documents_updated_at ON documents(updated_at)',
+  // Old-address lookups (/news/post/<old id>, directory profiles): the sites compare the bare json_extract, the
+  // directory plugin compares CAST(... AS INTEGER); an expression index only helps the form it was built from.
+  "CREATE INDEX IF NOT EXISTS idx_site_legacy_id ON documents(json_extract(data, '$.legacyId'))",
+  "CREATE INDEX IF NOT EXISTS idx_site_legacy_id_int ON documents(CAST(json_extract(data, '$.legacyId') AS INTEGER))",
+  // Blog | News sections: the exact COALESCE expression of src/sections.ts and src/plugins/seo.ts, newest first
+  // (same definition as the sites' sql/indexes.sql, so running either one first gives the same index).
+  "CREATE INDEX IF NOT EXISTS idx_site_section ON documents(type_id, is_published, COALESCE(NULLIF(json_extract(data, '$.section'), ''), 'blog'), published_at)",
   'CREATE INDEX IF NOT EXISTS idx_error_log_at ON bizz_error_log(at)',
   'CREATE INDEX IF NOT EXISTS idx_error_log_reference ON bizz_error_log(reference)',
   'CREATE INDEX IF NOT EXISTS idx_not_found_last_seen ON bizz_not_found(last_seen)'
