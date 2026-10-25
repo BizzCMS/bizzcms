@@ -82,7 +82,7 @@ registerCollections([pages, posts, ...directoryCollections()])
 // in fetch, before the admin layer:
 const portal = await handleCompanyPortal(request, env, cms.fetch)   // null for other paths
 if (portal) return portal
-const directory = await handleDirectory(request, env)               // null for other paths
+const directory = await handleDirectory(request, env, ctx)          // null for other paths; ctx (optional) lets the search index refresh after the response
 if (directory) return directory
 ```
 
@@ -120,6 +120,28 @@ Other exports for the site's own pages:
 - URL helpers: `directoryUrl`, `categoryUrl`, `cityUrl`, `listingUrl`
 
 Region pages: set `routes.region` (e.g. `'/companies/region/{slug}/'`) and each region with published companies gets its own indexable page (and sitemap entry); choosing a region in the filter goes there. Without it a region stays a ?region= filter (noindex).
+
+## Speed with thousands of companies (the search index)
+
+Lists, category/city/region pages, filters, facet counts, search and the type-ahead suggestions read a narrow copy of the
+published companies instead of parsing every company's JSON on every request (`src/plugins/directory/cards.ts`):
+tables `site_directory_cards`, `_card_data`, `_card_search` (accents and case folded once), `_card_categories` and
+`_card_cities` (main and extra memberships), `_city_slugs`, `_dirty` and `_meta`. They are created and filled by the first request;
+nothing to install. Results are the same as before: dates (paid until, featured until) are compared when the page is
+built, and plan limits for extra categories and cities are applied exactly as in the profile.
+
+- **Freshness**: three triggers on `documents` (`site_directory_dirty_i`, `_u`, `_d`) note every published company that
+  is inserted, changed or deleted in `site_directory_dirty`, whoever does it: the admin, the company portal, an import or
+  SQL by hand. Every page asks, in the same database round trip as its queries, whether anything is dirty. If so, that page is
+  answered from `documents` as before and the dirty companies are copied again (with `ctx` after the response, without it
+  before the answer), so a save shows at once and nothing is ever served stale.
+- **Settings**: changing plans, categories, subcategories or amenities in `setDirectory` rebuilds the copy once.
+- **Removing it**: drop the three triggers first (they write into `site_directory_dirty`), then the `site_directory_*`
+  tables. Dropping the card tables alone is safe: they are rebuilt by the next request.
+- **Failures** never break the directory: any error falls back to the original queries (three in a row pause the index for a minute).
+- Suggestions (`?suggest=`) are kept for a minute in the edge cache per search text.
+- `node scripts/verify-directory-cards.mjs <copy of the site's D1 sqlite file>` replays hundreds of requests against the
+  version before the index and this one and compares the output.
 
 ## Styling
 

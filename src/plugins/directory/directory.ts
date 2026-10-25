@@ -12,6 +12,7 @@ import {
 } from './config'
 import { esc, fold, html, icon, mediaList, pageWindow, safeDecode, safeUrl, str, truthy, validEmail } from './util'
 import { mediaGallery, mediaHero, mediaItems, mediaViewer, videoIds } from './media'
+import { categoryFacetStatement, cityFacetStatement, cityLabelStatement, cityListStatement, cityRegionStatement, countStatement, oneViaCards, pageStatement, priceFacetStatement, regionFacetStatement, suggestStatement, viaCards, type Waiter } from './cards'
 
 type Env = { DB: D1Database }
 type Row = Record<string, unknown>
@@ -27,8 +28,12 @@ interface Filters {
   priceMin: string; priceMax: string
 }
 
-/** Directory pages and profiles at the site's addresses; null for any other path. */
-export async function handleDirectory(request: Request, env: Env): Promise<Response | null> {
+/**
+ * Directory pages and profiles at the site's addresses; null for any other path.
+ * `ctx` (the Worker's execution context) is optional: with it the search index (cards.ts) is brought up to date after the
+ * response when it is out of date; without it, before the answer of the request that finds it out of date.
+ */
+export async function handleDirectory(request: Request, env: Env, ctx?: Waiter): Promise<Response | null> {
   const { routes, text, params } = directorySettings()
   const url = new URL(request.url)
   const path = url.pathname.replace(/\/+$/, '') || '/'
@@ -48,7 +53,7 @@ export async function handleDirectory(request: Request, env: Env): Promise<Respo
     if (slashed(pattern)) return moved(url.pathname + '/' + url.search)
     // Type-ahead suggestions for the search box: ?suggest=<text> → JSON (cities first, then companies).
     const suggest = url.searchParams.get('suggest')
-    if (suggest !== null) return Response.json(await suggestions(env.DB, suggest), { headers: { 'cache-control': 'public, max-age=300' } })
+    if (suggest !== null) return suggestionsResponse(env.DB, suggest, url, ctx)
     // Clean addresses: empty parameters go (?q=&kategorija=x), and a search that is only a category or a city
     // goes to that category/city page (the home search form sends ?kategorija=catering&q=).
     const clean = new URLSearchParams()
@@ -69,7 +74,7 @@ export async function handleDirectory(request: Request, env: Env): Promise<Respo
     if (landing.kind === 'region') filters.region = safeDecode(landing.slug!)
     // A typed city is an exact filter: "osijek" → the Osijek page; "bend osijek" → "bend" among Osijek companies.
     if (filters.q && !filters.city) {
-      const hit = await cityInQuery(env.DB, filters.q)
+      const hit = await cityInQuery(env.DB, filters.q, ctx)
       if (hit) {
         filters.city = hit.slug
         filters.q = hit.rest
@@ -80,7 +85,7 @@ export async function handleDirectory(request: Request, env: Env): Promise<Respo
         }
       }
     }
-    const page = await directoryPage(env.DB, filters, url)
+    const page = await directoryPage(env.DB, filters, url, ctx)
     return html(page.html, page.found || landing.kind === 'directory' ? 200 : 404)
   }
 
@@ -244,9 +249,11 @@ const cityMemberships = (base: string) => `WITH base AS (SELECT id, data FROM do
       AND (SELECT ${extraCitiesSql().replace(/json_extract\(data,/g, 'json_extract(base.data,')}))`
 // Cities that have published companies (name + slug), cached briefly per isolate.
 let cityCache: { at: number; list: { name: string; slug: string; n: number }[] } | null = null
-async function cityList(db: D1Database) {
+async function cityList(db: D1Database, ctx?: Waiter) {
   if (cityCache && Date.now() - cityCache.at < 300_000) return cityCache.list
-  const rows = (await db.prepare(`${cityMemberships(PUBLISHED)} SELECT k AS city, COUNT(DISTINCT id) AS n FROM m GROUP BY 1`).bind(new Date().toISOString().slice(0, 10)).all<{ city: string; n: number }>()).results
+  // From the search index (cards.ts) when it is up to date, else from documents.
+  const rows = ((await oneViaCards(db, ctx, today => cityListStatement(db, today))) as { city: string; n: number }[] | null)
+    ?? (await db.prepare(`${cityMemberships(PUBLISHED)} SELECT k AS city, COUNT(DISTINCT id) AS n FROM m GROUP BY 1`).bind(new Date().toISOString().slice(0, 10)).all<{ city: string; n: number }>()).results
   const bySlug = new Map<string, { name: string; slug: string; n: number }>()
   for (const r of rows) { const slug = slugify(r.city); const e = bySlug.get(slug); if (e) e.n += Number(r.n); else if (slug) bySlug.set(slug, { name: r.city, slug, n: Number(r.n) }) }
   cityCache = { at: Date.now(), list: [...bySlug.values()] }
@@ -254,10 +261,10 @@ async function cityList(db: D1Database) {
 }
 
 /** The longest city name (whole words, accents ignored) in the search text, and the text without it. */
-async function cityInQuery(db: D1Database, q: string): Promise<{ slug: string; rest: string } | null> {
+async function cityInQuery(db: D1Database, q: string, ctx?: Waiter): Promise<{ slug: string; rest: string } | null> {
   const words = slugify(q).split('-').filter(Boolean)
   if (!words.length) return null
-  const cities = (await cityList(db)).map(c => ({ ...c, w: c.slug.split('-') })).sort((a, b) => b.w.length - a.w.length)
+  const cities = (await cityList(db, ctx)).map(c => ({ ...c, w: c.slug.split('-') })).sort((a, b) => b.w.length - a.w.length)
   for (const c of cities) {
     for (let i = 0; i + c.w.length <= words.length; i++) {
       if (c.w.every((w, j) => words[i + j] === w)) {
@@ -270,16 +277,43 @@ async function cityInQuery(db: D1Database, q: string): Promise<{ slug: string; r
 }
 
 /** Search-box suggestions: up to 5 cities (by name start) and 6 companies (by name), with their addresses. */
-async function suggestions(db: D1Database, raw: string) {
+export async function suggestions(db: D1Database, raw: string, ctx?: Waiter) {
   const q = slugify(raw).replace(/-/g, ' ').trim()
   if (q.length < 2) return []
-  const cities = (await cityList(db)).filter(c => c.slug.replace(/-/g, ' ').startsWith(q) || c.slug.replace(/-/g, ' ').includes(' ' + q))
+  const [cityRows, companies] = await Promise.all([cityList(db, ctx), companySuggestions(db, q, ctx)])
+  const cities = cityRows.filter(c => c.slug.replace(/-/g, ' ').startsWith(q) || c.slug.replace(/-/g, ' ').includes(' ' + q))
     .sort((a, b) => b.n - a.n).slice(0, 5)
     .map(c => ({ kind: 'city', label: c.name, count: c.n, url: cityUrl(c.slug) }))
+  return [...cities, ...companies.map(c => ({ kind: 'company', label: c.title, city: c.city ?? '', url: listingUrl(c) }))]
+}
+
+/** The 6 companies whose name contains `q` (already folded), in list order. */
+async function companySuggestions(db: D1Database, q: string, ctx?: Waiter): Promise<Card[]> {
+  const fast = await oneViaCards(db, ctx, today => suggestStatement(db, q, today))
+  if (fast) return fast.map(toCard)
   const today = new Date().toISOString().slice(0, 10)
-  const rows = (await db.prepare(`SELECT ${CARD_FIELDS()} FROM documents WHERE ${PUBLISHED} AND ${fold('title')} LIKE ? ORDER BY featured DESC, premium DESC, CAST(${J('views')} AS INTEGER) DESC, title COLLATE NOCASE LIMIT 6`)
+  return (await db.prepare(`SELECT ${CARD_FIELDS()} FROM documents WHERE ${PUBLISHED} AND ${fold('title')} LIKE ? ORDER BY featured DESC, premium DESC, CAST(${J('views')} AS INTEGER) DESC, title COLLATE NOCASE LIMIT 6`)
     .bind(today, `%${q}%`).all<Row>()).results.map(toCard)
-  return [...cities, ...rows.map(c => ({ kind: 'company', label: c.title, city: c.city ?? '', url: listingUrl(c) }))]
+}
+
+/**
+ * The suggestions as a JSON response, kept for a minute in the edge cache (the same text gives the same answer for everybody;
+ * a typed word is looked up once per minute per location, not once per keystroke of every visitor).
+ */
+async function suggestionsResponse(db: D1Database, raw: string, url: URL, ctx?: Waiter): Promise<Response> {
+  const headers = { 'cache-control': 'public, max-age=300' }
+  const q = slugify(raw).replace(/-/g, ' ').trim()
+  if (q.length < 2) return Response.json([], { headers })
+  const cache = typeof caches === 'undefined' ? undefined : (caches as unknown as { default: Cache }).default
+  const key = new Request(`${url.origin}${url.pathname}?${new URLSearchParams({ suggest: q, __bizz_suggest: '1' })}`)
+  const hit = await cache?.match(key).catch(() => undefined)
+  if (hit) return new Response(hit.body, { status: 200, headers })
+  const body = JSON.stringify(await suggestions(db, raw, ctx))
+  if (cache) {
+    const store = cache.put(key, new Response(body, { headers: { 'content-type': 'application/json', 'cache-control': 'public, max-age=60' } })).catch(() => undefined)
+    if (ctx) ctx.waitUntil(store); else await store
+  }
+  return new Response(body, { headers: { ...headers, 'content-type': 'application/json' } })
 }
 
 export interface Card {
@@ -287,7 +321,33 @@ export interface Card {
   image?: string; capacity?: number; priceLevel?: string; priceFrom?: number; priceUnit?: string; premium: boolean; featured?: boolean; legacyId?: number; legacySlug?: string
 }
 
-async function search(db: D1Database, f: Filters) {
+/** The results of a search, from the search index (cards.ts) when it is up to date, else from documents (same results). */
+export async function search(db: D1Database, f: Filters, ctx?: Waiter) {
+  const offset = (f.page - 1) * PAGE_SIZE
+  const fast = await viaCards(db, ctx, today => [
+    countStatement(db, f, today), pageStatement(db, f, today, PAGE_SIZE, offset),
+    categoryFacetStatement(db, f, today), regionFacetStatement(db, f, today), cityFacetStatement(db, f, today), priceFacetStatement(db, f, today),
+    // A chosen city: the name as stored, and (without a region filter) its region for the region list.
+    ...(f.city ? [cityLabelStatement(db, f.city, today)] : []),
+    ...(f.city && !f.region ? [cityRegionStatement(db, f.city)] : [])
+  ])
+  if (!fast) return searchOriginal(db, f)
+  const [count, rows, catFacets, regionFacets, cityFacets, priceFacet] = fast
+  const pb = priceFacet.results[0] as { lo: number | null; hi: number | null; n: number } | undefined
+  return {
+    total: Number((count.results[0] as Row)?.n ?? 0),
+    cards: (rows.results as Row[]).map(toCard),
+    categoryCounts: catFacets.results as { k: string; s: string | null; n: number }[],
+    regionCounts: new Map((regionFacets.results as { k: string; n: number }[]).map(r => [r.k, r.n])),
+    cities: (cityFacets.results as { k: string; n: number }[]).map(r => ({ name: r.k, slug: slugify(r.k), n: r.n })),
+    cityLabel: f.city ? (fast[6].results[0] as { city: string } | undefined)?.city : undefined,
+    cityRegion: f.city && !f.region ? (fast[7].results[0] as { k: string } | undefined)?.k : undefined,
+    priceBounds: pb && pb.n >= 2 && Number(pb.hi) > Number(pb.lo) ? { lo: Number(pb.lo), hi: Number(pb.hi) } : null
+  }
+}
+
+/** The original queries on documents: the fallback, and the reference the search index is checked against. */
+export async function searchOriginal(db: D1Database, f: Filters) {
   const today = new Date().toISOString().slice(0, 10)
   // Resolve the city slug to the stored city name(s) (names carry accents).
   let cityNames: string[] = []
@@ -542,9 +602,9 @@ export async function directorySitemap(db: D1Database): Promise<[string, number?
 
 // ---------------------------------------------------------------- pages
 
-async function directoryPage(db: D1Database, f: Filters, url: URL): Promise<{ html: string; found: boolean }> {
+async function directoryPage(db: D1Database, f: Filters, url: URL, ctx?: Waiter): Promise<{ html: string; found: boolean }> {
   const { taxonomy, text, params: P } = directorySettings()
-  const r = await search(db, f)
+  const r = await search(db, f, ctx)
   const cat = taxonomy.categories.find(c => c.slug === f.category)
   const sub = subcategories().find(s => s.slug === f.category)
   const parent = cat ?? taxonomy.categories.find(c => c.slug === sub?.parent)
