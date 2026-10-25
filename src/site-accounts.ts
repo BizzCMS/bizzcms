@@ -27,6 +27,7 @@ export const ACCOUNT_TEXT = {
   accountExists: 'An account with this e-mail already exists. Please sign in.',
   registrationClosed: 'Registration is not open at the moment.',
   registrationFailed: 'Registration failed. Please check your details.',
+  botCheckFailed: 'Please confirm you are not a robot and try again.',
   loginHeading: 'Sign in',
   email: 'E-mail',
   password: 'Password',
@@ -121,6 +122,34 @@ let confirmSince = 0
  * The site's wording, URL words and page shell (its layout, noindex) for account pages; its mailer and account
  * e-mails (without a mailer there is no password recovery); and an optional hook after each sign-up.
  */
+// Cloudflare Turnstile on sign-up (anti-bot): the Turnstile plugin's settings (Admin › Plugins › Turnstile: siteKey,
+// secretKey, enabled; stored on the plugin document like every plugin's settings). While the plugin is active and
+// enabled with both keys, the sign-up form shows the widget and the server checks its token (siteverify) before the
+// account is opened; otherwise nothing changes. The widget's hostnames in Cloudflare must include the site's domain.
+// (The engine's own TurnstileService still reads the old `plugins` table, so it is not used here.)
+type BotCheck = { siteKey: string; secretKey: string; theme?: string }
+async function turnstileSettings(db?: D1Database): Promise<BotCheck | null> {
+  if (!db) return null
+  const row = await db.prepare(`SELECT data FROM documents WHERE type_id = 'plugin' AND slug = 'turnstile' AND is_published = 1
+    AND (deleted_at IS NULL OR deleted_at = '') LIMIT 1`).first<{ data: string }>().catch(() => null)
+  let d: { status?: string; settings?: Record<string, unknown> } = {}
+  try { d = JSON.parse(row?.data ?? '{}') } catch { return null }
+  const st = d.settings ?? {}
+  const on = d.status === 'active' && (st.enabled === true || st.enabled === 'true' || st.enabled === 1)
+  return on && typeof st.siteKey === 'string' && st.siteKey && typeof st.secretKey === 'string' && st.secretKey
+    ? { siteKey: st.siteKey, secretKey: st.secretKey, theme: typeof st.theme === 'string' ? st.theme : undefined } : null
+}
+const botWidget = (bot: BotCheck | null) => bot ? `<div class="cf-turnstile" data-sitekey="${esc(bot.siteKey)}" data-theme="${esc(bot.theme ?? 'light')}"></div><script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>` : ''
+async function turnstilePassed(bot: BotCheck, request: Request, token: string): Promise<boolean> {
+  if (!token) return false
+  try {
+    const body = new URLSearchParams({ secret: bot.secretKey, response: token })
+    const ip = request.headers.get('cf-connecting-ip'); if (ip) body.set('remoteip', ip)
+    const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { method: 'POST', body })
+    return !!((await res.json()) as { success?: boolean }).success
+  } catch { return false }
+}
+
 export function configureAccounts(opts: {
   text?: Partial<AccountText>; paths?: Partial<AccountPaths>; page?: (title: string, body: string) => string
   mail?: (m: AccountMail) => Promise<boolean>; emails?: Partial<AccountEmails>
@@ -265,13 +294,15 @@ export async function accountRoute(a: Audience, request: Request, url: URL, path
   if (path === `${a.base}/${paths.login}`) {
     const code = url.searchParams.get(paths.notice) ?? ''
     const notice = code === paths.passwordChanged ? text.passwordChanged : code === paths.confirmed ? text.confirmDone : opts.notices?.[code]
-    if (!post) return html(loginPage(a, undefined, '', nextPath(a, url.searchParams.get(paths.next)), google, forgot, notice))
+    const bot = await turnstileSettings(opts.db)
+    if (!post) return html(loginPage(a, undefined, '', nextPath(a, url.searchParams.get(paths.next)), google, forgot, notice, bot))
     const form = await readForm(request)
     const email = String(form.get('email') ?? '').trim()
+    if (bot && !await turnstilePassed(bot, request, String(form.get('cf-turnstile-response') ?? ''))) return html(loginPage(a, text.botCheckFailed, email, nextPath(a, form.get(paths.next)), google, forgot, undefined, bot), 400)
     const res = await signIn(request, url, cms, email, String(form.get('password') ?? ''))
     if (!res.ok) {
       const error = res.status === 429 ? text.tooManyAttempts : text.wrongLogin
-      return html(loginPage(a, error, email, nextPath(a, form.get(paths.next)), google, forgot), res.status === 429 ? 429 : 401)
+      return html(loginPage(a, error, email, nextPath(a, form.get(paths.next)), google, forgot, undefined, bot), res.status === 429 ? 429 : 401)
     }
     if (opts.db && confirmOn() && await unconfirmed(opts.db, email)) {
       await dropSession(request, url, cms, res)
@@ -281,17 +312,21 @@ export async function accountRoute(a: Audience, request: Request, url: URL, path
     return withCookies(body.twoFactorRequired ? '/auth/two-factor' : nextPath(a, form.get(paths.next)), res)
   }
   if (path === `${a.base}/${paths.register}`) {
-    if (!post) return html(registerPage(a, undefined, { [paths.next]: url.searchParams.get(paths.next) ?? '' }, google))
+    const bot = await turnstileSettings(opts.db)
+    if (!post) return html(registerPage(a, undefined, { [paths.next]: url.searchParams.get(paths.next) ?? '' }, google, bot))
     const form = await readForm(request)
     const v = { firstName: String(form.get('firstName') ?? '').trim(), lastName: String(form.get('lastName') ?? '').trim(), email: String(form.get('email') ?? '').trim(), [paths.next]: String(form.get(paths.next) ?? '') }
     const password = String(form.get('password') ?? '')
-    if (!v.firstName || !v.lastName) return html(registerPage(a, text.enterName, v, google), 400)
-    if (password.length < 8) return html(registerPage(a, text.passwordShort, v, google), 400)
-    if (form.get(paths.terms) !== '1') return html(registerPage(a, text.acceptTerms, v, google), 400)
+    if (!v.firstName || !v.lastName) return html(registerPage(a, text.enterName, v, google, bot), 400)
+    if (password.length < 8) return html(registerPage(a, text.passwordShort, v, google, bot), 400)
+    if (form.get(paths.terms) !== '1') return html(registerPage(a, text.acceptTerms, v, google, bot), 400)
+    if (bot) {
+      if (!await turnstilePassed(bot, request, String(form.get('cf-turnstile-response') ?? ''))) return html(registerPage(a, text.botCheckFailed, v, google, bot), 400)
+    }
     const confirming = !!opts.db && confirmOn()
     // An account that must confirm its e-mail gets no session yet (no sign-in at all).
     const created = await createAccount(request, url, cms, { firstName: v.firstName, lastName: v.lastName, email: v.email, password }, { signIn: !confirming })
-    if ('error' in created) return html(registerPage(a, created.error, v, google), created.status)
+    if ('error' in created) return html(registerPage(a, created.error, v, google, bot), created.status)
     const user = { firstName: v.firstName, lastName: v.lastName, email: v.email.toLowerCase() }
     if (confirming) {
       // The sign-up notice and the welcome e-mail follow the confirmation.
@@ -329,16 +364,18 @@ export async function accountRoute(a: Audience, request: Request, url: URL, path
         newUserCallbackURL: `${url.origin}${a.base}?${paths.notice}=${paths.registered}` })
     }))
     const body = await res.clone().json().catch(() => ({})) as { url?: string }
-    if (!res.ok || !body.url) return html(loginPage(a, text.googleFailed, '', next, google, forgot), 502)
+    if (!res.ok || !body.url) return html(loginPage(a, text.googleFailed, '', next, google, forgot, undefined, await turnstileSettings(opts.db)), 502)
     const headers = new Headers({ location: body.url })
     for (const c of res.headers.getSetCookie?.() ?? []) headers.append('set-cookie', c)
     return new Response(null, { status: 302, headers })
   }
   if (path === `${a.base}/${paths.forgot}` && forgot) {
-    if (!post) return html(forgotPage(a))
+    const bot = await turnstileSettings(opts.db)
+    if (!post) return html(forgotPage(a, undefined, '', false, bot))
     const form = await readForm(request)
     const email = String(form.get('email') ?? '').trim().toLowerCase()
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) return html(forgotPage(a, text.enterEmail, email), 400)
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 200) return html(forgotPage(a, text.enterEmail, email, false, bot), 400)
+    if (bot && !await turnstilePassed(bot, request, String(form.get('cf-turnstile-response') ?? ''))) return html(forgotPage(a, text.botCheckFailed, email, false, bot), 400)
     await requestReset(opts.db!, a, url, email)
     return html(forgotPage(a, undefined, email, true))
   }
@@ -521,18 +558,19 @@ function confirmPage(a: Audience, email: string, error?: string, notice?: string
 const GOOGLE_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.4h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.7z"/><path fill="#34A853" d="M12 24c3.2 0 6-1.1 8-2.9l-3.9-3c-1.1.7-2.5 1.2-4.1 1.2-3.1 0-5.8-2.1-6.7-5H1.3v3.1A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.3 14.3a7.2 7.2 0 0 1 0-4.6V6.6H1.3a12 12 0 0 0 0 10.8z"/><path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.3 6.6l4 3.1c.9-2.9 3.6-4.9 6.7-4.9z"/></svg>'
 const googleButton = (a: Audience, next: string) => `<a class="btn ghost google" href="${a.base}/google?${paths.next}=${encodeURIComponent(next)}">${GOOGLE_ICON}${esc(text.withGoogle)}</a><p class="or"><span>${esc(text.or)}</span></p>`
 
-function loginPage(a: Audience, error?: string, email = '', next = a.base, google = false, forgot = false, notice?: string): string {
+function loginPage(a: Audience, error?: string, email = '', next = a.base, google = false, forgot = false, notice?: string, bot: BotCheck | null = null): string {
   return portalPage(a.loginTitle, `<div class="auth box"><h1>${esc(text.loginHeading)}</h1>${notice ? `<p class="notice">${esc(notice)}</p>` : ''}${error ? `<p class="err">${esc(error)}</p>` : ''}
     ${google ? googleButton(a, next) : ''}
     <form method="post" action="${a.base}/${paths.login}" class="stack"><input type="hidden" name="${paths.next}" value="${esc(next)}">
       <label>${esc(text.email)}<input name="email" type="email" autocomplete="email" required value="${esc(email)}"></label>
       <label>${esc(text.password)}<input name="password" type="password" autocomplete="current-password" required></label>
+      ${botWidget(bot)}
       <button type="submit">${esc(text.signIn)}</button></form>
     ${forgot ? `<p class="muted"><a href="${a.base}/${paths.forgot}">${esc(text.forgotLink)}</a></p>` : ''}
     <p class="muted">${esc(text.noAccount)} <a href="${a.base}/${paths.register}${next !== a.base ? `?${paths.next}=${encodeURIComponent(next)}` : ''}">${esc(text.registerLink)}</a></p></div>`)
 }
 
-function registerPage(a: Audience, error?: string, v: Record<string, string> = {}, google = false): string {
+function registerPage(a: Audience, error?: string, v: Record<string, string> = {}, google = false, bot: BotCheck | null = null): string {
   return portalPage(a.registerTitle, `<div class="auth box"><h1>${esc(text.registerHeading)}</h1>
     <p class="muted">${esc(a.registerIntro)}</p>${error ? `<p class="err">${esc(error)}</p>` : ''}
     ${google ? googleButton(a, nextPath(a, v[paths.next])) : ''}
@@ -542,15 +580,17 @@ function registerPage(a: Audience, error?: string, v: Record<string, string> = {
       <label>${esc(text.email)}<input name="email" type="email" autocomplete="email" required maxlength="200" value="${esc(v.email ?? '')}"></label>
       <label>${esc(text.passwordHint)}<input name="password" type="password" autocomplete="new-password" required minlength="8"></label>
       <label class="check"><input type="checkbox" name="${paths.terms}" value="1" required>${esc(text.terms)}</label>
+      ${botWidget(bot)}
       <button type="submit">${esc(text.createAccount)}</button></form>
     <p class="muted">${esc(text.haveAccount)} <a href="${a.base}/${paths.login}">${esc(text.signInLink)}</a></p></div>`)
 }
 
-function forgotPage(a: Audience, error?: string, email = '', sent = false): string {
+function forgotPage(a: Audience, error?: string, email = '', sent = false, bot: BotCheck | null = null): string {
   return portalPage(text.forgotHeading, `<div class="auth box"><h1>${esc(text.forgotHeading)}</h1>
     ${sent ? `<p class="notice">${esc(text.forgotSent)}</p>` : `<p class="muted">${esc(text.forgotIntro)}</p>${error ? `<p class="err">${esc(error)}</p>` : ''}
     <form method="post" action="${a.base}/${paths.forgot}" class="stack">
       <label>${esc(text.email)}<input name="email" type="email" autocomplete="email" required maxlength="200" value="${esc(email)}"></label>
+      ${botWidget(bot)}
       <button type="submit">${esc(text.forgotSend)}</button></form>`}
     <p class="muted"><a href="${a.base}/${paths.login}">${esc(text.backToLogin)}</a></p></div>`)
 }

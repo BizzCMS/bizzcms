@@ -72,3 +72,10 @@ Everything below is in BizzCMS today. See the [changelog](../CHANGELOG.md) for w
 
 - MIT licence, no licence fees.
 - Source on [GitHub](https://github.com/BizzCMS/bizzcms), versioned releases with a changelog.
+
+## Turnstile on site accounts (2026-10-25)
+
+Sign-up, sign-in and forgotten-password pages of site accounts (`src/site-accounts.ts`) show Cloudflare Turnstile and
+check its token on the server while the **Turnstile plugin** document is active with `settings.enabled`, `siteKey` and
+`secretKey` (Admin › Plugins). Off = unchanged. The widget's hostnames in Cloudflare must include the site's domain.
+The engine's `TurnstileService` still reads the old `plugins` table, so the site reads the plugin document itself.
