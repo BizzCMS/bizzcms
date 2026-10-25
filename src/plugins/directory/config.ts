@@ -29,6 +29,9 @@ export interface Plan {
   links: boolean
   /** Couples can send an inquiry from the profile. */
   requests: boolean
+  /** Categories the company may appear in (its main category counts); default 1. Extra categories are the
+   *  `extraCategories` field (category or subcategory slugs) and show only while the plan allows them. */
+  categories?: number
   /** "Request a date", the ★ badge and first place in lists (what used to be Premium). */
   booking: boolean
   /** Months of featuring that come with the plan (shown on the price list). The profile is featured (first in the
@@ -146,6 +149,7 @@ export const DEFAULT_TEXT = {
   next: 'Next ›',
   filters: 'Filters',
   category: 'Category',
+  categories: 'Categories',
   allCategories: 'All categories',
   region: 'Region',
   allRegions: 'All regions',
@@ -289,6 +293,9 @@ export const DEFAULT_PORTAL = {
   fieldName: 'Name*',
   fieldCategory: 'Category*',
   fieldSubcategory: 'Subcategory',
+  fieldExtraCategories: 'More categories',
+  extraCategoriesHint: (n: number) => `Your package shows the profile in ${n} more ${n === 1 ? 'category' : 'categories'}.`,
+  extraCategoriesNotInPlan: 'More categories come with a higher package.',
   fieldRegion: 'Region',
   fieldAddress: 'Address',
   fieldTaxId: 'Tax / VAT ID (not public)',
@@ -327,6 +334,7 @@ export const DEFAULT_PORTAL = {
   planUpgrade: 'See packages',
   planPhotos: (n: number) => `${n} ${n === 1 ? 'photo' : 'photos'}`,
   planVideos: (n: number) => `${n} YouTube ${n === 1 ? 'video' : 'videos'}`,
+  planCategories: (n: number) => `Up to ${n} categories`,
   planLinks: 'Social networks',
   planRequests: 'Inquiries from couples',
   planBooking: '"Request a date" and first place in lists',
@@ -483,6 +491,26 @@ export function bookingSql(): string {
   const keys = current.plans.filter(p => p.booking).map(p => `'${p.key.replace(/'/g, "''")}'`)
   const has = keys.length ? `(CASE WHEN COALESCE(${J('plan')}, '') != '' THEN ${J('plan')} IN (${keys.join(', ')}) ELSE ${paid} END)` : paid
   return `(${has} AND (COALESCE(${J('paidUntil')}, '') = '' OR ${J('paidUntil')} >= ?))`
+}
+
+/** How many categories the company may appear in now (its main one counts); 1 without plans. */
+export const categoryLimit = (data: Record<string, unknown>): number => Math.max(1, planOf(data)?.categories ?? 1)
+
+/** The extra categories that show now: valid category or subcategory slugs, not the main ones, within the plan. */
+export function extraCategoriesOf(data: Record<string, unknown>): string[] {
+  const valid = new Set([...current.taxonomy.categories.map(c => c.slug), ...subcategories().map(s => s.slug)])
+  const list = Array.isArray(data.extraCategories) ? data.extraCategories.map(String) : []
+  return [...new Set(list)].filter(slug => valid.has(slug) && slug !== data.category && slug !== data.subcategory).slice(0, categoryLimit(data) - 1)
+}
+
+/** SQL (on documents.data) that is true while the company's plan allows extra categories; binds today's date. */
+export function extraCategoriesSql(): string {
+  const J = (f: string) => `json_extract(data, '$.${f}')`
+  const keys = current.plans.filter(p => (p.categories ?? 1) > 1).map(p => `'${p.key.replace(/'/g, "''")}'`)
+  if (!keys.length) return '(0 AND ? IS NOT NULL)'
+  const booking = current.plans.find(p => p.booking)
+  const paid = booking && (booking.categories ?? 1) > 1 ? `${J('paidMember')} IN (1, 'true', 'on', '1')` : '0'
+  return `((CASE WHEN COALESCE(${J('plan')}, '') != '' THEN ${J('plan')} IN (${keys.join(', ')}) ELSE ${paid} END) AND (COALESCE(${J('paidUntil')}, '') = '' OR ${J('paidUntil')} >= ?))`
 }
 
 // ---------------------------------------------------------------- taxonomy helpers

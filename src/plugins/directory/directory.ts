@@ -8,7 +8,7 @@
 import { DocumentsService } from 'bizzcms-core'
 import { readForm } from '../../site-accounts'
 import {
-  alphabetical, bookingSql, categoryUrl, cityUrl, regionUrl, directorySettings, notifyDirectory, directoryUrl, label, listingUrl, matchRoute, planOf, type Plan, type DirectorySettings, slugify, subcategories
+  alphabetical, bookingSql, categoryUrl, extraCategoriesOf, extraCategoriesSql, cityUrl, regionUrl, directorySettings, notifyDirectory, directoryUrl, label, listingUrl, matchRoute, planOf, type Plan, type DirectorySettings, slugify, subcategories
 } from './config'
 import { esc, fold, html, icon, mediaList, pageWindow, safeDecode, safeUrl, str, truthy, validEmail } from './util'
 import { mediaGallery, mediaHero, mediaItems, mediaViewer, videoIds } from './media'
@@ -145,6 +145,25 @@ const PUBLISHED = `type_id = 'partners' AND is_published = 1 AND (deleted_at IS 
 const PREMIUM = () => bookingSql()
 // Featured while `featuredUntil` (YYYY-MM-DD) is today or later; first in the default and Recommended order.
 const FEATURED = `(COALESCE(${J('featuredUntil')}, '') >= date('now'))`
+// A company is in a category through its main category/subcategory or, while its plan allows it, its
+// `extraCategories` (category or subcategory slugs; a subcategory also counts for its parent category).
+function inCategory(slug: string, today: string): { sql: string; binds: unknown[] } {
+  const isSub = subcategories().some(s => s.slug === slug)
+  const values = [slug, ...(isSub ? [] : subcategories().filter(s => s.parent === slug).map(s => s.slug))]
+  return {
+    sql: `(${J(isSub ? 'subcategory' : 'category')} = ? OR (EXISTS (SELECT 1 FROM json_each(documents.data, '$.extraCategories') e WHERE e.value IN (${values.map(() => '?').join(',')})) AND ${extraCategoriesSql()}))`,
+    binds: [slug, ...values, today]
+  }
+}
+// Category memberships of the companies matching `base` (main + allowed extras), for counts: (id, k, s) rows.
+function memberships(base: string): string {
+  const subs = subcategories().map(s => `('${s.slug.replace(/'/g, "''")}', '${s.parent.replace(/'/g, "''")}')`).join(', ') || "('', '')"
+  return `WITH base AS (SELECT id, data FROM documents WHERE ${base}), subs(sub, parent) AS (VALUES ${subs}),
+    m AS (SELECT id, ${J('category')} AS k, ${J('subcategory')} AS s FROM base
+      UNION SELECT base.id, COALESCE(subs.parent, e.value), CASE WHEN subs.parent IS NULL THEN NULL ELSE e.value END
+        FROM base, json_each(base.data, '$.extraCategories') e LEFT JOIN subs ON subs.sub = e.value
+        WHERE (SELECT ${extraCategoriesSql().replace(/json_extract\(data,/g, 'json_extract(base.data,')}))`
+}
 const CARD_FIELDS = () => `slug, title, ${J('category')} AS category, ${J('subcategory')} AS subcategory, ${J('county')} AS county,
   ${J('city')} AS city, ${J('summary')} AS summary, ${J('coverImage')} AS cover, ${J('gallery')} AS gallery,
   ${J('capacity')} AS capacity, ${J('priceLevel')} AS priceLevel, ${J('priceFrom')} AS priceFrom, ${J('priceUnit')} AS priceUnit, ${J('legacyId')} AS legacyId, ${J('legacySlug')} AS legacySlug, ${PREMIUM()} AS premium, ${FEATURED} AS featured`
@@ -177,8 +196,8 @@ function where(f: Filters, cityNames: string[], today: string, skip: Facet[] = [
     }
   }
   if (f.category && !skip.includes('category')) {
-    sql.push(subcategories().some(s => s.slug === f.category) ? `${J('subcategory')} = ?` : `${J('category')} = ?`)
-    binds.push(f.category)
+    const c = inCategory(f.category, today)
+    sql.push(c.sql); binds.push(...c.binds)
   }
   if (f.region && !skip.includes('region')) { sql.push(`${J('county')} = ?`); binds.push(f.region) }
   if (f.city && !skip.includes('city')) {
@@ -285,7 +304,9 @@ async function search(db: D1Database, f: Filters) {
   const [count, rows, catFacets, regionFacets, cityFacets, priceFacet] = await db.batch([
     db.prepare(`SELECT COUNT(*) AS n FROM documents WHERE ${main.sql}`).bind(...main.binds),
     db.prepare(`SELECT ${CARD_FIELDS()} FROM documents WHERE ${main.sql} ORDER BY ${orderBy(f.sort)} LIMIT ? OFFSET ?`).bind(today, ...main.binds, PAGE_SIZE, offset),
-    db.prepare(`SELECT ${J('category')} AS k, ${J('subcategory')} AS s, COUNT(*) AS n FROM documents WHERE ${byCategory.sql} GROUP BY k, s`).bind(...byCategory.binds),
+    // Each company once per category and once per subcategory (main and extra categories together).
+    db.prepare(`${memberships(byCategory.sql)} SELECT k, NULL AS s, COUNT(DISTINCT id) AS n FROM m GROUP BY k
+      UNION ALL SELECT NULL, s, COUNT(DISTINCT id) FROM m WHERE s IS NOT NULL GROUP BY s`).bind(...byCategory.binds, today),
     db.prepare(`SELECT ${J('county')} AS k, COUNT(*) AS n FROM documents WHERE ${byRegion.sql} GROUP BY k`).bind(...byRegion.binds),
     db.prepare(`SELECT ${J('city')} AS k, COUNT(*) AS n FROM documents WHERE ${byCity.sql} AND COALESCE(${J('city')}, '') != '' GROUP BY k ORDER BY k`).bind(...byCity.binds),
     db.prepare(`SELECT MIN(${PRICE}) AS lo, MAX(${PRICE}) AS hi, COUNT(*) AS n FROM documents WHERE ${byPrice.sql} AND ${PRICE} > 0`).bind(...byPrice.binds)
@@ -327,7 +348,7 @@ function toCard(r: Row): Card {
 
 export interface Listing extends Card {
   description?: string; gallery: string[]; website?: string; phone?: string; email?: string; setting?: string; address?: string
-  amenities: string[]; seoTitle?: string; seoDescription?: string; seoImage?: string; canonical?: string; noindex?: boolean; cover?: string; videos: string[]
+  amenities: string[]; extraCategories: string[]; seoTitle?: string; seoDescription?: string; seoImage?: string; canonical?: string; noindex?: boolean; cover?: string; videos: string[]
   /** The company's package now (undefined when the site has no packages). */
   plan?: Plan
   /** Social network links shown on the profile: [label, url]. */
@@ -359,6 +380,7 @@ export async function findListing(db: D1Database, by: { slug: string } | { legac
     socials: links ? directorySettings().taxonomy.socials.flatMap(([k, name]) => { const u = safeUrl(str(d[k])); return u ? [[name, u, k] as [string, string, string]] : [] }) : [],
     phone: str(d.phone), email: str(d.email), setting: str(d.setting),
     amenities: directorySettings().taxonomy.amenities.filter(([k]) => truthy(d[k])).map(([, v]) => v),
+    extraCategories: extraCategoriesOf(d),
     seoTitle: str(d.seoTitle), seoDescription: str(d.seoDescription), seoImage: str(d.seoImage), canonical: str(d.canonical), noindex: truthy(d.noindex)
   }
 }
@@ -466,17 +488,17 @@ export function listingCardHtml(c: Card): string {
 /** Featured, then premium companies first (with a photo preferred), optionally from one category. */
 export async function featuredListings(db: D1Database, limit: number, category?: string): Promise<Card[]> {
   const today = new Date().toISOString().slice(0, 10)
-  const where = category ? `AND (${J('category')} = ? OR ${J('subcategory')} = ?)` : ''
-  const rows = await db.prepare(`SELECT ${CARD_FIELDS()} FROM documents WHERE ${PUBLISHED} ${where}
+  const c = category ? inCategory(category, today) : null
+  const rows = await db.prepare(`SELECT ${CARD_FIELDS()} FROM documents WHERE ${PUBLISHED} ${c ? `AND ${c.sql}` : ''}
     ORDER BY featured DESC, premium DESC, (COALESCE(${J('coverImage')}, '') != '' OR COALESCE(${J('gallery')}, '[]') != '[]') DESC, created_at DESC LIMIT ?`)
-    .bind(today, ...(category ? [category, category] : []), limit).all<Row>()
+    .bind(today, ...(c ? c.binds : []), limit).all<Row>()
   return rows.results.map(toCard)
 }
 
 /** Counts for a home page: companies per category and the busiest cities. */
 export async function directoryOverview(db: D1Database) {
   const [cats, cities, total] = await db.batch([
-    db.prepare(`SELECT ${J('category')} AS k, COUNT(*) AS n FROM documents WHERE ${PUBLISHED} GROUP BY k`),
+    db.prepare(`${memberships(PUBLISHED)} SELECT k, COUNT(DISTINCT id) AS n FROM m GROUP BY k`).bind(new Date().toISOString().slice(0, 10)),
     db.prepare(`SELECT ${J('city')} AS k, COUNT(*) AS n FROM documents WHERE ${PUBLISHED} AND COALESCE(${J('city')}, '') != '' GROUP BY k ORDER BY n DESC, k`),
     db.prepare(`SELECT COUNT(*) AS n FROM documents WHERE ${PUBLISHED}`)
   ])
@@ -684,6 +706,10 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
     [text.setting, label(taxonomy.settings, p.setting) ?? ''],
     [text.amenities, p.amenities.join(', ')]
   ].filter(([, val]) => val)
+  // Every category the company is in (main first), as links: shown under the facts.
+  const catName = (slug: string) => subcategories().find(s => s.slug === slug)?.label ?? taxonomy.categories.find(c => c.slug === slug)?.label
+  const allCats = [p.subcategory || p.category, ...p.extraCategories].filter((slug): slug is string => !!slug && !!catName(slug))
+  const catLinks = allCats.length > 1 ? `<div><span>${esc(text.categories)}</span>${allCats.map(slug => `<a href="${esc(categoryUrl(slug))}">${esc(catName(slug)!)}</a>`).join(', ')}</div>` : ''
   const contact = [
     ...(gate ? [(p.phone || p.email || p.website || p.socials.length) && contactGateBox(p, gate)] : [
       p.website && `<a class="contact-line" href="${esc(p.website)}" rel="noopener" target="_blank">${CONTACT_SVG.web}<span>${esc(text.website)}</span></a>`,
@@ -721,7 +747,7 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
     <div class="phead"><h1>${esc(p.title)}</h1>${p.premium ? `<span class="pill premium">${esc(text.premium)}</span>` : ''}${favButton(p.slug)}</div>
     ${mediaHero(media, p.title, mt)}
     <div class="pcols"><div>${paragraphs}${gallery}${share}${form}</div>
-    <aside class="box facts">${facts.map(([k, val]) => `<div><span>${esc(k)}</span>${esc(val)}</div>`).join('')}
+    <aside class="box facts">${facts.map(([k, val]) => `<div><span>${esc(k)}</span>${esc(val)}</div>`).join('')}${catLinks}
       ${contact.length ? `<div><span>${esc(text.contact)}</span>${contact.join('<br>')}</div>` : ''}
       ${p.socials.length && !gate ? `<div><span>${esc(text.socialTitle)}</span><span class="social-icons">${p.socials.map(([name, u, k]) => `<a class="social-icon" href="${esc(u)}" rel="noopener" target="_blank" aria-label="${esc(name)}" title="${esc(name)}">${SOCIAL_SVG[k] ?? esc(name)}</a>`).join('')}</span></div>` : ''}
       ${p.requests ? `<a class="btn" href="#${esc(P.requestAnchor)}" data-open-request>${esc(p.premium ? text.requestDate : text.inquiryTitle)}</a>`

@@ -38,6 +38,10 @@ manage their own profiles. Code: `src/plugins/directory/`, with visitor accounts
   the YouTube videos shown, social links (taxonomy.socials; the website shows on every profile), inquiries from couples and booking ("request a
   date", badge, first in lists). A profile's plan is its `plan` field; without one, paidMember means the first booking
   plan; after paidUntil it is the free plan. No plans = the old behaviour (paidMember = Premium, 30 photos, everything shown).
+- **More categories** (`Plan.categories`, default 1; the main category counts): the portal shows one "More categories"
+  choice per extra category the plan allows (a category or a subcategory, stored in `extraCategories`). While the plan
+  allows it (`extraCategoriesSql()`), the company is listed and counted on those category pages too (a subcategory also
+  counts for its parent) and its profile lists all its categories. When the plan lapses they hide but stay stored.
 
 ## In the admin
 
