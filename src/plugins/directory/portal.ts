@@ -13,7 +13,7 @@ import {
   accountPaths, accountRoute, type Audience, type Cms, createAccount, crossOrigin, currentUser, galleryAction, galleryEditor, loginRedirect,
   accountText, portalPage, readForm, redirectWithSession, setPassword, signInSession, type User
 } from '../../site-accounts'
-import { alphabetical, categoryLimit, directorySettings, listingUrl, notifyDirectory, planOf, type Plan, slugify, subcategories } from './config'
+import { alphabetical, categoryLimit, cityLimit, directorySettings, listingUrl, notifyDirectory, planOf, type Plan, slugify, subcategories } from './config'
 import { esc, fold, html, mediaList, str, truthy, validEmail, validPhone, validTaxId } from './util'
 import { videoIds } from './media'
 
@@ -184,6 +184,14 @@ function readListing(form: FormData): { title: string; data: Record<string, unkn
   const extraCategories = form.has('extraCategoriesShown')
     ? { extraCategories: [...new Set(form.getAll('extraCategories').map(v => String(v).trim()))].filter(slug => validCats.has(slug) && slug !== category && slug !== subcategory).slice(0, 10) }
     : {}
+  // More locations: names the site knows (cleanCity), only when the form has them.
+  let extraCities = {}
+  if (form.has('extraCitiesShown')) {
+    const clean = directorySettings().cleanCity ?? ((raw: string) => raw.trim().slice(0, 120))
+    const names = form.getAll('extraCities').map(v => String(v).trim()).filter(Boolean).map(clean)
+    if (names.some(n => !n)) return { error: P.errExtraCity }
+    extraCities = { extraCities: [...new Set(names)].slice(0, 10) }
+  }
   const own = directorySettings().validateListing?.(Object.fromEntries([...form.entries()].filter(([, v]) => typeof v === 'string')) as Record<string, string>)
   if (own && 'error' in own) return { error: own.error }
   const extra = own?.data ?? {}
@@ -198,7 +206,7 @@ function readListing(form: FormData): { title: string; data: Record<string, unkn
         : { priceLevel: T.priceLevels.some(([k]) => k === priceLevel) ? priceLevel : '' }),
       setting: T.settings.some(([k]) => k === setting) ? setting : '',
       ...Object.fromEntries(T.amenities.map(([k]) => [k, form.get(k) === '1'])),
-      website, phone, email, ...socials, ...extraCategories,
+      website, phone, email, ...socials, ...extraCategories, ...extraCities,
       // YouTube links only (one per line); anything else is dropped.
       videos: videoIds(String(form.get('videos') ?? '').slice(0, 3000)).map(id => `https://www.youtube.com/watch?v=${id}`).join('\n'),
       ...extra
@@ -414,7 +422,7 @@ function planBox(plan: Plan, data: Record<string, unknown>, rootId?: string): st
   const until = typeof data.paidUntil === 'string' && data.paidUntil && plan !== directorySettings().plans[0] ? data.paidUntil : ''
   const row = (ok: boolean, label: string) => `<li class="${ok ? 'yes' : 'no'}">${esc(label)}${ok ? '' : ` <small>(${esc(P.planNot)})</small>`}</li>`
   return `<section class="box plan"><h2>${esc(P.planTitle)}: ${esc(plan.label)}</h2>${until ? `<p class="muted">${esc(P.planPaidUntil(until.split('-').reverse().join('. ') + '.'))}</p>` : ''}
-    <ul>${row(true, P.planPhotos(plan.photos))}${row(plan.videos > 0, P.planVideos(Math.max(plan.videos, 1)))}${row(plan.links, P.planLinks)}${row(plan.requests || plan.booking, P.planRequests)}${row(plan.booking, P.planBooking)}${(plan.categories ?? 1) > 1 ? row(true, P.planCategories(plan.categories!)) : ''}</ul>
+    <ul>${row(true, P.planPhotos(plan.photos))}${row(plan.videos > 0, P.planVideos(Math.max(plan.videos, 1)))}${row(plan.links, P.planLinks)}${row(plan.requests || plan.booking, P.planRequests)}${row(plan.booking, P.planBooking)}${(plan.categories ?? 1) > 1 ? row(true, P.planCategories(plan.categories!)) : ''}${(plan.cities ?? 1) > 1 ? row(true, P.planCities(plan.cities!)) : ''}</ul>
     ${rootId ? `<p class="actions"><a class="btn" href="${P.base}/${P.edit}/${rootId}/${P.plan}">${esc(P.planChange)}</a>${upgrade()}</p>` : upgrade() ? `<p>${upgrade()}</p>` : ''}</section>`
 }
 
@@ -473,6 +481,16 @@ function extraCategoriesFields(listing: Owned | null, v: Record<string, unknown>
     <div class="extra-cats-row" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:6px 0">${Array.from({ length: limit - 1 }, (_, i) => select(chosen[i] ?? '')).join('')}</div><small>${esc(P.extraCategoriesHint(limit - 1))}</small></fieldset>`
 }
 
+/** "More locations": one city field per extra city the plan allows. */
+function extraCitiesFields(listing: Owned | null, v: Record<string, unknown>): string {
+  const P = directorySettings().portal
+  const limit = listing ? cityLimit(listing.data) : 1
+  if (limit <= 1) return directorySettings().plans.length ? `<p class="full muted"><small>${esc(P.extraCitiesNotInPlan)}</small></p>` : ''
+  const chosen = Array.isArray(v.extraCities) ? v.extraCities.map(String) : []
+  return `<fieldset class="full extra-cities" style="border:0;padding:0;margin:0;min-width:0"><legend>${esc(P.fieldExtraCities)}</legend><input type="hidden" name="extraCitiesShown" value="1">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:6px 0">${Array.from({ length: limit - 1 }, (_, i) => `<label class="extra-city"><input name="extraCities" maxlength="120" autocomplete="off" aria-label="${esc(P.fieldExtraCities)} ${i + 1}" value="${esc(chosen[i] ?? '')}"></label>`).join('')}</div><small>${esc(P.extraCitiesHint(limit - 1))}</small></fieldset>`
+}
+
 function editPage(listing: Owned | null, v: Record<string, unknown>, error?: string, notice?: string | null): string {
   const { taxonomy: T, portal: P } = directorySettings()
   const s = (k: string) => esc(String(v[k] ?? ''))
@@ -492,6 +510,7 @@ function editPage(listing: Owned | null, v: Record<string, unknown>, error?: str
       <label>${esc(P.fieldCategory)}<select name="category" required>${alphabetical(T.categories, c => c.label).map(c => opt(c.slug, c.label, v.category)).join('')}</select></label>
       <label>${esc(P.fieldSubcategory)}<select name="subcategory">${opt('', '—', v.subcategory)}${subOptions}</select></label>
       ${extraCategoriesFields(listing, v)}
+      ${extraCitiesFields(listing, v)}
       ${T.regions.length ? `<label>${esc(P.fieldRegion)}<select name="county">${opt('', '—', v.county)}${alphabetical(T.regions, c => c[1]).map(([k, t]) => opt(k, t, v.county)).join('')}</select></label>` : ''}
       <label>${esc(P.fieldAddress)}<input name="address" maxlength="200" value="${s('address')}"></label>
       <label>${esc(P.fieldTaxId)}<input name="taxId" maxlength="20" value="${s('taxId')}"></label>

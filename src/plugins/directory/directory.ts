@@ -8,7 +8,7 @@
 import { DocumentsService } from 'bizzcms-core'
 import { readForm } from '../../site-accounts'
 import {
-  alphabetical, bookingSql, categoryUrl, extraCategoriesOf, extraCategoriesSql, cityUrl, regionUrl, directorySettings, notifyDirectory, directoryUrl, label, listingUrl, matchRoute, planOf, type Plan, type DirectorySettings, slugify, subcategories
+  alphabetical, bookingSql, categoryUrl, extraCategoriesOf, extraCategoriesSql, extraCitiesOf, extraCitiesSql, cityUrl, regionUrl, directorySettings, notifyDirectory, directoryUrl, label, listingUrl, matchRoute, planOf, type Plan, type DirectorySettings, slugify, subcategories
 } from './config'
 import { esc, fold, html, icon, mediaList, pageWindow, safeDecode, safeUrl, str, truthy, validEmail } from './util'
 import { mediaGallery, mediaHero, mediaItems, mediaViewer, videoIds } from './media'
@@ -201,8 +201,10 @@ function where(f: Filters, cityNames: string[], today: string, skip: Facet[] = [
   }
   if (f.region && !skip.includes('region')) { sql.push(`${J('county')} = ?`); binds.push(f.region) }
   if (f.city && !skip.includes('city')) {
-    sql.push(cityNames.length ? `${J('city')} IN (${cityNames.map(() => '?').join(',')})` : '0')
-    binds.push(...cityNames)
+    // Its own city, or (while the plan allows it) one of its extra cities.
+    const marks = cityNames.map(() => '?').join(',')
+    sql.push(cityNames.length ? `(${J('city')} IN (${marks}) OR (EXISTS (SELECT 1 FROM json_each(documents.data, '$.extraCities') e WHERE e.value IN (${marks})) AND ${extraCitiesSql()}))` : '0')
+    binds.push(...(cityNames.length ? [...cityNames, ...cityNames, today] : []))
   }
   if (Number(f.guests) > 0) { sql.push(`CAST(${J('capacity')} AS INTEGER) >= ?`); binds.push(Number(f.guests)) }
   if (f.price) { sql.push(`CAST(${J('priceLevel')} AS TEXT) = ?`); binds.push(f.price) }
@@ -234,11 +236,17 @@ function orderBy(sort: string): string {
   return lead + `premium DESC, CAST(${J('views')} AS INTEGER) DESC, title COLLATE NOCASE`
 }
 
+// The cities of the companies matching `base`: their own city and, while the plan allows it, their extra cities
+// ((id, k) rows in m). Binds: base's, then today's date.
+const cityMemberships = (base: string) => `WITH base AS (SELECT id, data FROM documents WHERE ${base}),
+  m AS (SELECT id, ${J('city')} AS k FROM base WHERE COALESCE(${J('city')}, '') != ''
+    UNION SELECT base.id, e.value FROM base, json_each(base.data, '$.extraCities') e WHERE COALESCE(e.value, '') != ''
+      AND (SELECT ${extraCitiesSql().replace(/json_extract\(data,/g, 'json_extract(base.data,')}))`
 // Cities that have published companies (name + slug), cached briefly per isolate.
 let cityCache: { at: number; list: { name: string; slug: string; n: number }[] } | null = null
 async function cityList(db: D1Database) {
   if (cityCache && Date.now() - cityCache.at < 300_000) return cityCache.list
-  const rows = (await db.prepare(`SELECT ${J('city')} AS city, COUNT(*) AS n FROM documents WHERE ${PUBLISHED} AND COALESCE(${J('city')}, '') != '' GROUP BY 1`).all<{ city: string; n: number }>()).results
+  const rows = (await db.prepare(`${cityMemberships(PUBLISHED)} SELECT k AS city, COUNT(DISTINCT id) AS n FROM m GROUP BY 1`).bind(new Date().toISOString().slice(0, 10)).all<{ city: string; n: number }>()).results
   const bySlug = new Map<string, { name: string; slug: string; n: number }>()
   for (const r of rows) { const slug = slugify(r.city); const e = bySlug.get(slug); if (e) e.n += Number(r.n); else if (slug) bySlug.set(slug, { name: r.city, slug, n: Number(r.n) }) }
   cityCache = { at: Date.now(), list: [...bySlug.values()] }
@@ -284,8 +292,8 @@ async function search(db: D1Database, f: Filters) {
   // Resolve the city slug to the stored city name(s) (names carry accents).
   let cityNames: string[] = []
   if (f.city) {
-    const all = await db.prepare(`SELECT DISTINCT ${J('city')} AS city FROM documents WHERE ${PUBLISHED} AND COALESCE(${J('city')}, '') != ''`).all<{ city: string }>()
-    cityNames = all.results.map(r => r.city).filter(c => slugify(c) === f.city)
+    // Own and extra cities (names carry accents; one slug can have several spellings).
+    cityNames = (await db.prepare(`${cityMemberships(PUBLISHED)} SELECT DISTINCT k AS city FROM m`).bind(today).all<{ city: string }>()).results.map(r => r.city).filter(c => slugify(c) === f.city)
   }
   // A chosen city also shows its region in the region list (display only, so data errors never hide a company).
   let cityRegion: string | undefined
@@ -308,7 +316,7 @@ async function search(db: D1Database, f: Filters) {
     db.prepare(`${memberships(byCategory.sql)} SELECT k, NULL AS s, COUNT(DISTINCT id) AS n FROM m GROUP BY k
       UNION ALL SELECT NULL, s, COUNT(DISTINCT id) FROM m WHERE s IS NOT NULL GROUP BY s`).bind(...byCategory.binds, today),
     db.prepare(`SELECT ${J('county')} AS k, COUNT(*) AS n FROM documents WHERE ${byRegion.sql} GROUP BY k`).bind(...byRegion.binds),
-    db.prepare(`SELECT ${J('city')} AS k, COUNT(*) AS n FROM documents WHERE ${byCity.sql} AND COALESCE(${J('city')}, '') != '' GROUP BY k ORDER BY k`).bind(...byCity.binds),
+    db.prepare(`${cityMemberships(byCity.sql)} SELECT k, COUNT(DISTINCT id) AS n FROM m GROUP BY k ORDER BY k`).bind(...byCity.binds, today),
     db.prepare(`SELECT MIN(${PRICE}) AS lo, MAX(${PRICE}) AS hi, COUNT(*) AS n FROM documents WHERE ${byPrice.sql} AND ${PRICE} > 0`).bind(...byPrice.binds)
   ])
   const pb = priceFacet.results[0] as { lo: number | null; hi: number | null; n: number } | undefined
@@ -348,7 +356,7 @@ function toCard(r: Row): Card {
 
 export interface Listing extends Card {
   description?: string; gallery: string[]; website?: string; phone?: string; email?: string; setting?: string; address?: string
-  amenities: string[]; extraCategories: string[]; busyDates: string[]; seoTitle?: string; seoDescription?: string; seoImage?: string; canonical?: string; noindex?: boolean; cover?: string; videos: string[]
+  amenities: string[]; extraCategories: string[]; extraCities: string[]; busyDates: string[]; seoTitle?: string; seoDescription?: string; seoImage?: string; canonical?: string; noindex?: boolean; cover?: string; videos: string[]
   /** The company's package now (undefined when the site has no packages). */
   plan?: Plan
   /** Social network links shown on the profile: [label, url]. */
@@ -380,7 +388,7 @@ export async function findListing(db: D1Database, by: { slug: string } | { legac
     socials: links ? directorySettings().taxonomy.socials.flatMap(([k, name]) => { const u = safeUrl(str(d[k])); return u ? [[name, u, k] as [string, string, string]] : [] }) : [],
     phone: str(d.phone), email: str(d.email), setting: str(d.setting),
     amenities: directorySettings().taxonomy.amenities.filter(([k]) => truthy(d[k])).map(([, v]) => v),
-    extraCategories: extraCategoriesOf(d),
+    extraCategories: extraCategoriesOf(d), extraCities: extraCitiesOf(d),
     // Days the company marked busy (or accepted), from today on; only with "request a date" (the site's booking calendar).
     busyDates: premium ? [...new Set((Array.isArray(d.busyDates) ? d.busyDates : []).map(String).filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x) && x >= today))].sort().slice(0, 400) : [],
     seoTitle: str(d.seoTitle), seoDescription: str(d.seoDescription), seoImage: str(d.seoImage), canonical: str(d.canonical), noindex: truthy(d.noindex)
@@ -712,6 +720,7 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
   // Every category the company is in (main first), as links: shown under the facts.
   const catName = (slug: string) => subcategories().find(s => s.slug === slug)?.label ?? taxonomy.categories.find(c => c.slug === slug)?.label
   const allCats = [p.subcategory || p.category, ...p.extraCategories].filter((slug): slug is string => !!slug && !!catName(slug))
+  const cityLinks = p.extraCities.length ? `<div><span>${esc(text.locations)}</span>${[p.city, ...p.extraCities].filter((c): c is string => !!c).map(c => `<a href="${esc(cityUrl(slugify(c)))}">${esc(c)}</a>`).join(', ')}</div>` : ''
   const catLinks = allCats.length > 1 ? `<div><span>${esc(text.categories)}</span>${allCats.map(slug => `<a href="${esc(categoryUrl(slug))}">${esc(catName(slug)!)}</a>`).join(', ')}</div>` : ''
   const contact = [
     ...(gate ? [(p.phone || p.email || p.website || p.socials.length) && contactGateBox(p, gate)] : [
@@ -754,7 +763,7 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
     <div class="phead"><h1>${esc(p.title)}</h1>${p.premium ? `<span class="pill premium">${esc(text.premium)}</span>` : ''}${favButton(p.slug)}</div>
     ${mediaHero(media, p.title, mt)}
     <div class="pcols"><div>${paragraphs}${gallery}${share}${form}${dateCheck}</div>
-    <aside class="box facts">${facts.map(([k, val]) => `<div><span>${esc(k)}</span>${esc(val)}</div>`).join('')}${catLinks}
+    <aside class="box facts">${facts.map(([k, val]) => `<div><span>${esc(k)}</span>${esc(val)}</div>`).join('')}${catLinks}${cityLinks}
       ${contact.length ? `<div><span>${esc(text.contact)}</span>${contact.join('<br>')}</div>` : ''}
       ${p.socials.length && !gate ? `<div><span>${esc(text.socialTitle)}</span><span class="social-icons">${p.socials.map(([name, u, k]) => `<a class="social-icon" href="${esc(u)}" rel="noopener" target="_blank" aria-label="${esc(name)}" title="${esc(name)}">${SOCIAL_SVG[k] ?? esc(name)}</a>`).join('')}</span></div>` : ''}
       ${p.requests ? `<a class="btn" href="#${esc(P.requestAnchor)}" data-open-request>${esc(p.premium ? text.requestDate : text.inquiryTitle)}</a>`

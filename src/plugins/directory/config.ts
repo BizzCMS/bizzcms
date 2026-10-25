@@ -32,6 +32,8 @@ export interface Plan {
   /** Categories the company may appear in (its main category counts); default 1. Extra categories are the
    *  `extraCategories` field (category or subcategory slugs) and show only while the plan allows them. */
   categories?: number
+  /** Cities (locations) the company is listed in (its own city counts); default 1. Extra cities are `extraCities`. */
+  cities?: number
   /** "Request a date", the ★ badge and first place in lists (what used to be Premium). */
   booking: boolean
   /** Months of featuring that come with the plan (shown on the price list). The profile is featured (first in the
@@ -153,6 +155,7 @@ export const DEFAULT_TEXT = {
   filters: 'Filters',
   category: 'Category',
   categories: 'Categories',
+  locations: 'Locations',
   allCategories: 'All categories',
   region: 'Region',
   allRegions: 'All regions',
@@ -299,6 +302,10 @@ export const DEFAULT_PORTAL = {
   fieldExtraCategories: 'More categories',
   extraCategoriesHint: (n: number) => `Your package shows the profile in ${n} more ${n === 1 ? 'category' : 'categories'}.`,
   extraCategoriesNotInPlan: 'More categories come with a higher package.',
+  fieldExtraCities: 'More locations',
+  extraCitiesHint: (n: number) => `Your package also lists the profile in ${n} more ${n === 1 ? 'city' : 'cities'}.`,
+  extraCitiesNotInPlan: 'More locations come with a higher package.',
+  errExtraCity: 'Choose the extra locations from the list.',
   fieldRegion: 'Region',
   fieldAddress: 'Address',
   fieldTaxId: 'Tax / VAT ID (not public)',
@@ -338,6 +345,7 @@ export const DEFAULT_PORTAL = {
   planPhotos: (n: number) => `${n} ${n === 1 ? 'photo' : 'photos'}`,
   planVideos: (n: number) => `${n} YouTube ${n === 1 ? 'video' : 'videos'}`,
   planCategories: (n: number) => `Up to ${n} categories`,
+  planCities: (n: number) => `Up to ${n} locations`,
   planLinks: 'Social networks',
   planRequests: 'Inquiries from couples',
   planBooking: '"Request a date" and first place in lists',
@@ -398,6 +406,8 @@ export interface DirectorySettings {
   notify?: (event: DirectoryEvent) => Promise<void>
   /** The site's own rules for a company's profile form (after the plugin's checks): cleaned values to keep, or an error. */
   validateListing?: (values: Record<string, string>) => { data: Record<string, unknown> } | { error: string }
+  /** The city's name as the site stores it, or '' when it is not a known city (extra locations); default: trimmed. */
+  cleanCity?: (raw: string) => string
 }
 
 /** What happened in the directory, for setDirectory({ notify }). URLs are absolute. */
@@ -429,6 +439,7 @@ export interface DirectoryOptions {
   share?: DirectorySettings['share']
   notify?: DirectorySettings['notify']
   validateListing?: DirectorySettings['validateListing']
+  cleanCity?: DirectorySettings['cleanCity']
   plans?: Plan[]
   pricingUrl?: string
   favorites?: boolean
@@ -453,6 +464,7 @@ export function setDirectory(opts: DirectoryOptions): void {
     share: opts.share ?? current.share,
     notify: opts.notify ?? current.notify,
     validateListing: opts.validateListing ?? current.validateListing,
+    cleanCity: opts.cleanCity ?? current.cleanCity,
     plans: opts.plans ?? current.plans,
     pricingUrl: opts.pricingUrl ?? current.pricingUrl,
     favorites: opts.favorites ?? current.favorites,
@@ -506,13 +518,26 @@ export function extraCategoriesOf(data: Record<string, unknown>): string[] {
   return [...new Set(list)].filter(slug => valid.has(slug) && slug !== data.category && slug !== data.subcategory).slice(0, categoryLimit(data) - 1)
 }
 
+/** How many cities the company is listed in now (its own city counts); 1 without plans. */
+export const cityLimit = (data: Record<string, unknown>): number => Math.max(1, planOf(data)?.cities ?? 1)
+
+/** The extra cities that show now: names, not the company's own city, within the plan. */
+export function extraCitiesOf(data: Record<string, unknown>): string[] {
+  const list = Array.isArray(data.extraCities) ? data.extraCities.map(String).filter(Boolean) : []
+  return [...new Set(list)].filter(c => c !== data.city).slice(0, cityLimit(data) - 1)
+}
+
 /** SQL (on documents.data) that is true while the company's plan allows extra categories; binds today's date. */
-export function extraCategoriesSql(): string {
+export const extraCategoriesSql = (): string => planFeatureSql(p => (p.categories ?? 1) > 1)
+/** SQL (on documents.data) that is true while the company's plan allows extra cities; binds today's date. */
+export const extraCitiesSql = (): string => planFeatureSql(p => (p.cities ?? 1) > 1)
+
+function planFeatureSql(has: (p: Plan) => boolean): string {
   const J = (f: string) => `json_extract(data, '$.${f}')`
-  const keys = current.plans.filter(p => (p.categories ?? 1) > 1).map(p => `'${p.key.replace(/'/g, "''")}'`)
+  const keys = current.plans.filter(has).map(p => `'${p.key.replace(/'/g, "''")}'`)
   if (!keys.length) return '(0 AND ? IS NOT NULL)'
   const booking = current.plans.find(p => p.booking)
-  const paid = booking && (booking.categories ?? 1) > 1 ? `${J('paidMember')} IN (1, 'true', 'on', '1')` : '0'
+  const paid = booking && has(booking) ? `${J('paidMember')} IN (1, 'true', 'on', '1')` : '0'
   return `((CASE WHEN COALESCE(${J('plan')}, '') != '' THEN ${J('plan')} IN (${keys.join(', ')}) ELSE ${paid} END) AND (COALESCE(${J('paidUntil')}, '') = '' OR ${J('paidUntil')} >= ?))`
 }
 

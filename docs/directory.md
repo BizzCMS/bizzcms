@@ -40,6 +40,9 @@ manage their own profiles. Code: `src/plugins/directory/`, with visitor accounts
   plan; after paidUntil it is the free plan. No plans = the old behaviour (paidMember = Premium, 30 photos, everything shown).
 - **Busy days** (`busyDates`, YYYY-MM-DD, written by the site's booking calendar): with "request a date" the request
   popup tells free / booked as the date is picked and refuses a booked day (text `errDateBusy`, `dateBusy`, `dateFree`).
+- **More locations** (`Plan.cities`, default 1; the own city counts): the portal shows one city field per extra city
+  (`extraCities`, names cleaned by the site's `cleanCity`, e.g. its city list). While the plan allows it
+  (`extraCitiesSql()`), the company is listed and counted on those city pages too; its profile lists its locations.
 - **More categories** (`Plan.categories`, default 1; the main category counts): the portal shows one "More categories"
   choice per extra category the plan allows (a category or a subcategory, stored in `extraCategories`). While the plan
   allows it (`extraCategoriesSql()`), the company is listed and counted on those category pages too (a subcategory also
