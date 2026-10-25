@@ -661,7 +661,7 @@ function contactGateBox(p: Listing, gate: NonNullable<DirectorySettings['contact
     if(ok(j.website))h+=(h?'<br>':'')+'<a class="contact-line" href="'+e(j.website)+'" rel="noopener" target="_blank">'+s.web+'<span>'+e(s.website)+'</span></a>';
     var so=(j.socials||[]).filter(function(x){return ok(x[1])});
     if(so.length)h+='<div class="contact-gate-social"><span>'+e(s.socialTitle)+'</span><span class="social-icons">'+so.map(function(x){return'<a class="social-icon" href="'+e(x[1])+'" rel="noopener" target="_blank" aria-label="'+e(x[0])+'" title="'+e(x[0])+'">'+(s.social[x[2]]||e(x[0]))+'</a>'}).join('')+'</span></div>';
-    b.innerHTML=h;document.querySelectorAll('[data-gate-cta]').forEach(function(a){a.remove()});}
+    b.innerHTML=h;document.querySelectorAll('[data-gate-cta]').forEach(function(a){a.remove()});if(window.bzStat)window.bzStat('contacts');}
     else if(x[0]===403){b.innerHTML='<p class="muted">'+e(${JSON.stringify(gate.denied)})+'</p>';document.querySelectorAll('[data-gate-cta]').forEach(function(a){a.remove()});}}).catch(function(){});})();</script>`
 }
 

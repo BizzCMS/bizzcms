@@ -52,7 +52,13 @@ async function tables(db: D1Database) {
 
 // ---------------------------------------------------------------- counting
 
-const SNIPPET = `<script>(function(){try{var l=location,b=JSON.stringify({p:l.pathname,q:l.search,r:document.referrer,w:screen.width});if(navigator.sendBeacon)navigator.sendBeacon('${ANALYTICS_HIT_PATH}',new Blob([b],{type:'text/plain'}));else fetch('${ANALYTICS_HIT_PATH}',{method:'POST',body:b,keepalive:true})}catch(e){}})()</script>`
+// One page view, plus window.bzStat(name) for actions on the page (an inquiry button click; the directory's contacts
+// box reports "contacts" when it shows them).
+const SNIPPET = `<script>(function(){function s(o){try{var b=JSON.stringify(o);if(navigator.sendBeacon)navigator.sendBeacon('${ANALYTICS_HIT_PATH}',new Blob([b],{type:'text/plain'}));else fetch('${ANALYTICS_HIT_PATH}',{method:'POST',body:b,keepalive:true})}catch(e){}}
+var l=location;s({p:l.pathname,q:l.search,r:document.referrer,w:screen.width});window.bzStat=function(e){s({p:l.pathname,e:e})};
+document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('[data-open-request]');if(a)window.bzStat('inquiry')})})()</script>`
+/** Actions a page may report (bzStat), counted per page: kind "event:<name>". */
+const EVENTS = new Set(['inquiry', 'contacts'])
 
 /** Adds the counter script to public HTML pages while the plugin is active. */
 export async function withAnalytics(response: Response, request: Request, db: D1Database): Promise<Response> {
@@ -103,7 +109,7 @@ export async function analyticsHit(request: Request, db: D1Database, kv: KVNames
   const url = new URL(request.url)
   const origin = request.headers.get('origin')
   if (origin && origin !== url.origin) return done
-  let b: { p?: unknown; q?: unknown; r?: unknown; w?: unknown } = {}
+  let b: { p?: unknown; q?: unknown; r?: unknown; w?: unknown; e?: unknown } = {}
   try { b = JSON.parse((await request.text()).slice(0, 4000)) } catch { return done }
   const path = String(b.p ?? '').split('?')[0].slice(0, 300)
   if (!path.startsWith('/') || SKIP.test(path)) return done
@@ -119,6 +125,15 @@ export async function analyticsHit(request: Request, db: D1Database, kv: KVNames
     await tables(db)
     const hash = hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${await saltFor(day, kv)}|${ip}|${ua}`))).slice(0, 32)
     const seen = (scope: string) => db.prepare('INSERT OR IGNORE INTO bizz_stats_seen (day, scope, hash) VALUES (?, ?, ?)').bind(day, scope, hash)
+    if (b.e !== undefined) {
+      // An action on the page (no page view): counted per page, with the visitors who did it.
+      const name = String(b.e)
+      if (!EVENTS.has(name)) return
+      const [first] = await db.batch([seen(`e:${name}:${path}`)])
+      await db.prepare(`INSERT INTO bizz_stats (day, kind, key, views, visitors) VALUES (?, ?, ?, 1, ?)
+        ON CONFLICT (day, kind, key) DO UPDATE SET views = views + 1, visitors = visitors + excluded.visitors`).bind(day, `event:${name}`, path, first.meta.changes ? 1 : 0).run()
+      return
+    }
     const [all, page] = await db.batch([seen(''), seen(`p:${path}`)])
     const newVisitor = all.meta.changes ? 1 : 0, newOnPage = page.meta.changes ? 1 : 0
     const add = (kind: string, key: string, views: number, visitors: number) => db.prepare(`INSERT INTO bizz_stats (day, kind, key, views, visitors) VALUES (?, ?, ?, ?, ?)
@@ -134,6 +149,18 @@ export async function analyticsHit(request: Request, db: D1Database, kv: KVNames
   })().catch(e => console.error('analytics: hit not stored', e))
   if (ctx) ctx.waitUntil(job); else await job
   return done
+}
+
+/** One page's numbers for the last `days` days (e.g. a company profile for its owner): views and visitors of the page,
+ *  inquiry button clicks and contact openings (the visitors who did it). */
+export async function pageStats(db: D1Database, path: string, days: number, timeZone = 'UTC'): Promise<{ views: number; visitors: number; inquiry: number; contacts: number }> {
+  await tables(db)
+  const to = new Date().toLocaleDateString('sv-SE', { timeZone })
+  const from = new Date(Date.parse(`${to}T12:00:00Z`) - (days - 1) * 86400000).toISOString().slice(0, 10)
+  const rows = (await db.prepare(`SELECT kind, SUM(views) AS v, SUM(visitors) AS u FROM bizz_stats WHERE key = ? AND day BETWEEN ? AND ?
+    AND kind IN ('page', 'event:inquiry', 'event:contacts') GROUP BY kind`).bind(path, from, to).all<{ kind: string; v: number; u: number }>()).results
+  const get = (k: string) => rows.find(r => r.kind === k)
+  return { views: get('page')?.v ?? 0, visitors: get('page')?.u ?? 0, inquiry: get('event:inquiry')?.u ?? 0, contacts: get('event:contacts')?.u ?? 0 }
 }
 
 // ---------------------------------------------------------------- admin
