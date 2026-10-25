@@ -11,6 +11,7 @@ import { aiRobotsBlock, contentSignal, AI_BOTS, AI_BOTS_VERSION, type AiPolicy }
 import { definePlugin, PluginServiceClass as PluginService } from 'bizzcms-core'
 import { SEO_ANALYSE_CORE } from '../seo-editor'
 import { schemaOnce } from '../schema-once'
+import { sessionUser } from '../session'
 
 export const SEO_PLUGIN_ID = 'seo'
 
@@ -686,11 +687,8 @@ type Fetcher = (request: Request) => Promise<Response>
 const e = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
 
 async function me(request: Request, fetcher: Fetcher): Promise<{ role?: string } | null> {
-  const cookie = request.headers.get('cookie')
-  if (!cookie) return null
-  const res = await fetcher(new Request(new URL('/auth/me', request.url), { headers: { cookie } }))
-  if (!res.ok) return null
-  return ((await res.json().catch(() => null)) as { user?: { role?: string } } | null)?.user ?? null
+  // Asked once per request (src/session.ts).
+  return sessionUser(request, fetcher)
 }
 
 let pluginEnsured = false
@@ -784,6 +782,12 @@ export async function seoAdminRoute(request: Request, path: string, db: D1Databa
   if (path !== '/admin/seo') return null
 
   const url = new URL(request.url)
+  // The page frame (the dashboard layout) is fetched while the sign-in is checked and the settings are read, not
+  // after them (same as Analytics): three internal passes in a row made this page slow.
+  const page = request.method === 'GET' ? fetcher(new Request(new URL('/admin/dashboard', url), { headers: request.headers })) : null
+  page?.catch(() => {}) // a signed-out visitor returns before it is used
+  const settingsAhead = page ? seoSettings(db) : null
+  settingsAhead?.catch(() => {})
   const user = await me(request, fetcher)
   if (!user) return Response.redirect(new URL('/auth/login?redirect=/admin/seo', url).toString(), 302)
   const isAdmin = user.role === 'admin'
@@ -827,9 +831,9 @@ export async function seoAdminRoute(request: Request, path: string, db: D1Databa
   }
 
   const tab = ['general', 'indexing', 'redirects', 'check', 'ai'].includes(url.searchParams.get('tab') ?? '') ? url.searchParams.get('tab')! : 'general'
-  const s = await seoSettings(db)
+  const s = await (settingsAhead ?? seoSettings(db))
   const body = await adminPage(tab, s, db, url, isAdmin)
-  const base = await fetcher(new Request(new URL('/admin/dashboard', url), { headers: request.headers }))
+  const base = await (page ?? fetcher(new Request(new URL('/admin/dashboard', url), { headers: request.headers })))
   if (!base.ok || !base.headers.get('content-type')?.includes('text/html')) return base
   return new HTMLRewriter()
     .on('main > div.grow', { element: el => { el.setInnerContent(body, { html: true }) } })

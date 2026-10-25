@@ -27,6 +27,7 @@ import { envForSection, withSectionTabs, primeSidebarCounts, clearSidebarCounts 
 import { withMediaUsage } from './dashboard-media'
 import { contentGuardRoute } from './content-guard'
 import { seoPlugin, seoAdminRoute } from './plugins/seo'
+import { isAdminSession, isSignedIn } from './session'
 
 registerCollections([pages, posts, categories])
 
@@ -95,24 +96,18 @@ async function handleRequest(request: Request, env: Parameters<typeof cms.fetch>
     // Nothing is ever deleted through MCP: delete_* calls are refused and the tools are hidden (src/plugins/mcp-guard.ts).
     if (path === '/mcp' && request.method === 'POST') return mcpGuard(request, req => mcpWithExtras(req, db, upstream))
     // Blog / News counts for the sidebar, drawn by the server (src/sections.ts).
-    if (path.startsWith('/admin')) await primeSidebarCounts(db, (env as unknown as { CACHE_KV?: KVNamespace }).CACHE_KV)
+    if (path.startsWith('/admin')) await primeSidebarCounts(db, (env as unknown as { CACHE_KV?: KVNamespace }).CACHE_KV, ctx)
     // Google Analytics plugin: install + after-save redirect (see src/plugins/google-analytics.ts).
-    const gaRoute = await gaAdminRoute(request, path, db, async () => {
-      const me = await upstream(new Request(new URL('/auth/me', request.url), { headers: { cookie: request.headers.get('cookie') ?? '' } }))
-      return me.ok && ((await me.json()) as { user?: { role?: string } }).user?.role === 'admin'
-    })
+    const gaRoute = await gaAdminRoute(request, path, db, () => isAdminSession(request, upstream))
     if (gaRoute) return gaRoute
     // Social Share plugin: install + after-save redirect (src/plugins/social-share.ts).
-    const shareRoute = await shareAdminRoute(request, path, db, async () => {
-      const me = await upstream(new Request(new URL('/auth/me', request.url), { headers: { cookie: request.headers.get('cookie') ?? '' } }))
-      return me.ok && ((await me.json()) as { user?: { role?: string } }).user?.role === 'admin'
-    })
+    const shareRoute = await shareAdminRoute(request, path, db, () => isAdminSession(request, upstream))
     if (shareRoute) return shareRoute
     // Post editor: categories and tags for the multiselects (src/taxonomy.ts).
-    const taxonomy = await taxonomyRoute(request, path, db, async () => (await upstream(new Request(new URL('/auth/me', request.url), { headers: { cookie: request.headers.get('cookie') ?? '' } }))).ok)
+    const taxonomy = await taxonomyRoute(request, path, db, () => isSignedIn(request, upstream))
     if (taxonomy) return taxonomy
     // Content list: Created column dates (src/content-dates.ts).
-    const dates = await contentDatesRoute(request, path, db, async () => (await upstream(new Request(new URL('/auth/me', request.url), { headers: { cookie: request.headers.get('cookie') ?? '' } }))).ok)
+    const dates = await contentDatesRoute(request, path, db, () => isSignedIn(request, upstream))
     if (dates) return dates
     // SEO plugin: Admin › SEO, editor data, plugin install (src/plugins/seo.ts).
     const seoRoute = await seoAdminRoute(request, path, db, upstream)
@@ -140,7 +135,7 @@ async function handleRequest(request: Request, env: Parameters<typeof cms.fetch>
     // Dashboard Media Files count and size from the media documents (src/dashboard-media.ts).
     const response = await withMediaUsage(await withSectionTabs(await finishUpstream(ctx, cms.fetch(request, envKeepPublishDate(envForContentSort(envForSection(env, request, path), request, path)), ctx)), request, path, db), path, db)
     // Content created, saved or deleted: the sidebar counts are counted again on the next page.
-    if (request.method !== 'GET' && path.startsWith('/admin/content')) await clearSidebarCounts((env as unknown as { CACHE_KV?: KVNamespace }).CACHE_KV)
+    if (request.method !== 'GET' && path.startsWith('/admin/content')) await clearSidebarCounts((env as unknown as { CACHE_KV?: KVNamespace }).CACHE_KV, ctx)
     // After upstream's startup seeding has run: replace its SonicJS welcome post.
     await ensureBizzWelcome((env as unknown as { DB: D1Database }).DB).catch(e => console.error('welcome post', e))
     return applyBranding(withCacheTab(withErrorsTab(withApiTab(await brandApiSpec(await withGoogleAnalytics(response, request, db), path), path), path), path), path)

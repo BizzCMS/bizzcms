@@ -5,6 +5,7 @@
 // Stored in our own bizz_settings table; upstream's settings are left untouched.
 
 import { schemaOnce } from './schema-once'
+import { sessionInfo } from './session'
 
 type Fetcher = (request: Request) => Promise<Response>
 
@@ -32,16 +33,9 @@ async function setApiOpen(db: D1Database, open: boolean) {
 
 // Who is calling: asks upstream's own /auth/me with the caller's cookie, x-api-key or bearer key.
 async function currentUser(request: Request, fetcher: Fetcher): Promise<{ role?: string } | null> {
-  const headers = new Headers()
-  for (const h of ['cookie', 'authorization', 'x-api-key']) {
-    const v = request.headers.get(h)
-    if (v) headers.set(h, v)
-  }
-  if (![...headers.keys()].length) return null
-  const res = await fetcher(new Request(new URL('/auth/me', request.url), { headers }))
-  if (!res.ok) return null
-  const body = await res.json().catch(() => null) as { user?: { role?: string } } | null
-  return body?.user ?? null
+  // Asked once per request (src/session.ts); the API key headers count here, not only the cookie.
+  const info = await sessionInfo(request, fetcher, ['cookie', 'authorization', 'x-api-key'])
+  return info.user
 }
 
 /** Returns a 401 when the API is closed and the caller is not signed in; otherwise null (go on). */
@@ -96,10 +90,13 @@ export async function apiSettingsPage(request: Request, db: D1Database, fetcher:
     await setApiOpen(db, data.get('access') === 'open')
     return Response.redirect(new URL('/admin/settings/api?saved=1', url).toString(), 303)
   }
-  // Borrow the General tab page for the layout (upstream decides who may see settings).
+  // Borrow the General tab page for the layout (upstream decides who may see settings). The setting is read while
+  // the layout is built, not after it; it is only used when upstream lets the person in.
+  const openAhead = apiIsOpen(db)
+  openAhead.catch(() => {})
   const base = await fetcher(new Request(new URL('/admin/settings/general', url), { headers: request.headers }))
   if (!base.ok || !base.headers.get('content-type')?.includes('text/html')) return base
-  const open = await apiIsOpen(db)
+  const open = await openAhead
   return new HTMLRewriter()
     .on('#settings-content', { element: el => { el.setInnerContent(form(open, url.searchParams.has('saved')), { html: true }) } })
     .on('nav[role="tablist"] a[href="/admin/settings/general"]', { element: el => { el.setAttribute('class', TAB_OFF) } })

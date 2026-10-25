@@ -42,6 +42,24 @@ return safeHandle(request, db, ctx, () => edgeCached(request, db, env.CACHE_KV, 
 
 and add the settings page next to the other settings pages: `cacheSettingsPage(request, path, db, env.CACHE_KV, upstream)` and `withCacheTab(...)` around the settings responses. The content version is kept in KV (`CACHE_KV`). On a local computer pages are not stored (add `?bizz-cache-test` to try it).
 
+### Which pages a session cookie skips
+
+By default any session cookie skips the cache on every public page (people who are signed in always see fresh pages). A site where only a few public pages are personal (for example "my account" or a saved list) can narrow that:
+
+```ts
+import { setCacheBypass } from './edge-cache'
+setCacheBypass((path, request) => path.startsWith('/my/') || path === '/saved')
+```
+
+Pages for which the function returns `false` are served from the cache to everybody, signed in or not. Pages for which it returns `true` skip the cache for people with a session cookie, as before. `/admin`, `/auth` and `/api` always skip it. A page built for a signed-in person is never stored in the cache, so one person's page can never be shown to another; make sure nothing personal is drawn on pages the function lets through.
+
+### Fewer round trips
+
+- The settings and the content version are read together on every public page.
+- `src/session.ts` asks the engine "who is signed in?" once per request (`sessionUser`, `isSignedIn`, `isAdminSession`); routes that need it in several places share the answer. Nothing is kept between requests.
+- Admin pages that borrow another page's layout (SEO, Settings › API / Cache / Error log) fetch it at the same time as the sign-in check and their own queries.
+- `primeSidebarCounts(db, kv, ctx)`, `clearSidebarCounts(kv, ctx)` and `withImageHints(request, response, bucket, kv, ctx)` accept the request's `ctx` so their KV writes finish after the response.
+
 ## Table setup once per deploy (2026-10-20)
 
 The shared files create their own tables (`CREATE TABLE IF NOT EXISTS`) and plugin records. Before, some did it on every

@@ -19,6 +19,7 @@
 import { definePlugin, PluginServiceClass as PluginService } from 'bizzcms-core'
 import { currentUser, html, portalPage, readForm, signedInCookie, type Cms, type User } from '../site-accounts'
 import { schemaOnce } from '../schema-once'
+import { sessionUser } from '../session'
 
 export const ABUSE_GUARD_PLUGIN_ID = 'abuse-guard'
 
@@ -182,11 +183,8 @@ async function ensureAbuseGuardPlugin(db: D1Database, force = false) {
 }
 
 async function me(request: Request, fetcher: Cms): Promise<{ role?: string } | null> {
-  const cookie = request.headers.get('cookie')
-  if (!cookie) return null
-  const res = await fetcher(new Request(new URL('/auth/me', request.url), { headers: { cookie } }))
-  if (!res.ok) return null
-  return ((await res.json().catch(() => null)) as { user?: { role?: string } } | null)?.user ?? null
+  // Asked once per request (src/session.ts).
+  return sessionUser(request, fetcher)
 }
 
 type LogRow = { at: number; email: string; path: string; field: string; ip: string; value: string; action: string }

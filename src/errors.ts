@@ -8,6 +8,7 @@
 
 import { ensureSiteIndexes } from './db-indexes'
 import { schemaOnce } from './schema-once'
+import { sessionUser } from './session'
 
 type Ctx = { waitUntil(p: Promise<unknown>): void }
 type Fetcher = (request: Request) => Promise<Response>
@@ -86,21 +87,23 @@ export function withErrorsTab(response: Response, path: string): Response {
 }
 
 async function me(request: Request, fetcher: Fetcher): Promise<{ role?: string } | null> {
-  const cookie = request.headers.get('cookie')
-  if (!cookie) return null
-  const res = await fetcher(new Request(new URL('/auth/me', request.url), { headers: { cookie } }))
-  if (!res.ok) return null
-  return ((await res.json().catch(() => null)) as { user?: { role?: string } } | null)?.user ?? null
+  // Asked once per request (src/session.ts).
+  return sessionUser(request, fetcher)
 }
 
 /** GET/POST /admin/settings/errors: the error log (administrators only), drawn in the settings layout. */
 export async function errorLogPage(request: Request, path: string, db: D1Database, fetcher: Fetcher): Promise<Response | null> {
   if (path !== '/admin/settings/errors') return null
   const url = new URL(request.url)
+  // The page frame and the table check are started with the sign-in check, not after it (same as Analytics).
+  const page = request.method === 'GET' ? fetcher(new Request(new URL('/admin/settings/general', url), { headers: request.headers })) : null
+  page?.catch(() => {}) // a signed-out or non-admin visitor returns before it is used
+  const table = ensureTable(db)
+  table.catch(() => {}) // surfaced below, once the person is known to be an administrator
   const user = await me(request, fetcher)
   if (!user) return Response.redirect(new URL('/auth/login?redirect=/admin/settings/errors', url).toString(), 302)
   if (user.role !== 'admin') return new Response('Only administrators can see the error log.', { status: 403 })
-  await ensureTable(db)
+  await table
   if (request.method === 'POST') {
     const origin = request.headers.get('origin')
     if (origin && origin !== url.origin) return new Response('Forbidden', { status: 403 })
@@ -119,7 +122,7 @@ export async function errorLogPage(request: Request, path: string, db: D1Databas
     ${results.length ? `<table class="bizz-seo-table"><thead><tr><th>Time</th><th>Reference</th><th>Request</th><th>Status</th><th>Error</th></tr></thead><tbody>${rows}</tbody></table>
     <form method="post" onsubmit="return confirm('Remove every entry from the error log?')"><button type="submit" class="bizz-seo-danger">Clear the log</button></form>` : `<p class="bizz-seo-note">${ref ? 'No error with that reference.' : 'No errors recorded. 👍'}</p>`}
   </div>`
-  const base = await fetcher(new Request(new URL('/admin/settings/general', url), { headers: request.headers }))
+  const base = await (page ?? fetcher(new Request(new URL('/admin/settings/general', url), { headers: request.headers })))
   if (!base.ok || !base.headers.get('content-type')?.includes('text/html')) return base
   return new HTMLRewriter()
     .on('#settings-content', { element: el => { el.setInnerContent(body, { html: true }) } })

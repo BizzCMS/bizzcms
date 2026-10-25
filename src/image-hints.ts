@@ -4,20 +4,25 @@
 // first (fetchpriority="high"). Sizes are read from the first bytes of the file in R2 (WebP, PNG, JPEG,
 // GIF) and kept in KV, so each image is measured once. A zero-specificity rule keeps height:auto for
 // sized images, which any rule of the site still overrides (cards with object-fit, fixed logo heights).
-//   return withImageHints(request, response, env.MEDIA_BUCKET, env.CACHE_KV)   (admin, sign-in and API pass through)
+//   return withImageHints(request, response, env.MEDIA_BUCKET, env.CACHE_KV, ctx)   (admin, sign-in and API pass through)
 
 const CSS = '<style>:where(img[width][height]){height:auto}</style>'
 const memo = new Map<string, string>()
+type Ctx = { waitUntil(p: Promise<unknown>): void }
 
 /** "w h" for a file key, or '' when unknown. */
-async function dims(key: string, bucket: R2Bucket, kv?: KVNamespace): Promise<string> {
+async function dims(key: string, bucket: R2Bucket, kv?: KVNamespace, ctx?: Ctx): Promise<string> {
   if (memo.has(key)) return memo.get(key)!
   let v = (await kv?.get(`bizz:img:${key}`).catch(() => null)) ?? null
   if (v === null) {
     const obj = await bucket.get(key, { range: { offset: 0, length: 65536 } }).catch(() => null)
     const size = obj ? sizeOf(new Uint8Array(await obj.arrayBuffer())) : null
     v = size ? `${size[0]} ${size[1]}` : ''
-    if (obj) await kv?.put(`bizz:img:${key}`, v).catch(() => null)
+    if (obj && kv) {
+      // Remembered for the next visitor; this page does not wait for it when a ctx is given.
+      const saved = kv.put(`bizz:img:${key}`, v).catch(() => null)
+      if (ctx) ctx.waitUntil(saved); else await saved
+    }
   }
   if (memo.size > 5000) memo.clear()
   memo.set(key, v)
@@ -52,7 +57,7 @@ export function sizeOf(b: Uint8Array): [number, number] | null {
 }
 
 /** Adds the hints to a public HTML page; anything else passes through. */
-export function withImageHints(request: Request, response: Response, bucket?: R2Bucket, kv?: KVNamespace): Response {
+export function withImageHints(request: Request, response: Response, bucket?: R2Bucket, kv?: KVNamespace, ctx?: Ctx): Response {
   if (!bucket || /^\/(admin|auth|api)(\/|$)/.test(new URL(request.url).pathname) || !response.headers.get('content-type')?.includes('text/html')) return response
   let first = true
   return new HTMLRewriter()
@@ -66,7 +71,7 @@ export function withImageHints(request: Request, response: Response, bucket?: R2
         if (!m) return
         if (!lazy && first && !el.hasAttribute('fetchpriority')) { el.setAttribute('fetchpriority', 'high'); first = false }
         if (el.hasAttribute('width') || el.hasAttribute('height')) return
-        const d = await dims(decodeURIComponent(m[1]), bucket, kv)
+        const d = await dims(decodeURIComponent(m[1]), bucket, kv, ctx)
         if (!d) return
         const [w, h] = d.split(' ')
         el.setAttribute('width', w); el.setAttribute('height', h)

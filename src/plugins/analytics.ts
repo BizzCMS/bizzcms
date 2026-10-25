@@ -11,6 +11,7 @@
 //   - analyticsAdminRoute(request, path, db, fetcher, isAdmin) for the admin page and the plugin's Install button.
 import { definePlugin, PluginServiceClass as PluginService } from 'bizzcms-core'
 import { schemaOnce } from '../schema-once'
+import { sessionUser } from '../session'
 
 export const ANALYTICS_PLUGIN_ID = 'analytics'
 export const ANALYTICS_HIT_PATH = '/_bz/hit'
@@ -45,6 +46,8 @@ async function tables(db: D1Database) {
     db.prepare(`CREATE TABLE IF NOT EXISTS bizz_stats (day TEXT NOT NULL, kind TEXT NOT NULL, key TEXT NOT NULL,
       views INTEGER NOT NULL DEFAULT 0, visitors INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, kind, key))`),
     db.prepare('CREATE TABLE IF NOT EXISTS bizz_stats_seen (day TEXT NOT NULL, scope TEXT NOT NULL, hash TEXT NOT NULL, PRIMARY KEY (day, scope, hash))'),
+    // pageStats() and the per-page numbers look rows up by key and a day range.
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_bizz_stats_key_day ON bizz_stats (key, day)'),
     // Visitors right now: the last page of each visitor hash with its time (rows older than 30 minutes are removed).
     db.prepare('CREATE TABLE IF NOT EXISTS bizz_stats_live (hash TEXT PRIMARY KEY, path TEXT NOT NULL, at INTEGER NOT NULL)')
   ]))
@@ -174,11 +177,8 @@ let regionNames: Intl.DisplayNames | null = null
 const country = (code: string) => { try { regionNames ??= new Intl.DisplayNames(['en'], { type: 'region' }); return code === 'XX' ? 'Unknown' : regionNames.of(code) ?? code } catch { return code } }
 
 async function me(request: Request, fetcher: Cms): Promise<{ role?: string } | null> {
-  const cookie = request.headers.get('cookie')
-  if (!cookie) return null
-  const res = await fetcher(new Request(new URL('/auth/me', request.url), { headers: { cookie } }))
-  if (!res.ok) return null
-  return ((await res.json().catch(() => null)) as { user?: { role?: string } } | null)?.user ?? null
+  // Asked once per request (src/session.ts).
+  return sessionUser(request, fetcher)
 }
 
 function chart(days: { day: string; views: number; visitors: number }[]): string {

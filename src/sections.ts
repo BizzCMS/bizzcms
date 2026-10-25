@@ -99,21 +99,30 @@ async function countAll(db: D1Database): Promise<Record<string, number>> {
   return counts
 }
 
-export async function primeSidebarCounts(db: D1Database, kv?: KVNamespace): Promise<void> {
+type Ctx = { waitUntil(p: Promise<unknown>): void }
+
+/** `ctx` (optional): the KV write of fresh counts then finishes after the response instead of holding it up. */
+export async function primeSidebarCounts(db: D1Database, kv?: KVNamespace, ctx?: Ctx): Promise<void> {
   if (sidebarCounts && Date.now() - sidebarCounts.at < 15_000) return
   try {
     const cached = kv ? await kv.get<Record<string, number>>(COUNTS_KEY, 'json').catch(() => null) : null
     if (cached) { sidebarCounts = { at: Date.now(), counts: cached }; return }
     const counts = await countAll(db)
     sidebarCounts = { at: Date.now(), counts }
-    if (kv) await kv.put(COUNTS_KEY, JSON.stringify(counts), { expirationTtl: 86400 }).catch(() => null)
+    if (kv) {
+      const write = kv.put(COUNTS_KEY, JSON.stringify(counts), { expirationTtl: 86400 }).catch(() => null)
+      if (ctx) ctx.waitUntil(write); else await write
+    }
   } catch { /* keep the last counts */ }
 }
 
-/** Forget the counts (call after content is created, saved or deleted). */
-export async function clearSidebarCounts(kv?: KVNamespace): Promise<void> {
+/** Forget the counts (call after content is created, saved or deleted). With `ctx` the KV delete finishes after the
+ *  response; this isolate forgets at once either way. */
+export async function clearSidebarCounts(kv?: KVNamespace, ctx?: Ctx): Promise<void> {
   sidebarCounts = null
-  if (kv) await kv.delete(COUNTS_KEY).catch(() => null)
+  if (!kv) return
+  const gone = kv.delete(COUNTS_KEY).catch(() => null)
+  if (ctx) ctx.waitUntil(gone); else await gone
 }
 
 const NAV_ICON: Record<string, string> = {

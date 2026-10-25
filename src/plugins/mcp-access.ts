@@ -4,6 +4,7 @@
 // Also puts "MCP Server" into the sidebar (the engine leaves its MCP plugin out of the menu).
 import { getPluginMenu, setPluginMenu, PluginServiceClass as PluginService } from 'bizzcms-core'
 import { schemaOnce } from '../schema-once'
+import { isAdminSession } from '../session'
 
 type Fetcher = (request: Request) => Promise<Response>
 
@@ -90,16 +91,8 @@ export async function applyMcpAccess(mcpOptions: McpOptions, db: D1Database, col
 }
 
 async function isAdmin(request: Request, fetcher: Fetcher): Promise<boolean> {
-  const headers = new Headers()
-  for (const h of ['cookie', 'authorization']) {
-    const v = request.headers.get(h)
-    if (v) headers.set(h, v)
-  }
-  if (![...headers.keys()].length) return false
-  const res = await fetcher(new Request(new URL('/auth/me', request.url), { headers }))
-  if (!res.ok) return false
-  const body = await res.json().catch(() => null) as { user?: { role?: string } } | null
-  return body?.user?.role === 'admin'
+  // Asked once per request (src/session.ts).
+  return isAdminSession(request, fetcher, ['cookie', 'authorization'])
 }
 
 function accessForm(collections: McpCollection[], settings: AccessSettings, saved: boolean) {

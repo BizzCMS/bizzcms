@@ -1,15 +1,20 @@
 // Edge cache for public pages: Cloudflare keeps each public page for a few minutes, so visitors and
 // crawlers are served without rebuilding the page from the database.
 // - Only GET/HEAD for public addresses (never /admin, /auth, /api, /files, /mcp), never for signed-in
-//   people (a session cookie skips the cache), only 200 responses that set no cookies.
+//   people (a session cookie skips the cache, see setCacheBypass below), only 200 responses that set no cookies.
 // - Every save in the admin (any POST/PUT/PATCH/DELETE under /admin) bumps a content version kept in KV;
 //   the version is part of the cache key, so all cached pages are replaced at once, worldwide.
+// - A site can narrow the session-cookie rule with setCacheBypass(fn): then only the paths fn() accepts skip the cache
+//   for people with a session cookie (for example a site's own "my account" pages); every other public page is served
+//   from the cache for everybody, but a page built for a signed-in person is never stored. /admin, /auth and /api
+//   always skip the cache. Without setCacheBypass, any session cookie skips the cache on every page.
 // - Browsers and crawlers get an ETag and Last-Modified; a repeat request with If-None-Match or
 //   If-Modified-Since gets an empty 304 "not modified".
 // - The numbers live in Admin › Settings › Cache (bizz_settings 'cache.settings'): on/off, minutes for
 //   pages, minutes for sitemaps, feeds and robots.txt; "Clear the cache now" bumps the version.
 
 import { schemaOnce } from './schema-once'
+import { sessionUser } from './session'
 
 type Ctx = { waitUntil(p: Promise<unknown>): void }
 type Fetcher = (request: Request) => Promise<Response>
@@ -25,6 +30,18 @@ export const CONTENT_CHANGED = 'x-bizz-content-changed'
 const SKIP = /^\/(admin|auth|api|files|mcp|cdn-cgi)(\/|$)/
 const SESSION_COOKIE = /(^|;\s*)(better-auth\.session_token|__Secure-better-auth\.session_token|auth_token|session)=/i
 const FEEDLIKE = /^\/(sitemap[^/]*\.xml|schemamap\.xml|schema\/[a-z0-9_-]+\.ndjson|robots\.txt|llms\.txt|feed\/?|rss(\.xml|\/)?|(blog|news)\/feed\/?)$/
+
+let cacheBypass: ((path: string, request: Request) => boolean) | null = null
+/** Lets a site choose which public pages a session cookie keeps out of the cache. Without it (the default) any session
+ *  cookie bypasses the cache on every page. With it, only paths for which `fn` returns true bypass the cache for
+ *  people with a session cookie; every other public page is served from (and, for anonymous visitors, stored in) the
+ *  cache for everybody. /admin, /auth and /api always bypass. A throwing `fn` counts as true. */
+export function setCacheBypass(fn: (path: string, request: Request) => boolean): void { cacheBypass = fn }
+
+function sessionBypasses(path: string, request: Request): boolean {
+  if (!cacheBypass) return true
+  try { return cacheBypass(path, request) } catch { return true }
+}
 
 let settingsCache: { at: number; value: CacheSettings } | null = null
 export async function cacheSettings(db: D1Database): Promise<CacheSettings> {
@@ -99,12 +116,13 @@ export async function edgeCached(request: Request, db: D1Database, kv: KVNamespa
     return res
   }
   const local = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname.endsWith('.localhost')
-  if (SKIP.test(url.pathname) || SESSION_COOKIE.test(request.headers.get('cookie') ?? '') || url.searchParams.has('nocache')) return handler()
-  const s = await cacheSettings(db)
+  const hasSession = SESSION_COOKIE.test(request.headers.get('cookie') ?? '')
+  if (SKIP.test(url.pathname) || (hasSession && sessionBypasses(url.pathname, request)) || url.searchParams.has('nocache')) return handler()
+  // The settings (D1, kept 30 s per isolate) and the content version (KV, kept 10 s) are independent: ask together.
+  const [s, version] = await Promise.all([cacheSettings(db), contentVersion(kv)])
   // Browsers still revalidate every time (toClient); only the edge copy lives this long.
   const minutes = FEEDLIKE.test(url.pathname) ? (s.feedsUntilChange ? UNTIL_CHANGE_MINUTES : s.feedMinutes) : s.pageMinutes
   if (!s.enabled || !(minutes > 0) || typeof caches === 'undefined') return handler()
-  const version = await contentVersion(kv)
   const keyUrl = new URL(url); keyUrl.searchParams.set('__bizz_v', version)
   const key = new Request(keyUrl.toString(), { method: 'GET' })
   const cache = (caches as unknown as { default: Cache }).default
@@ -119,7 +137,8 @@ export async function edgeCached(request: Request, db: D1Database, kv: KVNamespa
   headers.set('last-modified', new Date(Number(version) || Date.now()).toUTCString())
   headers.set('cache-control', `public, max-age=${Math.round(minutes * 60)}`)
   const stored = new Response(body, { status: 200, headers })
-  if (!local || url.searchParams.has('bizz-cache-test')) ctx.waitUntil(cache.put(key, stored.clone()).catch(() => null))
+  // A page built for a signed-in person is never stored (it is only served from the copy anonymous visitors made).
+  if (!hasSession && (!local || url.searchParams.has('bizz-cache-test'))) ctx.waitUntil(cache.put(key, stored.clone()).catch(() => null))
   return toClient(request, stored, false)
 }
 
@@ -139,17 +158,18 @@ export function withCacheTab(response: Response, path: string): Response {
 }
 
 async function me(request: Request, fetcher: Fetcher): Promise<{ role?: string } | null> {
-  const cookie = request.headers.get('cookie')
-  if (!cookie) return null
-  const res = await fetcher(new Request(new URL('/auth/me', request.url), { headers: { cookie } }))
-  if (!res.ok) return null
-  return ((await res.json().catch(() => null)) as { user?: { role?: string } } | null)?.user ?? null
+  // Asked once per request (src/session.ts).
+  return sessionUser(request, fetcher)
 }
 
 /** GET/POST /admin/settings/cache (administrators), drawn in the settings layout. */
 export async function cacheSettingsPage(request: Request, path: string, db: D1Database, kv: KVNamespace | undefined, fetcher: Fetcher): Promise<Response | null> {
   if (path !== '/admin/settings/cache') return null
   const url = new URL(request.url)
+  // The page frame, the sign-in check and the settings are asked together, not one after the other (same as Analytics).
+  const page = request.method === 'GET' ? fetcher(new Request(new URL('/admin/settings/general', url), { headers: request.headers })) : null
+  page?.catch(() => {}) // a signed-out or non-admin visitor returns before it is used
+  const settingsAhead = page ? cacheSettings(db) : null
   const user = await me(request, fetcher)
   if (!user) return Response.redirect(new URL('/auth/login?redirect=/admin/settings/cache', url).toString(), 302)
   if (user.role !== 'admin') return new Response('Only administrators can change the cache.', { status: 403 })
@@ -165,7 +185,7 @@ export async function cacheSettingsPage(request: Request, path: string, db: D1Da
     await bumpContentVersion(kv)
     return Response.redirect(new URL('/admin/settings/cache?saved=1', url).toString(), 303)
   }
-  const s = await cacheSettings(db)
+  const s = await (settingsAhead ?? cacheSettings(db))
   const body = `<div class="space-y-6 bizz-api-settings">
     <div><h3 class="text-lg/7 font-semibold text-zinc-950 dark:text-white">Cache</h3>
     <p class="mt-1 text-sm/6 text-zinc-500 dark:text-zinc-400">Cloudflare keeps public pages for a few minutes, so visitors and search engines are served fast without rebuilding every page. Every save in the admin replaces all cached pages at once, so your changes show right away. Signed-in people always see fresh pages.</p></div>
@@ -179,7 +199,7 @@ export async function cacheSettingsPage(request: Request, path: string, db: D1Da
     </form>
     <form method="post"><input type="hidden" name="action" value="clear"><button type="submit" class="bizz-seo-mini">Clear the cache now</button></form>
   </div>`
-  const base = await fetcher(new Request(new URL('/admin/settings/general', url), { headers: request.headers }))
+  const base = await (page ?? fetcher(new Request(new URL('/admin/settings/general', url), { headers: request.headers })))
   if (!base.ok || !base.headers.get('content-type')?.includes('text/html')) return base
   return new HTMLRewriter()
     .on('#settings-content', { element: el => { el.setInnerContent(body, { html: true }) } })

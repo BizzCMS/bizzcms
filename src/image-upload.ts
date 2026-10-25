@@ -8,6 +8,7 @@
 //   pages:  addImageUpload(rewriter, path) inside applyBranding (script on admin pages, Settings tab)
 
 import { schemaOnce } from './schema-once'
+import { sessionUser } from './session'
 
 type Fetcher = (request: Request) => Promise<Response>
 
@@ -45,11 +46,8 @@ export function addImageUpload(rewriter: HTMLRewriter, path: string): HTMLRewrit
 }
 
 async function me(request: Request, fetcher: Fetcher): Promise<{ role?: string } | null> {
-  const cookie = request.headers.get('cookie')
-  if (!cookie) return null
-  const res = await fetcher(new Request(new URL('/auth/me', request.url), { headers: { cookie } }))
-  if (!res.ok) return null
-  return ((await res.json().catch(() => null)) as { user?: { role?: string } } | null)?.user ?? null
+  // Asked once per request (src/session.ts).
+  return sessionUser(request, fetcher)
 }
 
 /** /admin/bizz/images/upload.js (the script, with the settings) and /admin/settings/images (the page). */

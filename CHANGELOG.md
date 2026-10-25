@@ -4,7 +4,14 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Added
+- **`setCacheBypass(fn)`** (`src/edge-cache.ts`): a site can choose which public pages a session cookie keeps out of the edge cache. `fn(path, request)` returns true for the pages that are personal; only those skip the cache for people with a session cookie, every other public page is served from the cache for everybody. `/admin`, `/auth` and `/api` always skip it, and a page built for a signed-in person is never stored. Without it nothing changes: any session cookie skips the cache on every page.
+- **`src/session.ts`** (`sessionUser`, `sessionInfo`, `isSignedIn`, `isAdminSession`): the internal sign-in check is asked once per request, however many routes need it. Never shared between requests.
+- `primeSidebarCounts`, `clearSidebarCounts` and `withImageHints` take an optional last `ctx` argument: their KV writes then finish after the response.
+
 ### Changed
+- **Fewer database and KV round trips per request**: the cache settings and the content version are read together on every public page (also on a cache hit); Admin › SEO and Settings › API / Cache / Error log fetch the page frame while the sign-in check and the queries run, not after them; the repeated internal `/auth/me` calls in the admin routes (SEO, Cache, Error log, API, Images, Spam guard, MCP, Analytics) share one answer per request.
+- New lookup indexes, created once per deploy: old-address lookups (`json_extract(data, '$.legacyId')` and its `CAST(... AS INTEGER)` form, used by the Directory plugin), Blog | News sections (`idx_site_section`) and Analytics (`bizz_stats(key, day)`).
 - **Analytics page loads faster**: the page frame, the sign-in check and the numbers are fetched at the same time instead of one after another (three internal passes in a row made it the slowest admin page).
 
 ## [0.2.12] - 2026-10-25
