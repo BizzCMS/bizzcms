@@ -348,7 +348,7 @@ function toCard(r: Row): Card {
 
 export interface Listing extends Card {
   description?: string; gallery: string[]; website?: string; phone?: string; email?: string; setting?: string; address?: string
-  amenities: string[]; extraCategories: string[]; seoTitle?: string; seoDescription?: string; seoImage?: string; canonical?: string; noindex?: boolean; cover?: string; videos: string[]
+  amenities: string[]; extraCategories: string[]; busyDates: string[]; seoTitle?: string; seoDescription?: string; seoImage?: string; canonical?: string; noindex?: boolean; cover?: string; videos: string[]
   /** The company's package now (undefined when the site has no packages). */
   plan?: Plan
   /** Social network links shown on the profile: [label, url]. */
@@ -381,6 +381,8 @@ export async function findListing(db: D1Database, by: { slug: string } | { legac
     phone: str(d.phone), email: str(d.email), setting: str(d.setting),
     amenities: directorySettings().taxonomy.amenities.filter(([k]) => truthy(d[k])).map(([, v]) => v),
     extraCategories: extraCategoriesOf(d),
+    // Days the company marked busy (or accepted), from today on; only with "request a date" (the site's booking calendar).
+    busyDates: premium ? [...new Set((Array.isArray(d.busyDates) ? d.busyDates : []).map(String).filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x) && x >= today))].sort().slice(0, 400) : [],
     seoTitle: str(d.seoTitle), seoDescription: str(d.seoDescription), seoImage: str(d.seoImage), canonical: str(d.canonical), noindex: truthy(d.noindex)
   }
 }
@@ -394,6 +396,7 @@ async function saveRequest(form: FormData, company: Listing, env: Env, origin: s
   if (!values.coupleName || values.coupleName.length > 200) return { ok: false as const, error: text.errName, values }
   if (!validEmail(values.email)) return { ok: false as const, error: text.errEmail, values }
   if (values.weddingDate && !/^\d{4}-\d{2}-\d{2}$/.test(values.weddingDate)) return { ok: false as const, error: text.errDate, values }
+  if (values.weddingDate && company.busyDates.includes(values.weddingDate)) return { ok: false as const, error: text.errDateBusy, values }
   if (values.message.length > 3000 || values.phone.length > 60) return { ok: false as const, error: text.errTooLong, values }
   const guests = Number.parseInt(values.guests, 10)
 
@@ -721,12 +724,16 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
         <label>${esc(text.formName)}<input name="coupleName" required maxlength="200" value="${esc(v.coupleName ?? '')}"></label>
         <label>${esc(text.formEmail)}<input name="email" type="email" required maxlength="200" value="${esc(v.email ?? '')}"></label>
         <label>${esc(text.formPhone)}<input name="phone" maxlength="60" value="${esc(v.phone ?? '')}"></label>
-        <label>${esc(text.formDate)}<input name="weddingDate" type="date" value="${esc(v.weddingDate ?? '')}"></label>
+        <label>${esc(text.formDate)}<input name="weddingDate" type="date" value="${esc(v.weddingDate ?? '')}"${p.busyDates.length ? ` data-busy="${esc(JSON.stringify(p.busyDates))}"` : ''}>${p.premium ? `<small class="req-date-state" data-date-state aria-live="polite"></small>` : ''}</label>
         <label>${esc(text.formGuests)}<input name="guests" type="number" min="1" max="5000" value="${esc(v.guests ?? '')}"></label>
         <label class="full">${esc(text.formMessage)}<textarea name="message" rows="4" maxlength="3000">${esc(v.message ?? '')}</textarea></label>
         <label class="hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
         <button type="submit">${esc(text.formSend)}</button>
       </form>`
+  // Booking calendar: the date field says free / booked as the couple picks it; a booked day is refused (here and on the server).
+  const dateCheck = p.premium ? `<style>.req-date-state{display:block;font-size:12px;margin-top:4px}.req-date-state.busy{color:#982038}.req-date-state.free{color:#42694e}</style><script>(function(){var i=document.querySelector('[data-request] input[name=weddingDate]'),o=document.querySelector('[data-date-state]');if(!i||!o)return;var busy=[];try{busy=JSON.parse(i.getAttribute('data-busy')||'[]')}catch(e){}
+    function check(){var b=busy.indexOf(i.value)>=0;o.textContent=i.value?(b?${JSON.stringify(text.dateBusy)}:${JSON.stringify(text.dateFree)}):'';o.className='req-date-state '+(i.value?(b?'busy':'free'):'');i.setCustomValidity(b?${JSON.stringify(text.errDateBusy)}:'')}
+    i.addEventListener('input',check);i.addEventListener('change',check);check()})()</script>` : ''
   // The request form opens as a popup (the profile's button, "Request a date" on cards: #<anchor> or ?<anchor>=1).
   // With requestLogin, signed-out visitors see sign-in / sign-up links in it instead (the site refuses their posts).
   const login = directorySettings().requestLogin
@@ -746,7 +753,7 @@ function profilePage(p: Listing, state: { sent?: boolean; error?: string; values
     <p class="crumbs"><a href="${esc(directoryUrl())}">${esc(text.directoryTitle)}</a>${parent ? ` › <a href="${esc(categoryUrl(parent.slug))}">${esc(parent.label)}</a>` : ''}${sub ? ` › <a href="${esc(categoryUrl(sub.slug))}">${esc(sub.label)}</a>` : ''}</p>
     <div class="phead"><h1>${esc(p.title)}</h1>${p.premium ? `<span class="pill premium">${esc(text.premium)}</span>` : ''}${favButton(p.slug)}</div>
     ${mediaHero(media, p.title, mt)}
-    <div class="pcols"><div>${paragraphs}${gallery}${share}${form}</div>
+    <div class="pcols"><div>${paragraphs}${gallery}${share}${form}${dateCheck}</div>
     <aside class="box facts">${facts.map(([k, val]) => `<div><span>${esc(k)}</span>${esc(val)}</div>`).join('')}${catLinks}
       ${contact.length ? `<div><span>${esc(text.contact)}</span>${contact.join('<br>')}</div>` : ''}
       ${p.socials.length && !gate ? `<div><span>${esc(text.socialTitle)}</span><span class="social-icons">${p.socials.map(([name, u, k]) => `<a class="social-icon" href="${esc(u)}" rel="noopener" target="_blank" aria-label="${esc(name)}" title="${esc(name)}">${SOCIAL_SVG[k] ?? esc(name)}</a>`).join('')}</span></div>` : ''}
