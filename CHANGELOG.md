@@ -4,6 +4,14 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+## [0.2.13] - 2026-11-08
+
+### Docs
+- README and docs/features.md brought up to date: Analytics, Languages and Directory plugins, schema map for AI agents, article social tags, image source records, site accounts (e-mail confirmation, Turnstile), abuse guard and the speed work. New page docs/analytics.md; the documentation list links every docs page.
+
+### Added
+- **Turnstile on site accounts**: sign-up, sign-in and forgotten-password pages of site accounts show Cloudflare Turnstile and check its token on the server while the Turnstile plugin (Admin › Plugins) is active with a site key and secret key. Off = unchanged. The widget's hostnames in Cloudflare must include the site's domain.
+
 ### Changed (engine 3.0.0-beta.28-bizzcms.11)
 - **Faster admin**: fewer lookups on every admin request (permissions loaded once, active plugins cached, migrations status at most once per session, dashboard polling every 30 s while the tab is visible).
 

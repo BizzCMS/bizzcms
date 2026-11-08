@@ -73,6 +73,7 @@ The highlights are below; the full list is in [docs/features.md](docs/features.m
 - Roles (admin, editor, author) with permissions, invitations and two-step login.
 - REST API **closed by default**, with API keys for apps ([docs/api-access.md](docs/api-access.md)).
 - Known risky upstream routes are blocked (for example the unauthenticated seed-admin route).
+- Visitor accounts with e-mail confirmation and **Cloudflare Turnstile** on sign-up and sign-in; an **abuse guard** refuses script or markup in public forms ([docs/abuse-guard.md](docs/abuse-guard.md)).
 
 **For developers**
 - **Content model as code.** Collections are TypeScript files; the admin forms and the REST API follow from them.
@@ -83,6 +84,8 @@ The highlights are below; the full list is in [docs/features.md](docs/features.m
 **SEO, like Yoast**
 - SEO panel on every page and post: focus keyphrase, Google and share previews, green/orange/red checks for SEO and readability, and an **Auto-fill SEO** button.
 - Title formats, sitemaps you choose part by part, robots.txt, llms.txt, an **RSS feed**, structured data for Google, a **redirect manager** and a **not-found log**, all built in. See [docs/seo.md](docs/seo.md).
+- **Schema map for AI agents** (`/schemamap.xml`): the whole site as structured data in one request, plus article tags so social networks show the date and topic.
+- Uploads are scaled down and saved as WebP in the browser ([docs/images.md](docs/images.md)); every image can keep its source, author and licence on record.
 
 **Fast and safe by default**
 - Public pages are served from Cloudflare's **edge cache** and replaced the moment you save; the minutes are yours to set. See [docs/caching.md](docs/caching.md).
@@ -91,7 +94,10 @@ The highlights are below; the full list is in [docs/features.md](docs/features.m
 **Integrations**
 - OpenAPI description of the REST API.
 - **MCP server** for AI assistants ([docs/mcp.md](docs/mcp.md)): list and read pages, posts and categories; with write access switched on per collection (MCP › Collection write access) they can also create, update, publish and delete items, set the original publish date, and upload images to the media library (`upload_media`). Read-only by default.
+- **Analytics plugin**: your own visitor statistics without cookies or personal data, so no consent banner is needed ([docs/analytics.md](docs/analytics.md)).
 - **Google Analytics plugin** with a consent banner: nothing loads until the visitor accepts (Consent Mode v2).
+- **Languages plugin**: one site in several languages, each on its own addresses ([docs/languages.md](docs/languages.md)).
+- **Directory plugin**: a company directory with search, filters, region and city pages and a company portal ([docs/directory.md](docs/directory.md)).
 
 ## Works with Lucy
 
@@ -133,6 +139,11 @@ BizzCMS runs serverless on Cloudflare: Workers for the app and website, D1 for t
 - [Caching and speed](docs/caching.md)
 - [API access (closed by default)](docs/api-access.md)
 - [MCP for AI assistants](docs/mcp.md)
+- [Images](docs/images.md)
+- [Analytics plugin](docs/analytics.md)
+- [Languages plugin](docs/languages.md)
+- [Directory plugin](docs/directory.md)
+- [Abuse guard](docs/abuse-guard.md)
 - [Local development](docs/local-development.md)
 - [Changelog](CHANGELOG.md) and [contributing](CONTRIBUTING.md)
 

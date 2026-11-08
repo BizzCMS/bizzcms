@@ -29,10 +29,13 @@ Everything below is in BizzCMS today. See the [changelog](../CHANGELOG.md) for w
 - **Scores in the Content list** as two dots per item.
 - **Admin › SEO**: site name and title formats, company or person for Google, social profiles, default description and share image; robots.txt, llms.txt (instructions for AI assistants) and a switch to hide a staging site; **Redirects** with CSV import, wildcards and hit counts; a **Check** list of everything that needs fixing.
 - Automatic **sitemaps** per content type, **robots.txt**, and **structured data** for Google: Organization, WebSite, WebPage, Article and breadcrumbs.
+- **Schema map for AI agents**: `/schemamap.xml` with one structured-data feed per content type, so AI agents can read the whole site in one request instead of crawling every page. Follows the sitemap rules and is listed in robots.txt. See [docs/seo.md](seo.md).
+- **Article tags for social networks**: published and modified time, section and up to six tags, so LinkedIn, Facebook and others show the date and topic of a post.
 - **Choose what goes into the sitemap**: pages, blog posts, news posts, categories, tags, extra collections such as a portfolio, and the site's built-in pages, each with its own tick box.
 - **Content lists sorted by date created**, with Created and Updated columns you can sort by: editing an item doesn't move it to the top.
 - **Fast images**: every Media library image gets its width and height automatically (no jumping while the page loads), the top image loads first, the rest lazily.
-- **Uploads made web-sized**: big photos are scaled down (2000 px by default) and saved as WebP before they are uploaded; on/off, width and quality under Settings › Images.
+- **Uploads made web-sized**: big photos are scaled down (2000 px by default) and saved as WebP before they are uploaded; on/off, width and quality under Settings › Images. See [docs/images.md](images.md).
+- **Image sources on record**: every image in the Media library can keep its source link, author and licence. Stored for you only, never shown on public pages.
 - **IndexNow**, like WordPress plugins: new, changed and removed addresses go to Bing, Yandex and the other IndexNow engines the moment you save; key file created for you; "Send all addresses now"; a log of the last results.
 - **RSS feed** at `/feed/` and per section (`/blog/feed/`, `/news/feed/`), like WordPress: featured image first, author, categories and tags, full text or summary, number of posts adjustable.
 - **No dead ends**: old addresses can be redirected one by one or in bulk, and every address that still ends on "page not found" is listed with its hits, ready to be redirected in one click.
@@ -43,6 +46,18 @@ Everything below is in BizzCMS today. See the [changelog](../CHANGELOG.md) for w
 - **Company profiles** with a gallery, and **date requests** for Premium companies.
 - **Company portal**: companies open an account, add or take over their profile, edit it and their photos, and see their requests.
 - **Your addresses and language**: every address, query word and piece of wording can be set per site, so imported companies keep their old links.
+- **Region pages** with clean, indexable addresses in the sitemap, and clean filter addresses (empty filters are dropped).
+- **Featured companies** shown first with a "Featured" label until a date you set.
+- **Protected contacts**: phone, e-mail and links can be shown only to signed-in visitors; profile pages and their structured data never contain them.
+- **Fast on large directories**: lists, filters, counts, search and suggestions read a search index kept up to date automatically, one database round trip per page.
+
+## Languages (plugin)
+
+- One site in several languages, each language on its own addresses, so search engines can index every language. A language switcher and "Translation of" links between pages. See [docs/languages.md](languages.md).
+
+## Analytics (plugin)
+
+- **Your own visitor statistics** in the admin, without cookies and without personal data, so no consent banner is needed: visits, visitors, daily chart, pages, referrers, countries, devices and campaigns. Bots are not counted. See [docs/analytics.md](analytics.md).
 
 ## Admin
 
@@ -51,7 +66,9 @@ Everything below is in BizzCMS today. See the [changelog](../CHANGELOG.md) for w
 - **Media library** on R2 (Cloudflare object storage).
 - **Users and roles** (admin, editor, author) with permissions and invitations.
 - **Two-step login**, repeat-password check on sign-up, risky default routes blocked.
-- **Plugins** screen with on/off switches: SEO, Google Analytics, Media, rich text editor, two-step login and more.
+- **Plugins** screen with on/off switches: SEO, Analytics, Google Analytics, Languages, Media, rich text editor, two-step login and more.
+- **Site accounts** for visitors (for example companies in the directory): e-mail confirmation before an account can be used, and **Cloudflare Turnstile** on sign-up, sign-in and forgotten password when the Turnstile plugin is on.
+- **Abuse guard**: visitors can never send script or markup through public forms; a signed-in account that tries is blocked at once. See [docs/abuse-guard.md](abuse-guard.md).
 
 ## Integrations
 
@@ -66,16 +83,10 @@ Everything below is in BizzCMS today. See the [changelog](../CHANGELOG.md) for w
 - **Edge cache**: public pages are kept on Cloudflare for a few minutes (adjustable in Settings › Cache) and replaced at once whenever you save, so the site stays fast for visitors and search engines while your changes show right away. Crawlers get "not modified" answers for pages they already have.
 - **Friendly error pages**: visitors never see technical errors, only a short reference code; the details are kept for you in Settings › Error log.
 - Your content stays in your own Cloudflare account.
+- **Fast admin and pages**: one sign-in check per request, cache settings read together with the content version, setup run once per deploy and writes finished after the response is sent.
 - One admin layer for every BizzCMS site: improvements reach all sites with one command.
 
 ## Open source
 
 - MIT licence, no licence fees.
 - Source on [GitHub](https://github.com/BizzCMS/bizzcms), versioned releases with a changelog.
-
-## Turnstile on site accounts (2026-10-25)
-
-Sign-up, sign-in and forgotten-password pages of site accounts (`src/site-accounts.ts`) show Cloudflare Turnstile and
-check its token on the server while the **Turnstile plugin** document is active with `settings.enabled`, `siteKey` and
-`secretKey` (Admin › Plugins). Off = unchanged. The widget's hostnames in Cloudflare must include the site's domain.
-The engine's `TurnstileService` still reads the old `plugins` table, so the site reads the plugin document itself.
