@@ -271,6 +271,8 @@ async function activate(request: Request, db: D1Database, url: URL, cms: Cms): P
     const svc = new DocumentsService(db)
     const draft = await svc.saveDraft(listing.rootId, { data: { ownerEmail: userEmail, ownerPending: '', inviteHash: '' } } as unknown as Parameters<DocumentsService['saveDraft']>[1])
     if (listing.live && !draft.isPublished) await svc.publish(draft.id)
+    // The site's own step for an account that now owns a company (e.g. mark it a company account).
+    await directorySettings().activated?.(db, userEmail)
     await notifyDirectory({ type: 'activated', listing: { title: listing.title, url: `${url.origin}${listingUrl({ slug: listing.slug, legacyId: Number(listing.data.legacyId) || undefined, legacySlug: str(listing.data.legacySlug) })}` }, userEmail })
   }
   // Already has an account with this e-mail. An account imported from an old site (no password yet) sets its password

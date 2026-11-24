@@ -28,6 +28,7 @@ export const ACCOUNT_TEXT = {
   registrationClosed: 'Registration is not open at the moment.',
   registrationFailed: 'Registration failed. Please check your details.',
   botCheckFailed: 'Please confirm you are not a robot and try again.',
+  emailNotAllowed: 'Please use your own e-mail address (temporary addresses are not accepted).',
   loginHeading: 'Sign in',
   email: 'E-mail',
   password: 'Password',
@@ -92,6 +93,15 @@ export const ACCOUNT_PATHS = {
   noticeSaved: 'saved', noticePhotos: 'photos', noticeRemoved: 'removed', noticeCover: 'cover'
 }
 export type AccountPaths = typeof ACCOUNT_PATHS
+
+/** Throwaway-mailbox domains refused at sign-up (subdomains too). A site sets its own list with
+ *  configureAccounts({ blockedEmailDomains }); add a domain when one shows up in Users. */
+export const BLOCKED_EMAIL_DOMAINS: readonly string[] = ['macsnipe.com']
+let blockedDomains: readonly string[] = BLOCKED_EMAIL_DOMAINS
+export const blockedEmailDomain = (email: string) => {
+  const domain = email.trim().toLowerCase().split('@')[1] ?? ''
+  return blockedDomains.some(d => domain === d || domain.endsWith(`.${d}`))
+}
 
 /** A message the site's mailer sends (`html` optional). Returns false when it could not be sent. */
 export interface AccountMail { to: string; subject: string; text: string; html?: string }
@@ -159,6 +169,8 @@ export function configureAccounts(opts: {
   /** Accounts opened from this moment (ms) must confirm their e-mail before they can be used (needs `mail`).
    *  Older accounts are not affected. 0 = off. */
   confirmSince?: number
+  /** Replaces the throwaway e-mail domains refused at sign-up (default BLOCKED_EMAIL_DOMAINS); [] = none. */
+  blockedEmailDomains?: readonly string[]
 }) {
   if (opts.text) text = { ...ACCOUNT_TEXT, ...opts.text }
   if (opts.paths) paths = { ...ACCOUNT_PATHS, ...opts.paths }
@@ -168,6 +180,7 @@ export function configureAccounts(opts: {
   if (opts.registered) onRegistered = opts.registered
   if (opts.returnPaths) returnPaths = opts.returnPaths
   if (opts.confirmSince !== undefined) confirmSince = opts.confirmSince
+  if (opts.blockedEmailDomains) blockedDomains = opts.blockedEmailDomains.map(d => d.trim().toLowerCase()).filter(Boolean)
 }
 /** Sends through the site's mailer (false when none is configured). */
 export async function sendAccountMail(m: AccountMail): Promise<boolean> {
@@ -318,6 +331,7 @@ export async function accountRoute(a: Audience, request: Request, url: URL, path
     const v = { firstName: String(form.get('firstName') ?? '').trim(), lastName: String(form.get('lastName') ?? '').trim(), email: String(form.get('email') ?? '').trim(), [paths.next]: String(form.get(paths.next) ?? '') }
     const password = String(form.get('password') ?? '')
     if (!v.firstName || !v.lastName) return html(registerPage(a, text.enterName, v, google, bot), 400)
+    if (blockedEmailDomain(v.email)) return html(registerPage(a, text.emailNotAllowed, v, google, bot), 400)
     if (password.length < 8) return html(registerPage(a, text.passwordShort, v, google, bot), 400)
     if (form.get(paths.terms) !== '1') return html(registerPage(a, text.acceptTerms, v, google, bot), 400)
     if (bot) {

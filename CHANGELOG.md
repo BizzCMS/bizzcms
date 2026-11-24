@@ -4,6 +4,13 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Added
+- **Throwaway e-mail domains refused at sign-up** (site accounts): `BLOCKED_EMAIL_DOMAINS` (default `macsnipe.com`, subdomains too) and `blockedEmailDomain(email)` in `src/site-accounts.ts`; the register page answers with the new `emailNotAllowed` text. A site replaces the list with `configureAccounts({ blockedEmailDomains })`. Moved up from Planer Vjenčanja.
+- **Directory `activated` hook**: `setDirectory({ activated: (db, userEmail) => … })` runs when an invitation link gives an account its company profile, before `notify` (Planer marks the account a supplier account there).
+
+### Changed (engine 3.0.0-beta.28-bizzcms.12)
+- **Google sign-in keeps its session cookie**: Better Auth's answers keep all their Set-Cookie headers and `/auth/callback/*` sets no csrf_token, so the first Google sign-in no longer lands back on the sign-in page.
+
 ## [0.2.14] - 2026-11-25
 
 ### Added

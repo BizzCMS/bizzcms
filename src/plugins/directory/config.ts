@@ -404,6 +404,9 @@ export interface DirectorySettings {
   /** Called after a date request, a profile claim or a new company profile is saved (e.g. to send e-mail).
    *  Errors are caught and logged; they never fail the save. */
   notify?: (event: DirectoryEvent) => Promise<void>
+  /** Called when an invitation link gives an account its company profile (before notify), for the site's own step,
+   *  e.g. marking the account a company account. Errors fail the activation. */
+  activated?: (db: D1Database, userEmail: string) => Promise<void>
   /** The site's own rules for a company's profile form (after the plugin's checks): cleaned values to keep, or an error. */
   validateListing?: (values: Record<string, string>) => { data: Record<string, unknown> } | { error: string }
   /** The city's name as the site stores it, or '' when it is not a known city (extra locations); default: trimmed. */
@@ -438,6 +441,7 @@ export interface DirectoryOptions {
   sample?: DirectorySettings['sample']
   share?: DirectorySettings['share']
   notify?: DirectorySettings['notify']
+  activated?: DirectorySettings['activated']
   validateListing?: DirectorySettings['validateListing']
   cleanCity?: DirectorySettings['cleanCity']
   plans?: Plan[]
@@ -463,6 +467,7 @@ export function setDirectory(opts: DirectoryOptions): void {
     sample: opts.sample ?? current.sample,
     share: opts.share ?? current.share,
     notify: opts.notify ?? current.notify,
+    activated: opts.activated ?? current.activated,
     validateListing: opts.validateListing ?? current.validateListing,
     cleanCity: opts.cleanCity ?? current.cleanCity,
     plans: opts.plans ?? current.plans,

@@ -29,7 +29,8 @@ manage their own profiles. Code: `src/plugins/directory/`, with visitor accounts
 - **Invitations:** createInvite(db, rootId) gives a token for <base>/activate?t=<token> (90 days, once). The company opens
   an account with the profile's e-mail and owns the profile at once; an existing account gets the profile linked. An
   account imported from an old site without a password (profile `ownerPending`) sets its password on the activation page
-  and is signed in; `ownerPending` is cleared on activation.
+  and is signed in; `ownerPending` is cleared on activation. `setDirectory({ activated: (db, email) => … })` runs the
+  site's own step when an invitation gives an account its profile (before `notify`), e.g. marking it a company account.
 - **Featuring:** a profile with `featuredUntil` (date, Admin › Featured until) on or after today comes first in the default
   order and in Recommended, in search suggestions and on featured lists, with a "Featured" label on its card (Premium
   cards keep the ★ badge). A sort the visitor picks is followed as is. `Plan.featureMonths` documents how many months a
@@ -110,7 +111,9 @@ Recommended then uses `params.sortRecommended`. A company without
 a photo shows its category's photo when the site gives one.
 
 Visitor accounts have their own wording and URL words (login, register, photos …):
-`configureAccounts({ text, paths, page })` in `src/site-accounts.ts`.
+`configureAccounts({ text, paths, page })` in `src/site-accounts.ts`. Sign-up refuses throwaway e-mail domains
+(`BLOCKED_EMAIL_DOMAINS`, subdomains too, message `emailNotAllowed`); a site sets its own list with
+`configureAccounts({ blockedEmailDomains: [...] })`.
 
 Other exports for the site's own pages:
 - `listingCardHtml` and `featuredListings`: company cards for a home page or an article
