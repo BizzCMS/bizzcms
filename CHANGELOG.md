@@ -4,6 +4,8 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+## [0.2.15] - 2026-11-25
+
 ### Added
 - **Throwaway e-mail domains refused at sign-up** (site accounts): `BLOCKED_EMAIL_DOMAINS` (default `macsnipe.com`, subdomains too) and `blockedEmailDomain(email)` in `src/site-accounts.ts`; the register page answers with the new `emailNotAllowed` text. A site replaces the list with `configureAccounts({ blockedEmailDomains })`. Moved up from Planer Vjenčanja.
 - **Directory `activated` hook**: `setDirectory({ activated: (db, userEmail) => … })` runs when an invitation link gives an account its company profile, before `notify` (Planer marks the account a supplier account there).
