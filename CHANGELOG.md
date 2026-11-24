@@ -4,6 +4,9 @@ All notable changes to BizzCMS. Versions follow [semantic versioning](https://se
 
 ## [Unreleased]
 
+### Added
+- **Google News signals** (SEO plugin): `/news-sitemap.xml` lists the posts published in the last 48 hours (Google News sitemap format, same noindex, canonical and section rules as the posts sitemap) and is named in robots.txt; `socialTags` adds `Googlebot-News: noindex` to every page that is not a post, so home, lists and pages stay in Search but out of Google News. The RSS feed already carries the featured image (media:content).
+
 ## [0.2.13] - 2026-11-08
 
 ### Docs

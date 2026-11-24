@@ -250,6 +250,8 @@ export function socialTags(head: SeoHead, data: Record<string, unknown> | undefi
     desc ? `<meta name="twitter:description" content="${e(desc)}">` : '', head.image ? `<meta name="twitter:image" content="${e(head.image)}">` : '',
     // The site's X account (SEO › General); the settings are already loaded by the caller's seoSettings().
     ...(settingsCache?.value.xHandle ? [`<meta name="twitter:site" content="@${e(settingsCache.value.xHandle)}">`, `<meta name="twitter:creator" content="@${e(settingsCache.value.xHandle)}">`] : []),
+    // Only articles belong in Google News: home, lists and pages stay in Search but out of News.
+    head.ogType !== 'article' && publicRoutes?.posts ? '<meta name="Googlebot-News" content="noindex">' : '',
     feed && publicRoutes?.posts ? `<link rel="alternate" type="application/rss+xml" title="${e(siteName)}" href="${e(new URL('/feed/', head.canonical).href)}">` : ''
   ].filter(Boolean).join('')
 }
@@ -300,7 +302,7 @@ export async function seoRobots(url: URL, db: D1Database, siteRules: string[] = 
   const s = await seoSettings(db)
   const lines = s.hideFromSearch
     ? ['User-agent: *', 'Disallow: /']
-    : [...aiRobotsBlock(aiPolicyOf(s)), 'User-agent: *', contentSignal(aiPolicyOf(s)), 'Allow: /', 'Disallow: /admin', 'Disallow: /auth', 'Disallow: /api/', ...siteRules, ...s.robotsExtra.split('\n').map(l => l.trim()).filter(Boolean), `Sitemap: ${url.origin}/sitemap.xml`, ...(s.schemaMap !== false && publicRoutes ? [`Schemamap: ${url.origin}/schemamap.xml`] : []), `# AI assistants: ${url.origin}/llms.txt`]
+    : [...aiRobotsBlock(aiPolicyOf(s)), 'User-agent: *', contentSignal(aiPolicyOf(s)), 'Allow: /', 'Disallow: /admin', 'Disallow: /auth', 'Disallow: /api/', ...siteRules, ...s.robotsExtra.split('\n').map(l => l.trim()).filter(Boolean), `Sitemap: ${url.origin}/sitemap.xml`, ...(publicRoutes?.posts ? [`Sitemap: ${url.origin}/news-sitemap.xml`] : []), ...(s.schemaMap !== false && publicRoutes ? [`Schemamap: ${url.origin}/schemamap.xml`] : []), `# AI assistants: ${url.origin}/llms.txt`]
   return new Response(lines.join('\n') + '\n', { headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=3600' } })
 }
 
@@ -377,6 +379,7 @@ export async function seoSitemap(url: URL, db: D1Database, routes: SitemapRoutes
   if (url.pathname === '/schemamap.xml' || url.pathname.startsWith('/schema/')) return seoSchemaMap(url, db, routes)
   // Names other systems use (Yoast/WordPress), which crawlers and sitemap checkers try: the real index.
   if (/^\/(sitemap_index|sitemap-index|wp-sitemap|sitemap\.xml\.gz|sitemap1)\.xml$|^\/sitemap\.xml\.gz$/.test(url.pathname)) return Response.redirect(new URL('/sitemap.xml', url).href, 301)
+  if (url.pathname === '/news-sitemap.xml') return seoNewsSitemap(url, db, routes)
   const m = url.pathname.match(/^\/sitemap(?:-([a-z0-9_-]+))?\.xml$/)
   if (!m) return null
   const xml = (body: string) => new Response(XML_HEAD + body, { headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=3600' } })
@@ -421,6 +424,32 @@ export async function seoSitemap(url: URL, db: D1Database, routes: SitemapRoutes
   const seen = new Set<string>()
   const body = urls.filter(u => u.loc && !seen.has(u.loc) && seen.add(u.loc)).map(u => `<url><loc>${xesc(u.loc)}</loc>${u.lastmod ? `<lastmod>${u.lastmod}</lastmod>` : ''}</url>`).join('\n')
   return xml(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`)
+}
+
+/** /news-sitemap.xml: Google News sitemap with the posts published in the last 48 hours (Google reads only
+ *  those). Same rules as the posts sitemap: noindex, canonical elsewhere and switched-off sections are left out.
+ *  Empty <urlset> when nothing is new; null when the site has no posts or is hidden. */
+export async function seoNewsSitemap(url: URL, db: D1Database, routes: SitemapRoutes | null = publicRoutes): Promise<Response | null> {
+  if (!routes?.posts) return null
+  const s = await seoSettings(db)
+  if (s.hideFromSearch) return null
+  const off = (sec: string) => s.sitemapOff.includes('posts') || s.sitemapOff.includes(sec)
+  const since = Math.floor(Date.now() / 1000) - 48 * 3600
+  // published_at may be stored in seconds or milliseconds.
+  const { results } = await db.prepare(`SELECT title, slug, data, published_at FROM documents WHERE type_id = 'posts' AND ${PUBLISHED}
+    AND (CASE WHEN published_at > 100000000000 THEN published_at / 1000 ELSE published_at END) >= ? ORDER BY published_at DESC LIMIT 1000`)
+    .bind(since).all<{ title: string; slug: string; data: string; published_at: number }>().catch(() => ({ results: [] as { title: string; slug: string; data: string; published_at: number }[] }))
+  const name = s.siteName || s.orgName || url.hostname
+  const lang = siteLanguage(s).slice(0, 2).toLowerCase()
+  const items: string[] = []
+  for (const r of results) {
+    let d: Record<string, unknown> = {}; try { d = JSON.parse(r.data) } catch { /* empty */ }
+    if (d.noindex === true || d.noindex === 'true' || str(d.canonical) || off(str(d.section) || 'blog')) continue
+    const p = routes.posts(d, r.slug); if (!p) continue
+    items.push(`<url><loc>${xesc(abs(url.origin, p))}</loc><news:news><news:publication><news:name>${xesc(name)}</news:name><news:language>${xesc(lang)}</news:language></news:publication><news:publication_date>${iso(r.published_at)}</news:publication_date><news:title>${xesc(r.title)}</news:title></news:news></url>`)
+  }
+  return new Response(`${XML_HEAD}<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">\n${items.join('\n')}\n</urlset>\n`,
+    { headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=600' } })
 }
 
 // ---------- schema map (structured data of the whole site for AI agents) ----------
